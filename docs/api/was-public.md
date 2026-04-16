@@ -40,6 +40,7 @@ Draft
 - command submission and command status
 
 이 family는 현재 [frontend-was.md](/home/yebin/projects/Jobs-Wiki/docs/api/frontend-was.md:1)의 draft contract와 강하게 연결됩니다.
+MVP 우선 slice는 [workspace-mvp-read-contract.md](/home/yebin/projects/Jobs-Wiki/docs/api/workspace-mvp-read-contract.md:1)에서 `tree`, `document`, `calendar` 기준선으로 따로 정리합니다.
 
 주의:
 
@@ -108,8 +109,17 @@ Draft
 따라서 현재 단계에서는 아래를 우선합니다.
 
 - workspace-facing read projection 정리
+- 특히 `tree`, `document`, `calendar` MVP read contract 정리
 - command lifecycle과 eventual consistency 정리
 - read authority / MCP facade boundary 정리
+
+현재 이 우선순위에서 먼저 분명히 하려는 항목:
+
+- candidate response shape
+- required vs optional field 성격
+- object field / metadata field / projection decoration 구분
+- sync state 위치
+- object ref / relation ref 사용 방식
 
 반면 아래는 draft로 남깁니다.
 

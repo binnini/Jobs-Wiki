@@ -229,11 +229,124 @@ type WorkspaceCommandRequest =
 
 ## Response Concerns
 
+- `tree`, `document`, `calendar`는 current MVP read contract 우선 slice입니다.
 - 문서 응답은 markdown 본문과 selected metadata를 함께 담을 수 있어야 합니다.
 - graph 응답은 node/edge wrapper가 canonical object/relation ref를 가리킬 수 있어야 합니다.
 - graph/document detail에서는 relation provenance를 노출할 수 있어야 합니다.
 - calendar 응답은 날짜 범위와 관련 object ref를 포함할 수 있어야 합니다.
 - command 응답은 비동기 위임과 eventual consistency를 우선 전제로 고려합니다.
+
+### Shared Response Vocabulary
+
+현재 MVP slice에서 우선 맞추려는 공통 원칙:
+
+- projection response는 top-level `projection`과 `items` 또는 `surface` anchor를 가집니다.
+- projection-local sync state는 top-level `sync`에 둡니다.
+- projection-local version은 top-level `version`에 둘 수 있지만 모든 endpoint에서 required로 강제하지는 않습니다.
+- canonical object identity가 필요한 위치에는 full object payload 대신 object ref를 우선 사용합니다.
+- relation identity가 필요한 위치에는 relation ref를 optional하게 사용합니다.
+- projection decoration은 object field나 metadata field와 분리된 별도 bucket에 둡니다.
+
+유력 최소 shared shape:
+
+```ts
+type KnowledgeObjectRef = {
+  objectId: string;
+  objectKind: string;
+  title?: string;
+};
+
+type KnowledgeRelationRef = {
+  relationId: string;
+  relationType?: string;
+};
+```
+
+### Tree Projection
+
+역할:
+
+- workspace navigation과 file-explorer style traversal을 위한 projection입니다.
+- canonical folder object를 전제하지 않고도 container node를 표현할 수 있어야 합니다.
+- navigation concern을 담되 canonical storage shape나 folder lifecycle을 고정하지 않아야 합니다.
+
+유력 최소 response shape:
+
+```ts
+type TreeProjectionResponse = {
+  projection: "tree";
+  version?: string;
+  sync?: ProjectionSyncState;
+  nodes: TreeProjectionNode[];
+};
+
+type TreeProjectionNode = {
+  nodeId: string;
+  nodeType: "object" | "folder";
+  label: string;
+  objectRef?: KnowledgeObjectRef;
+  metadata?: {
+    status?: string;
+    tags?: string[];
+  };
+  decoration?: {
+    parentNodeId?: string;
+    path?: string[];
+    depth?: number;
+    order?: number;
+    hasChildren?: boolean;
+    childCount?: number;
+  };
+};
+```
+
+field ownership direction:
+
+- required candidate
+  - `nodeId`
+  - `nodeType`
+  - `label`
+- object field
+  - `objectRef`
+  - object node에서는 required 후보
+  - folder/container node에서는 absent 가능
+- metadata field
+  - `metadata.status`
+  - `metadata.tags`
+  - navigation badge/filter hint 수준으로만 좁게 유지
+- projection decoration
+  - `parentNodeId`
+  - `path`
+  - `depth`
+  - `order`
+  - `hasChildren`
+  - `childCount`
+
+sync visibility concern:
+
+- `tree` sync state는 response top-level `sync`에 둡니다.
+- node별 sync state는 MVP 기준으로 기본 포함 대상이 아닙니다.
+- command status가 `tree`를 `pending` 또는 `stale`로 보고하면 frontend는 last-known tree를 유지하는 편이 맞습니다.
+
+object ref / relation ref usage:
+
+- tree node의 canonical anchor는 relation ref보다 object ref를 우선합니다.
+- containment relation identity는 tree 기본 response에서 required가 아닙니다.
+- tree reordering이나 explicit containment edit flow가 생기기 전까지 relation ref는 optional 확장으로 남깁니다.
+
+projection-specific concern:
+
+- tree의 `folder`는 현재 projection-only container 후보입니다.
+- `label`은 navigation label이며 canonical object title과 항상 같다고 가정하지 않습니다.
+- tree는 document detail 수준의 metadata richness를 가져오지 않는 lightweight payload가 유력합니다.
+
+### Document Projection
+
+역할:
+
+- 특정 authored document의 읽기 surface를 제공하는 projection입니다.
+- canonical document object와 selected metadata, relation decoration을 함께 보여줄 수 있어야 합니다.
+- authored surface와 structured metadata ownership을 같은 payload 안에서도 분리해 설명해야 합니다.
 
 유력 최소 response shape:
 
@@ -243,6 +356,7 @@ type DocumentProjectionResponse = {
   documentId: string;
   version?: string;
   sync?: ProjectionSyncState;
+  documentRef: KnowledgeObjectRef;
   surface: {
     title: string;
     bodyMarkdown: string;
@@ -261,21 +375,165 @@ type DocumentProjectionResponse = {
       fetchedAt?: string;
     };
   };
+  relations?: Array<{
+    targetObjectRef: KnowledgeObjectRef;
+    relationRef?: KnowledgeRelationRef;
+    provenance?: {
+      provenanceClass: "explicit_command" | "derived_from_document";
+      sourceVersion?: string;
+    };
+    decoration?: {
+      role?: string;
+      excerpt?: string;
+    };
+  }>;
 };
+```
 
+field ownership direction:
+
+- required candidate
+  - `projection`
+  - `documentId`
+  - `documentRef`
+  - `surface.title`
+  - `surface.bodyMarkdown`
+- optional candidate
+  - `version`
+  - `sync`
+  - `surface.summary`
+  - `metadata`
+  - `relations`
+- object field / document-surface field
+  - `surface.title`
+  - `surface.bodyMarkdown`
+  - `surface.summary`
+- metadata field
+  - `metadata.tags`
+  - `metadata.status`
+  - `metadata.dueAt`
+  - `metadata.source`
+- projection decoration
+  - `relations[].decoration.role`
+  - `relations[].decoration.excerpt`
+  - relation preview badge, excerpt, display grouping 같은 document-only helper
+
+sync visibility concern:
+
+- document visibility는 response top-level `sync`로 표현하는 것이 현재 기준선입니다.
+- `knowledge.document.update` acceptance 이후에도 document projection이 `pending` 또는 `stale`일 수 있습니다.
+- relation recompute가 늦을 수 있으므로 document body visibility와 relation decoration freshness는 항상 동시에 보장되지 않을 수 있습니다.
+
+object ref / relation ref usage:
+
+- `documentRef`는 document object identity anchor입니다.
+- `relations[].targetObjectRef`는 document가 가리키는 다른 canonical object를 설명합니다.
+- `relations[].relationRef`는 explicit relation identity가 있을 때만 포함하면 됩니다.
+- body-derived relation preview는 relation ref 없이도 표시할 수 있어야 합니다.
+
+projection-specific concern:
+
+- document projection은 canonical resource detail이 아니라 workspace reading surface입니다.
+- frontmatter-like syntax는 ownership 판정 기준이 아닙니다.
+- `tags`, `status`, `dueAt`를 body surface와 섞어 document command contract를 넓히지 않는 편이 맞습니다.
+
+### Calendar Projection
+
+역할:
+
+- 시간 의미를 가진 object field 또는 temporal relation을 일정형 read surface로 보여주는 projection입니다.
+- calendar event를 canonical object로 고정하지 않고도 timeline view를 제공할 수 있어야 합니다.
+- source object deep-link와 temporal semantics 설명이 event detail richness보다 우선합니다.
+
+유력 최소 response shape:
+
+```ts
 type CalendarProjectionItem = {
   itemId: string;
-  timeLabel?: string;
+  sourceObjectRef: KnowledgeObjectRef;
   startsAt?: string;
   endsAt?: string;
-  sourceObjectRef: {
-    objectId: string;
-    objectKind: string;
+  allDay?: boolean;
+  relationRef?: KnowledgeRelationRef;
+  metadata?: {
+    status?: string;
+    tags?: string[];
+  };
+  decoration?: {
+    timeLabel?: string;
+    dayBucket?: string;
+    urgencyLabel?: string;
   };
   temporalSource:
     | { kind: "object_field"; field: string }
     | { kind: "relation"; relationType: string };
 };
+
+type CalendarProjectionResponse = {
+  projection: "calendar";
+  range: {
+    from: string;
+    to: string;
+  };
+  version?: string;
+  sync?: ProjectionSyncState;
+  items: CalendarProjectionItem[];
+};
+```
+
+field ownership direction:
+
+- required candidate
+  - `projection`
+  - `items`
+  - `itemId`
+  - `sourceObjectRef`
+  - `temporalSource`
+  - `range.from`
+  - `range.to`
+- optional candidate
+  - `startsAt`
+  - `endsAt`
+  - `allDay`
+  - `relationRef`
+  - `metadata`
+  - `decoration`
+  - `version`
+  - `sync`
+- object field / metadata field
+  - 시간 자체는 source object field 또는 relation에서 파생될 수 있습니다.
+  - `startsAt` 또는 `endsAt` 중 하나 이상은 item별로 제공되는 편이 유력합니다.
+  - `metadata.status`
+  - `metadata.tags`
+- projection decoration
+  - `decoration.timeLabel`
+  - `decoration.dayBucket`
+  - `decoration.urgencyLabel`
+
+sync visibility concern:
+
+- calendar freshness는 response top-level `sync`에서 우선 표현합니다.
+- item별 sync state는 MVP 기본 shape에 넣지 않는 편이 맞습니다.
+- metadata patch가 accepted 되어도 calendar projection visibility는 `unknown` 또는 `stale`로 남을 수 있습니다.
+
+object ref / relation ref usage:
+
+- 모든 calendar item은 source object ref를 가져야 하는 방향이 유력합니다.
+- temporal meaning이 object field에서 오면 `relationRef`는 불필요합니다.
+- temporal meaning이 canonical relation에서 오면 `relationRef`를 함께 줄 수 있습니다.
+- item 자체의 `itemId`는 projection item identity일 뿐 canonical event identity를 뜻하지 않습니다.
+
+projection-specific concern:
+
+- calendar item은 source object deep-link를 우선합니다.
+- calendar item detail을 별도 canonical resource처럼 설명하지 않습니다.
+- deadline, session period, due date가 모두 같은 shape에 억지로 정규화되기보다 `temporalSource`와 decoration을 통해 설명되는 편이 안전합니다.
+
+### Command Status Response
+
+유력 최소 response shape:
+
+```ts
 
 type WorkspaceCommandStatusResponse = {
   commandId: string;
@@ -307,13 +565,13 @@ type WorkspaceCommandStatusResponse = {
 projection별 concern:
 
 - `tree`
-  - navigation order, collapse state 친화적 shape, lightweight payload가 중요합니다.
+  - projection-only folder/container를 허용하되 canonical folder object를 성급히 고정하지 않는 편이 맞습니다.
 - `document`
   - authored surface와 structured metadata를 함께 주되 ownership rule은 분리해야 합니다.
 - `graph`
   - node/edge wrapper와 relation provenance, neighborhood 범위 제어가 중요합니다.
 - `calendar`
-  - event canonicalization보다 temporal source 설명과 object deep-link가 중요합니다.
+  - event canonicalization보다 temporal source 설명과 source object deep-link가 중요합니다.
 - `search`
   - hit type, ranking hint, matched surface 구분이 중요합니다.
 - `workspace_summary`
