@@ -1,0 +1,6 @@
+<jobsDo>
+  <jobCd>K000001163</jobCd>
+  <jobSum>금융상품을 개발한다.</jobSum>
+  <execJob>시장조사와 상품 설계를 수행한다.</execJob>
+  <relJobList><jobCd>K000000987</jobCd><jobNm>자산운용가</jobNm></relJobList>
+</jobsDo>

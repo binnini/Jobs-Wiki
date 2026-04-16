@@ -1,0 +1,13 @@
+<HRDNet>
+  <inst_base_info />
+  <inst_detail_info />
+  <inst_facility_info>
+    <inst_facility_info_list>
+      <cstmrNm>천안공업고등학교</cstmrNm>
+      <fcltyArCn>147</fcltyArCn>
+      <holdQy>1</holdQy>
+      <ocuAcptnNmprCn>20</ocuAcptnNmprCn>
+      <trafcltyNm>자동화설비실</trafcltyNm>
+    </inst_facility_info_list>
+  </inst_facility_info>
+</HRDNet>

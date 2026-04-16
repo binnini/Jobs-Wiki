@@ -1,0 +1,41 @@
+<dhsOpenEmpInfoDetailRoot>
+  <empSeqno>12345</empSeqno>
+  <empWantedTitle>백엔드 개발자</empWantedTitle>
+  <empBusiNm>잡스위키</empBusiNm>
+  <empWantedTypeNm>정규직</empWantedTypeNm>
+  <empSubmitDocCont>이력서</empSubmitDocCont>
+  <empRcptMthdCont>홈페이지 접수</empRcptMthdCont>
+  <empJobsList>
+    <empJobsListInfo>
+      <jobsCd>1001</jobsCd>
+      <jobsCdKorNm>서버개발자</jobsCdKorNm>
+    </empJobsListInfo>
+  </empJobsList>
+  <empSelsList>
+    <empSelsListInfo>
+      <selfintroQstCont>자기소개를 작성하세요</selfintroQstCont>
+    </empSelsListInfo>
+  </empSelsList>
+  <empSelsList>
+    <empSelsListInfo>
+      <selsNm>서류전형</selsNm>
+      <selsSchdCont>4월 3주</selsSchdCont>
+      <selsCont>서류 검토</selsCont>
+    </empSelsListInfo>
+  </empSelsList>
+  <empRecrList>
+    <empRecrListInfo>
+      <empRecrNm>플랫폼팀</empRecrNm>
+      <jobCont>API 개발</jobCont>
+      <workRegionNm>서울</workRegionNm>
+      <empWantedCareerNm>3년 이상</empWantedCareerNm>
+      <empWantedEduNm>대졸</empWantedEduNm>
+      <recrPsncnt>2</recrPsncnt>
+    </empRecrListInfo>
+  </empRecrList>
+  <regFileList>
+    <regFileListInfo>
+      <regFileNm>guide.pdf</regFileNm>
+    </regFileListInfo>
+  </regFileList>
+</dhsOpenEmpInfoDetailRoot>

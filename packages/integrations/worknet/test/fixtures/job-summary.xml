@@ -1,0 +1,17 @@
+<jobSum>
+  <jobCd>K000001163</jobCd>
+  <jobLrclNm>경영·사무·금융·보험직</jobLrclNm>
+  <jobMdclNm>금융·보험 전문가</jobMdclNm>
+  <jobSmclNm>금융상품개발자</jobSmclNm>
+  <jobSum>
+    <jobCd>K000001163</jobCd>
+    <jobLrclNm>경영·사무·금융·보험직</jobLrclNm>
+    <jobMdclNm>금융·보험 전문가</jobMdclNm>
+    <jobSmclNm>금융상품개발자</jobSmclNm>
+    <jobSum>금융상품을 개발한다.</jobSum>
+  </jobSum>
+  <way>대학에서 금융을 전공한다.</way>
+  <relMajorList><majorCd>1</majorCd><majorNm>경영학과</majorNm></relMajorList>
+  <relCertList><certNm>보험계리사</certNm></relCertList>
+  <sal>연봉 1억원</sal>
+</jobSum>
