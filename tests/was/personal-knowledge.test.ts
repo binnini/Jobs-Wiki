@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  DEFAULT_PERSONAL_FAMILY_SET,
+  createPersonalKnowledgeRuntimeModule,
   createPersonalKnowledgeRouteBindings,
   handleRegeneratePersonalKnowledge,
   handlePresentQueryPersonalKnowledge,
@@ -8,6 +10,7 @@ import {
   InMemoryPersonalPageAuthority,
   PersonalKnowledgeToolRegistry,
   queryPersonalKnowledge,
+  registerPersonalKnowledgeRuntimeModule,
   registerPersonalKnowledgeTools,
   retrieveForQuery,
   toPersonalKnowledgeQueryEnvelope,
@@ -118,9 +121,17 @@ test("query_personal_knowledge builds answer bundle and generates user-facing fa
   assert.equal(result.answerBundle.citationSummary.objectRefs.length, 2);
   assert.equal(result.answerBundle.citationSummary.relationRefs.length, 2);
   assert.equal(result.generatedPages.length, 2);
+  assert.deepEqual(DEFAULT_PERSONAL_FAMILY_SET, [
+    "personal.workspace_briefing",
+    "personal.application_next_steps",
+  ]);
   assert.equal(result.generatedPages[0]?.pageRef.familyKey, "personal.workspace_briefing");
   assert.equal(result.generatedPages[0]?.generationMode, "persisted");
   assert.match(result.generatedPages[1]?.bodyMarkdown ?? "", /Next Actions/);
+  assert.equal(
+    result.generatedPages.some((page) => page.pageRef.familyKey === "personal.evidence_map"),
+    false,
+  );
   assert.match(
     result.answerBundle.relationContextBlocks[0]?.neighborhoodSummary ?? "",
     /anchor|canonical relation anchor/,
@@ -183,6 +194,68 @@ test("bootstrap registry wires retrieve_for_query and query_personal_knowledge",
   assert.equal(stored?.ownerUserId, "user-1");
 });
 
+test("runtime module exposes candidate route bindings with explicit dependencies", async () => {
+  const authority = new InMemoryPersonalPageAuthority(seedPages);
+  const runtimeModule = createPersonalKnowledgeRuntimeModule({
+    readAuthority: authority,
+    regenerationStore: authority,
+    canonicalEvidenceAuthority: new InMemoryCanonicalEvidenceAuthority(canonicalEvidence),
+  });
+
+  assert.equal(runtimeModule.moduleKey, "personal_knowledge");
+  assert.deepEqual(
+    runtimeModule.routeBindings.map((binding) => ({
+      method: binding.method,
+      path: binding.path,
+      purpose: binding.purpose,
+    })),
+    [
+      {
+        method: "GET",
+        path: "/workspace/personal-knowledge/query",
+        purpose: "candidate_read_endpoint",
+      },
+      {
+        method: "POST",
+        path: "/workspace/personal-knowledge/regenerations",
+        purpose: "candidate_regeneration_endpoint",
+      },
+    ],
+  );
+});
+
+test("runtime module can register route bindings through framework-neutral registrar", async () => {
+  const authority = new InMemoryPersonalPageAuthority(seedPages);
+  const runtimeModule = createPersonalKnowledgeRuntimeModule({
+    readAuthority: authority,
+    regenerationStore: authority,
+  });
+  const registered: Array<{ method: string; path: string; purpose: string }> = [];
+
+  registerPersonalKnowledgeRuntimeModule(runtimeModule, {
+    registerRoute(binding) {
+      registered.push({
+        method: binding.method,
+        path: binding.path,
+        purpose: binding.purpose,
+      });
+    },
+  });
+
+  assert.deepEqual(registered, [
+    {
+      method: "GET",
+      path: "/workspace/personal-knowledge/query",
+      purpose: "candidate_read_endpoint",
+    },
+    {
+      method: "POST",
+      path: "/workspace/personal-knowledge/regenerations",
+      purpose: "candidate_regeneration_endpoint",
+    },
+  ]);
+});
+
 test("present_query_personal_knowledge returns consumer-facing envelope", async () => {
   const authority = new InMemoryPersonalPageAuthority(seedPages);
   const canonicalAuthority = new InMemoryCanonicalEvidenceAuthority(canonicalEvidence);
@@ -210,6 +283,7 @@ test("present_query_personal_knowledge returns consumer-facing envelope", async 
   assert.equal(envelope.evidence.canonicalEvidenceCount, 1);
   assert.ok(envelope.evidence.relationContextCount >= 1);
   assert.equal(envelope.generatedPages[0]?.generationMode, "ephemeral");
+  assert.equal(envelope.savedArtifacts, undefined);
 });
 
 test("HTTP handler normalizes query params into present_query_personal_knowledge envelope", async () => {
@@ -242,6 +316,7 @@ test("HTTP handler normalizes query params into present_query_personal_knowledge
   assert.equal(response.body.evidence.canonicalEvidenceCount, 1);
   assert.equal(response.body.generationMode, "ephemeral");
   assert.equal(response.body.generatedPages[0]?.generationMode, "ephemeral");
+  assert.equal(response.body.savedArtifacts, undefined);
 });
 
 test("POST regeneration handler persists regenerated pages on a separate candidate surface", async () => {
@@ -271,6 +346,15 @@ test("POST regeneration handler persists regenerated pages on a separate candida
   }
   assert.equal(response.body.generationMode, "persisted");
   assert.equal(response.body.generatedPages[1]?.pageRef.familyKey, "personal.evidence_map");
+  assert.equal(response.body.savedArtifacts?.length, 2);
+  assert.equal(
+    response.body.savedArtifacts?.[0]?.pageRef.familyKey,
+    "personal.workspace_briefing",
+  );
+  assert.equal(
+    response.body.savedArtifacts?.[1]?.artifactVersion,
+    "2026-04-16T10:00:00.000Z",
+  );
 
   const stored = await authority.readPage({
     pageId: "evidence-map",

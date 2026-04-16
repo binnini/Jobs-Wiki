@@ -7,4 +7,5 @@ export * from "./personal-knowledge/page-authority.ts";
 export * from "./personal-knowledge/query-personal-knowledge.ts";
 export * from "./personal-knowledge/retrieval.ts";
 export * from "./personal-knowledge/router.ts";
+export * from "./personal-knowledge/runtime.ts";
 export * from "./personal-knowledge/types.ts";

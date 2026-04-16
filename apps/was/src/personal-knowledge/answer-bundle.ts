@@ -8,6 +8,7 @@ import type {
   RetrievalOutput,
 } from "./types.ts";
 import type { CanonicalEvidence } from "./canonical-evidence.ts";
+import { DEFAULT_PERSONAL_FAMILY_SET } from "./families.ts";
 
 export function buildAnswerGenerationInputBundle(
   retrieval: RetrievalOutput,
@@ -20,10 +21,7 @@ export function buildAnswerGenerationInputBundle(
 ): AnswerGenerationInputBundle {
   const topCandidates = retrieval.candidates.slice(0, options.bundleLimit ?? 3);
   const matchedTerms = [...new Set(topCandidates.flatMap((candidate) => candidate.explanation.matchedTerms))];
-  const preferredFamilies = options.preferredFamilies ?? [
-    "personal.workspace_briefing",
-    "personal.application_next_steps",
-  ];
+  const preferredFamilies = options.preferredFamilies ?? DEFAULT_PERSONAL_FAMILY_SET;
 
   return {
     bundleKind: "personal_answer_input_bundle",

@@ -197,6 +197,33 @@ MVP 이후 유력 방향:
 - 아직 화면 의존성이 큰 projection-specific decoration field
 - product UX 변화에 따라 흔들릴 가능성이 큰 optional field
 
+### Runtime Binding Before Stabilization
+
+workspace-facing candidate endpoint는 stable 승격 전에 runtime에 먼저 연결될 수 있습니다.
+다만 이 경우에도 아래를 함께 유지해야 합니다.
+
+- runtime binding은 candidate endpoint를 실제 router에 올리는 구현 단계일 뿐, stable/public promise가 아닙니다.
+- auth, error normalization, logging, dependency injection이 global HTTP concern으로 먼저 정리되어야 합니다.
+- personal knowledge query의 GET/POST 분리는 read path discipline으로 유지되어야 하며 command family로 재해석되면 안 됩니다.
+- selected external consumer에게 열 수 있는지와 runtime에 연결하는지는 별도 판단입니다.
+
+즉 runtime uplift 조건과 public stabilization 조건은 같은 gate가 아닙니다.
+
+현재 최소 global HTTP concern 기준선:
+
+- auth context
+  - authenticated principal을 user/service 수준으로 구분할 수 있어야 합니다.
+- capability resolution
+  - GET read와 POST regeneration 같은 더 좁은 capability를 분리할 수 있어야 합니다.
+- error normalization
+  - internal/domain error를 public HTTP error shape로 바꾸는 공통 계층이 있어야 합니다.
+- request logging
+  - requestId 기준 추적이 가능해야 하며 route business logic와 분리된 상위 concern이어야 합니다.
+- registration shape
+  - route module이 framework-neutral binding을 노출하고, 상위 runtime이 좁은 registrar interface로 이를 수용할 수 있어야 합니다.
+
+이 기준선은 framework choice가 아니라, runtime에 연결되기 전에 최소한 공통으로 있어야 할 HTTP concern을 설명합니다.
+
 ### Phase 2: Selected Domain Resource Stabilization
 
 그 다음 단계 후보:
@@ -282,6 +309,9 @@ Extended 단계 이후에나 검토할 항목:
 - raw retrieval/bundle debug는 public query flag로 노출하지 않습니다.
 - `GET /workspace/personal-knowledge/query`는 frontend 전용으로 닫기보다, selected external consumer와도 같은 draft envelope를 공유할 수 있는 workspace-facing read surface로 유지하는 편이 맞습니다.
 - 반면 persisted regeneration POST surface는 더 좁은 candidate 범위로 남기고 broad external stabilization은 보류합니다.
+- 현재 기준으로 `POST /workspace/personal-knowledge/regenerations`는 frontend와 tightly scoped approved consumer까지만 여는 편이 맞습니다.
+- broad external consumer 기본 공개는 endpoint semantics, quota, auth tier가 더 안정된 뒤에 검토하는 편이 안전합니다.
+- approved consumer 최소 gate는 auth, narrow capability, quota control 세 축으로 설명하는 편이 맞습니다.
 
 ### Domain/Public Resource Candidates
 

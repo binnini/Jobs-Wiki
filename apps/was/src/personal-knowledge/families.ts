@@ -5,6 +5,11 @@ import type {
   PersonalFamilyKey,
 } from "./types.ts";
 
+export const DEFAULT_PERSONAL_FAMILY_SET: PersonalFamilyKey[] = [
+  "personal.workspace_briefing",
+  "personal.application_next_steps",
+];
+
 export const PERSONAL_FAMILIES: Record<PersonalFamilyKey, PersonalFamilyDefinition> = {
   "personal.workspace_briefing": {
     familyKey: "personal.workspace_briefing",

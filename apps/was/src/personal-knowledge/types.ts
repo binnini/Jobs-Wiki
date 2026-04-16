@@ -184,4 +184,10 @@ export type PersonalKnowledgeQueryEnvelope = {
     summary: string;
     generationMode: "persisted" | "ephemeral";
   }>;
+  savedArtifacts?: Array<{
+    pageRef: PersonalPageRef;
+    artifactVersion: string;
+    savedAt: string;
+    visibility?: ProjectionVisibility;
+  }>;
 };

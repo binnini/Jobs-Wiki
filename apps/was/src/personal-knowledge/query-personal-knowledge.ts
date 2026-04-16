@@ -12,7 +12,10 @@ import type {
 import type { CanonicalEvidenceAuthority } from "./canonical-evidence.ts";
 import { buildAnswerGenerationInputBundle } from "./answer-bundle.ts";
 import { shouldUseCanonicalEvidence } from "./canonical-evidence.ts";
-import { generatePersonalPages } from "./families.ts";
+import {
+  DEFAULT_PERSONAL_FAMILY_SET,
+  generatePersonalPages,
+} from "./families.ts";
 import { retrieveForQuery } from "./retrieval.ts";
 
 export async function queryPersonalKnowledge(
@@ -99,6 +102,16 @@ export function toPersonalKnowledgeQueryEnvelope(
       summary: page.summary,
       generationMode: page.generationMode,
     })),
+    ...(result.savedPages.length > 0
+      ? {
+          savedArtifacts: result.savedPages.map((page) => ({
+            pageRef: page.pageRef,
+            artifactVersion: page.generatedAt,
+            savedAt: page.generatedAt,
+            visibility: page.visibility,
+          })),
+        }
+      : {}),
   };
 }
 
@@ -106,7 +119,7 @@ function normalizePreferredFamilies(
   preferredFamilies?: PersonalFamilyKey[],
 ): PersonalFamilyKey[] {
   if (!preferredFamilies || preferredFamilies.length === 0) {
-    return ["personal.workspace_briefing", "personal.application_next_steps"];
+    return DEFAULT_PERSONAL_FAMILY_SET;
   }
 
   return [...new Set(preferredFamilies)];

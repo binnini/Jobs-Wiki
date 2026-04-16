@@ -335,6 +335,11 @@ relation context block은 answer bundle이 relation anchor를 조금 더 읽기 
 - answer generation에 필요한 좁은 neighborhood만 담습니다.
 - richer graph neighborhood가 실제 필요해질 때 별도 확장을 검토합니다.
 
+현재 판단:
+
+- `neighborhoodSummary` 한 줄을 넘는 richer relation neighborhood는 아직 기본 common model concern으로 올리지 않습니다.
+- object/relation answer support와 graph exploration은 다른 읽기 목적이므로, relation context block을 graph payload처럼 키우지 않는 편이 맞습니다.
+
 ### Personal Family
 
 Personal family는 user-facing personal page regeneration 단위입니다.

@@ -64,6 +64,9 @@ projection은 canonical object와 동일하지 않을 수 있으며, command exe
 - GET 기준으로는 `ephemeral` generation만 허용하는 편이 맞습니다.
 - `persisted` regeneration은 GET이 아니라 별도 POST candidate surface에 두는 편이 맞습니다.
 - raw retrieval/bundle debug는 public query parameter로 열지 않습니다.
+- frontend는 현재 단계에서 POST regeneration surface를 쓸 수 있는 기본 consumer로 봅니다.
+- 다만 이 endpoint를 broad external consumer 기본 surface로 바로 확대하지는 않습니다.
+- frontend 밖 consumer에 이 endpoint를 열려면 auth separation, narrow capability, quota control이 먼저 있어야 합니다.
 
 ## Candidate Command Endpoints
 

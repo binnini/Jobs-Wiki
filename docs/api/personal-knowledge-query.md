@@ -183,6 +183,12 @@ type AnswerGenerationInputBundle = {
 - relation type, source page ref, 요약, 관련 object ref 정도만 담는 좁은 context block으로 유지합니다.
 - canonical evidence에서 relation anchor를 보강한 경우에는 한 줄짜리 neighborhood summary를 함께 둘 수 있습니다.
 
+현재 판단:
+
+- relation context를 `neighborhoodSummary` 이상으로 더 넓히는 실제 제품 수요는 아직 확인되지 않았습니다.
+- 따라서 answer bundle은 relation inspection helper 수준에 머물고, graph-level neighborhood payload는 별도 projection concern으로 남겨 둡니다.
+- richer neighborhood가 필요해지면 answer bundle 확장보다 graph projection 재사용 또는 별도 read shape를 먼저 검토하는 편이 맞습니다.
+
 ### Canonical Evidence
 
 canonical evidence는 personal page retrieval과 별개인 object/relation read evidence입니다.
@@ -209,6 +215,17 @@ canonical evidence는 personal page retrieval과 별개인 object/relation read 
   - 질문 기준 다음 액션과 follow-up query suggestion을 정리합니다.
 - `personal.evidence_map`
   - 질문에 연결된 page/object/relation 근거 지형을 정리합니다.
+
+현재 default family set:
+
+- `personal.workspace_briefing`
+- `personal.application_next_steps`
+
+현재 판단:
+
+- `personal.evidence_map`는 available family이지만 default set에는 넣지 않습니다.
+- 이유는 이 family가 answer-first surface보다 evidence inspection surface에 가깝기 때문입니다.
+- relation/object anchor를 더 직접 훑어야 하는 consumer나 persisted regeneration 요청에서 opt-in하는 편이 맞습니다.
 
 이 family들은 answer bundle의 실제 소비자입니다.
 
@@ -268,6 +285,11 @@ type PersonalKnowledgeQueryEnvelope = {
     summary: string;
     generationMode: "persisted" | "ephemeral";
   }>;
+  savedArtifacts?: Array<{
+    pageRef: PersonalPageRef;
+    artifactVersion: string;
+    savedAt: string;
+  }>;
 };
 ```
 
@@ -277,6 +299,8 @@ type PersonalKnowledgeQueryEnvelope = {
 - retrieval raw detail과 generated page full body를 항상 한 payload에 강제하지 않습니다.
 - consumer는 envelope로 high-level outcome을 읽고, 필요 시 raw retrieval/bundle로 내려갈 수 있습니다.
 - current public GET candidate에서는 raw retrieval/bundle로 직접 내려가는 flag를 열지 않습니다.
+- `persisted` regeneration 응답은 saved artifact ref/version을 좁게 포함할 수 있습니다.
+- 별도 storage version token이 없으면 `generatedAt` 계열 시각을 candidate artifact version으로 재사용할 수 있습니다.
 
 ## Ranking and Explanation Direction
 
