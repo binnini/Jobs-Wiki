@@ -37,6 +37,7 @@ Draft
 - calendar
 - search
 - workspace summary
+- personal knowledge query
 - command submission and command status
 
 이 family는 현재 [frontend-was.md](/home/yebin/projects/Jobs-Wiki/docs/api/frontend-was.md:1)의 draft contract와 강하게 연결됩니다.
@@ -110,6 +111,7 @@ MVP 우선 slice는 [workspace-mvp-read-contract.md](/home/yebin/projects/Jobs-W
 
 - workspace-facing read projection 정리
 - 특히 `tree`, `document`, `calendar` MVP read contract 정리
+- `retrieve_for_query`와 `query_personal_knowledge` 같은 read-side query assembly 정리
 - command lifecycle과 eventual consistency 정리
 - read authority / MCP facade boundary 정리
 
@@ -263,10 +265,23 @@ Extended 단계 이후에나 검토할 항목:
 - `GET /workspace/graph`
 - `GET /workspace/search`
 - `GET /workspace/summary`
+- `GET /workspace/personal-knowledge/query`
+- `POST /workspace/personal-knowledge/regenerations`
 - `POST /workspace/commands`
 - `GET /workspace/commands/{id}`
 
 이 endpoint shape 자체도 draft입니다. 핵심은 endpoint 이름보다 projection family와 command boundary입니다.
+
+추가 방향:
+
+- `GET /workspace/personal-knowledge/query`는 search endpoint의 alias가 아닙니다.
+- 이 endpoint는 read-side query assembly result를 consumer-facing envelope로 반환하는 후보입니다.
+- current draft에서는 `retrieve_for_query` raw debug payload보다 `present_query_personal_knowledge` envelope를 우선합니다.
+- current draft에서는 GET 기준 `ephemeral` generation만 허용합니다.
+- `persisted` regeneration은 `POST /workspace/personal-knowledge/regenerations` 같은 별도 candidate surface에 두는 편이 맞습니다.
+- raw retrieval/bundle debug는 public query flag로 노출하지 않습니다.
+- `GET /workspace/personal-knowledge/query`는 frontend 전용으로 닫기보다, selected external consumer와도 같은 draft envelope를 공유할 수 있는 workspace-facing read surface로 유지하는 편이 맞습니다.
+- 반면 persisted regeneration POST surface는 더 좁은 candidate 범위로 남기고 broad external stabilization은 보류합니다.
 
 ### Domain/Public Resource Candidates
 

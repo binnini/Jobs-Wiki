@@ -50,6 +50,20 @@ projection은 canonical object와 동일하지 않을 수 있으며, command exe
   - `search` projection을 조회합니다.
 - `GET /workspace/summary`
   - `workspace_summary` projection을 조회합니다.
+- `GET /workspace/personal-knowledge/query`
+  - `present_query_personal_knowledge` envelope를 조회합니다.
+  - personal context retrieval과 optional canonical evidence를 묶은 read endpoint 후보입니다.
+- `POST /workspace/personal-knowledge/regenerations`
+  - `persisted` Personal family regeneration을 위한 더 좁은 candidate endpoint입니다.
+
+현재 draft 방향:
+
+- `personal-knowledge/query`는 `search` projection과 동일한 것이 아닙니다.
+- 이 endpoint는 query outcome summary와 generated Personal page summary를 돌려주는 read assembly surface입니다.
+- command path처럼 acceptance/status를 노출하지 않습니다.
+- GET 기준으로는 `ephemeral` generation만 허용하는 편이 맞습니다.
+- `persisted` regeneration은 GET이 아니라 별도 POST candidate surface에 두는 편이 맞습니다.
+- raw retrieval/bundle debug는 public query parameter로 열지 않습니다.
 
 ## Candidate Command Endpoints
 

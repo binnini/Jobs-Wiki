@@ -56,6 +56,13 @@ working_notes:
 - WAS는 external dependency의 raw shape를 frontend에 그대로 노출하지 않고 workspace projection으로 변환할 수 있습니다.
 - draft 단계에서는 이 계약을 final endpoint로 고정하지 않고 candidate contract로 유지합니다.
 
+현재 personal knowledge query draft 기준선:
+
+- `retrieve_for_query`와 `query_personal_knowledge`는 read path에 둡니다.
+- `query_personal_knowledge`는 command family가 아니라 retrieval 위의 좁은 read orchestration boundary입니다.
+- answer-generation input bundle과 Personal family regeneration은 read-side artifact assembly로 설명합니다.
+- 이 경계는 MCP facade command semantics와 섞지 않습니다.
+
 ## External Read Authority
 
 ### Definition

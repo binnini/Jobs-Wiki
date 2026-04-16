@@ -241,6 +241,144 @@ type ProjectionSyncState = {
 - `lastVisibleAt`은 마지막으로 사용자에게 read-visible했다고 확인된 시각입니다.
 - `refreshRecommended`는 frontend가 polling 또는 targeted refresh를 결정할 때 쓰는 hint입니다.
 
+### Answer Bundle
+
+answer bundle은 retrieval output 위에 조립되는 answer-generation 입력 단위입니다.
+
+원칙:
+
+- answer bundle은 canonical object나 projection을 대체하지 않습니다.
+- answer bundle은 retrieval 결과 중 answer generation에 필요한 context block만 절단해 전달합니다.
+- answer bundle은 object/ref anchor와 selection 이유를 유지해야 합니다.
+- answer bundle은 command artifact가 아니라 read-side assembly 결과입니다.
+
+현재 candidate concern:
+
+- `query`
+  - 사용자가 던진 현재 질문입니다.
+- `retrieval`
+  - ranking version, selected candidate, omitted candidate count를 담습니다.
+- `context block`
+  - page ref, summary, excerpt, why included를 갖는 answer-generation 단위입니다.
+- `answer intent`
+  - matched term과 preferred Personal family 같은 assembly 힌트를 담습니다.
+
+현재 draft 방향:
+
+- answer bundle은 `query_personal_knowledge` 같은 read orchestration boundary 위에 둡니다.
+- raw page 전체 전달보다 selected context block 전달을 우선합니다.
+- relation neighborhood나 canonical object snippet은 실제 필요가 생길 때 점진적으로 올립니다.
+- 현재 최소 기준선에서는 object ref와 relation ref citation anchor를 함께 유지합니다.
+
+### Citation Anchor
+
+citation anchor는 answer bundle 또는 generated Personal page가 어떤 object/relation/page에 기대고 있는지 보존하는 read-side anchor입니다.
+
+현재 최소 candidate:
+
+- `pageRef`
+  - source personal page anchor
+- `objectRef`
+  - context block이 직접 가리키는 object anchor
+- `relationRef`
+  - full neighborhood 대신 최소 provenance 또는 `derived_from` anchor
+
+원칙:
+
+- citation anchor는 answer text decoration이 아니라 traceability concern입니다.
+- relation neighborhood 전체를 넣기 전에도 최소 relation ref는 유지하는 편이 좋습니다.
+- canonical graph read와 동일한 payload richness를 지금 단계에서 강제하지 않습니다.
+
+### Canonical Evidence
+
+canonical evidence는 personal page summary와 별도로 canonical object/relation read를 통해 가져오는 보강 evidence입니다.
+
+현재 candidate rule:
+
+- personal retrieval이 먼저 context를 잡습니다.
+- canonical evidence는 그 personal context가 가리키는 object anchor를 따라 보강됩니다.
+- canonical evidence는 answer bundle 안에서 page context를 대체하지 않고 보강합니다.
+
+현재 최소 필드:
+
+- `objectRef`
+  - canonical anchor
+- `summary`
+  - object-level evidence summary
+- `relationRefs`
+  - full neighborhood 대신 핵심 relation anchor
+- `matchedTerms`
+  - 현재 query와 어떤 term이 맞았는지
+
+이 모델은 global search contract가 아니라 answer bundle 보강 모델입니다.
+
+### Relation Context Block
+
+relation context block은 answer bundle이 relation anchor를 조금 더 읽기 쉬운 unit으로 묶은 read-side context block입니다.
+
+현재 최소 candidate:
+
+- `relationRef`
+  - anchor relation identity
+- `sourcePageRef`
+  - relation context를 끌어온 personal page anchor
+- `summary`
+  - relation이 왜 answer generation에 포함됐는지 설명
+- `objectRefs`
+  - relation 주변 핵심 object anchor
+- `neighborhoodSummary`
+  - canonical evidence가 있으면 relation 주변 핵심 neighborhood를 한 줄로 요약한 field
+
+원칙:
+
+- relation context block은 graph projection이 아닙니다.
+- answer generation에 필요한 좁은 neighborhood만 담습니다.
+- richer graph neighborhood가 실제 필요해질 때 별도 확장을 검토합니다.
+
+### Personal Family
+
+Personal family는 user-facing personal page regeneration 단위입니다.
+
+현재 최소 candidate:
+
+- `personal.workspace_briefing`
+  - 질문에 직접 답하는 짧은 브리핑 page
+- `personal.application_next_steps`
+  - 질문 기준 다음 액션을 정리하는 page
+- `personal.evidence_map`
+  - 질문에 연결된 page/object/relation anchor를 한 번에 훑는 page
+
+원칙:
+
+- family는 query retrieval candidate와 동일한 것이 아닐 수 있습니다.
+- family regeneration은 command completion이 아니라 read-side artifact refresh입니다.
+- family는 object/relation/projection read를 소비해 user-visible page를 만듭니다.
+
+### Personal Regeneration Mode
+
+Personal family regeneration은 두 mode를 가질 수 있습니다.
+
+- `persisted`
+  - regenerated page를 read authority에 다시 보이게 저장하는 mode
+- `ephemeral`
+  - response 안에서만 artifact를 돌려주는 mode
+
+현재 draft 방향:
+
+- 두 mode 모두 read path 안에서 설명합니다.
+- `ephemeral`은 runtime/transport를 너무 일찍 고정하지 않기 위한 안전한 확장 여지를 남깁니다.
+- 어떤 mode를 default로 둘지는 아직 open question입니다.
+
+### Query Envelope
+
+query envelope은 internal assembly result를 consumer-facing read shape로 한 번 더 감싼 결과입니다.
+
+원칙:
+
+- envelope은 projection 자체가 아니라 query outcome summary입니다.
+- envelope은 retrieval debug detail보다 consumer가 바로 써야 하는 count, evidence anchor, generated page summary를 우선합니다.
+- envelope 도입이 read path와 command path를 섞는 근거가 되지는 않습니다.
+
 ### Lifecycle State
 
 object lifecycle은 hard delete가 아닌 logical state transition 중심으로 표현합니다.
