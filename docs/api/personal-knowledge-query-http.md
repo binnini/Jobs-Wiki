@@ -67,6 +67,39 @@ frontend 밖 consumer에 이 POST surface를 열 수 있으려면, 최소한 아
 
 현재 단계에서는 위 gate를 만족하는 frontend와 tightly scoped approved consumer만 candidate 대상으로 보고, 그 외 external consumer 기본 공개는 보류합니다.
 
+현재 판단:
+
+- 위 세 축을 더 세분화해 별도 공개 protocol field나 endpoint parameter로 고정할 필요는 아직 없습니다.
+- 이 gate는 transport contract 확장이 아니라 runtime access policy concern으로 두는 편이 맞습니다.
+- object/relation 단위 ACL을 이 endpoint 자체에 새로 정의하지 않습니다.
+- object/relation visibility는 기존 read authority의 user-scoped read policy를 그대로 따릅니다.
+- 이 POST surface가 추가로 관리해야 하는 것은 projection-level persisted regeneration 권한과 호출량뿐입니다.
+
+현재 최소 세분화 기준:
+
+- auth
+  - principal은 최소한 `user`와 `service`를 구분할 수 있어야 합니다.
+  - service principal이 user-scoped regeneration을 호출할 때는 target user context가 명시적으로 연결되어야 합니다.
+- capability
+  - `workspace.personal_knowledge.regenerate`는 GET query read capability와 분리합니다.
+  - allowed family set, canonical evidence 사용 여부, persisted regeneration 허용 여부는 capability resolver가 추가로 좁힐 수 있습니다.
+  - 이는 answer bundle/object/relation read scope를 새로 만드는 것이 아니라, regeneration transport 사용 범위를 좁히는 것입니다.
+- quota
+  - rate control 기준점은 principal, target user, selected family set 수준이면 우선 충분합니다.
+  - family별 비용 차이나 canonical evidence 사용 여부에 따라 더 보수적인 quota tier를 둘 수는 있지만, 현재 문서에서 numeric tier까지 고정하지는 않습니다.
+
+아직 최소 gate에 포함하지 않는 것:
+
+- 별도 approval workflow
+- command receipt/status contract
+- object-level mutation scope declaration
+- persisted artifact version lifecycle의 장기 보장
+
+이유:
+
+- 이 POST는 command family가 아니라 persisted read-side artifact refresh transport입니다.
+- 따라서 command path용 acceptance, workflow, mutation scope 문법을 너무 일찍 들여오면 read/query/regeneration 경계가 다시 흐려집니다.
+
 ## Query Parameters
 
 - `q`
@@ -236,6 +269,101 @@ registration 방향:
 - runtime module은 framework-neutral `routeBindings`를 노출합니다.
 - 상위 runtime은 `registerRoute(binding)` 수준의 좁은 registrar만 구현하면 됩니다.
 - framework router, middleware chain, handler adapter 세부는 registrar 구현 쪽으로 둡니다.
+- binding에는 handler 외에 최소 access policy metadata도 함께 두는 편이 맞습니다.
+
+현재 최소 route metadata 후보:
+
+```ts
+type PersonalKnowledgeRouteAccessPolicy = {
+  audience: "workspace_read_consumer" | "approved_regeneration_consumer";
+  requiredCapability:
+    | "workspace.personal_knowledge.query"
+    | "workspace.personal_knowledge.regenerate";
+  quotaScope: "principal" | "user" | "family_set";
+  allowsCanonicalEvidence: boolean;
+  allowedFamilies?: PersonalFamilyKey[];
+};
+```
+
+현재 route별 working direction:
+
+- GET `/workspace/personal-knowledge/query`
+  - `requiredCapability=workspace.personal_knowledge.query`
+  - `quotaScope=user`
+  - canonical evidence는 route 차원에서 금지하지 않고 caller capability/quota 안에서 허용 가능
+- POST `/workspace/personal-knowledge/regenerations`
+  - `requiredCapability=workspace.personal_knowledge.regenerate`
+  - `quotaScope=family_set`
+  - `allowedFamilies`는 현재 Personal family 집합으로 좁게 유지
+
+원칙:
+
+- route metadata는 상위 runtime이 auth/capability/quota policy를 연결하기 위한 힌트입니다.
+- handler가 principal parsing, capability lookup, quota 계산을 직접 수행하면 안 됩니다.
+- `allowedFamilies`는 persisted regeneration transport를 좁히는 metadata이지, object/relation read ACL을 대체하지 않습니다.
+
+현재 adapter-side authorization sequence:
+
+1. runtime이 request에서 authenticated principal을 확정합니다.
+2. binding의 `requiredCapability`로 route-level capability check를 수행합니다.
+3. user principal이면 request의 target user scope와 principal user scope 일치를 확인합니다.
+4. binding metadata와 request payload에서 quota descriptor를 조립합니다.
+5. quota policy 통과 후에만 handler가 transport normalization과 query execution을 수행합니다.
+
+설명:
+
+- 이 sequence는 GET/POST route를 command path로 바꾸기 위한 것이 아닙니다.
+- 목적은 persisted regeneration 같은 더 좁은 candidate surface에 대해 runtime concern을 route handler 밖으로 유지하는 것입니다.
+- service principal이 user-scoped regeneration을 호출할 때도 target user scope는 request에서 명시적으로 받아야 합니다.
+- adapter는 raw transport request와 별도로 handler-ready authorized context를 조립하는 편이 맞습니다.
+
+현재 최소 handler-ready context 후보:
+
+```ts
+type PersonalKnowledgeHandlerExecutionContext = {
+  requestId: string;
+  routePath: WasRouteBinding["path"];
+  authenticatedPrincipal: WasAuthenticatedPrincipal;
+  requiredCapability: WasCapabilityName;
+  authorizedInput: {
+    userId: string;
+    preferredFamilies?: PersonalFamilyKey[];
+    canonicalPolicy: "personal_only" | "prefer_personal_with_canonical";
+  };
+  quotaDescriptor: WasQuotaDescriptor;
+};
+```
+
+원칙:
+
+- handler는 raw request의 `auth.userId`를 다시 신뢰하기보다 `authorizedInput.userId`를 쓰는 편이 맞습니다.
+- `preferredFamilies`, `canonicalPolicy`도 runtime이 capability/quota를 반영해 좁힌 값을 handler-ready context로 넘기는 편이 맞습니다.
+- raw request는 transport logging이나 debugging에만 남기고, 실행 의미는 authorized context에 싣는 편이 맞습니다.
+- transport normalization helper도 raw request 전체를 다시 해석하기보다 `authorizedInput`을 우선 사용하는 편이 맞습니다.
+
+현재 adapter envelope 후보:
+
+```ts
+type PersonalKnowledgeHandlerEnvelope =
+  | {
+      method: "GET";
+      request: PersonalKnowledgeHttpRequest;
+      executionContext: PersonalKnowledgeHandlerExecutionContext;
+    }
+  | {
+      method: "POST";
+      request: PersonalKnowledgeRegenerationRequest;
+      executionContext: PersonalKnowledgeHandlerExecutionContext;
+    };
+```
+
+설명:
+
+- 이 envelope는 runtime adapter가 raw request와 prepared execution context를 같이 넘기기 위한 최소 공통 shape입니다.
+- handler-adjacent normalization은 `request`에서 query text와 bundleLimit 같은 transport field를 읽고, `executionContext.authorizedInput`에서 user scope/family/policy를 읽는 편이 맞습니다.
+- envelope 기반 handler-adjacent execution path를 별도 entrypoint로 둘 수 있으며, 이 경로는 public HTTP handler보다 adapter integration에 더 가깝습니다.
+- direct HTTP handler도 가능하면 같은 envelope shape를 먼저 만든 뒤, 동일한 envelope-based execution path를 타는 편이 맞습니다.
+- direct/public path에 남아 있는 transport validation도 별도 helper로 내려 두는 편이 execution spine을 더 단순하게 유지합니다.
 
 현재 최소 global runtime concern 후보:
 
@@ -270,4 +398,4 @@ personal knowledge query runtime 기준선:
 ## Open Questions
 
 - selected external consumer beyond frontend에 POST regeneration surface를 언제 열지
-- approved consumer gate를 auth/capability/quota 문서 수준에서 어디까지 더 세분화할지
+- approved consumer gate를 runtime policy 수준에서 실제로 어떻게 연결할지

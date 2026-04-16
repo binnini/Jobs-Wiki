@@ -312,6 +312,7 @@ Extended 단계 이후에나 검토할 항목:
 - 현재 기준으로 `POST /workspace/personal-knowledge/regenerations`는 frontend와 tightly scoped approved consumer까지만 여는 편이 맞습니다.
 - broad external consumer 기본 공개는 endpoint semantics, quota, auth tier가 더 안정된 뒤에 검토하는 편이 안전합니다.
 - approved consumer 최소 gate는 auth, narrow capability, quota control 세 축으로 설명하는 편이 맞습니다.
+- 현재 단계에서는 이 gate를 별도 public protocol 확장보다 runtime access policy로 유지하는 편이 맞습니다.
 
 ### Domain/Public Resource Candidates
 

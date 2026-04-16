@@ -212,6 +212,92 @@ framework/middleware-independent registration 기준선:
 - 상위 runtime은 `WasRuntimeRegistrar` 같은 좁은 registration interface만 구현하면 됩니다.
 - route module은 Express/Fastify/Hono 같은 framework object를 직접 알 필요가 없습니다.
 - framework-specific adapter는 `registerRoute` 구현 쪽으로 밀어 두는 편이 맞습니다.
+- route binding은 handler뿐 아니라 최소 access policy metadata도 함께 노출하는 편이 맞습니다.
+
+현재 route-level access policy 기준선:
+
+```ts
+type PersonalKnowledgeRouteAccessPolicy = {
+  audience: "workspace_read_consumer" | "approved_regeneration_consumer";
+  requiredCapability:
+    | "workspace.personal_knowledge.query"
+    | "workspace.personal_knowledge.regenerate";
+  quotaScope: "principal" | "user" | "family_set";
+  allowsCanonicalEvidence: boolean;
+  allowedFamilies?: PersonalFamilyKey[];
+};
+```
+
+설명:
+
+- GET query route는 `workspace.personal_knowledge.query` capability와 user-scoped quota 정도면 우선 충분합니다.
+- POST regeneration route는 `workspace.personal_knowledge.regenerate` capability를 별도로 요구하는 편이 맞습니다.
+- POST route의 `allowedFamilies`는 object/relation read scope를 새로 정의하는 것이 아니라 persisted regeneration transport에서 허용할 family set을 좁히기 위한 metadata입니다.
+- quota scope는 route가 직접 계산하지 않고, 상위 runtime의 quota policy가 binding metadata를 읽어 판단하는 편이 맞습니다.
+
+현재 adapter sequence 기준선:
+
+1. runtime이 `authenticatedPrincipal`을 먼저 확정합니다.
+2. route binding의 `requiredCapability`로 capability check를 수행합니다.
+3. user principal이면 requested user scope와 principal user scope가 일치하는지 확인합니다.
+4. route binding과 request payload에서 quota descriptor를 조립합니다.
+5. quota policy가 허용할 때만 handler로 request를 넘깁니다.
+
+원칙:
+
+- handler는 위 판정을 직접 수행하지 않고, 통과된 request만 받는 편이 맞습니다.
+- service principal은 target user scope를 명시적으로 제공해야 하며, runtime은 이를 임의 추론하지 않습니다.
+- family-set quota는 route metadata와 requested family set을 함께 써서 계산하는 편이 맞습니다.
+- runtime은 raw transport request와 별도로 handler-ready execution context를 조립하는 편이 맞습니다.
+
+현재 handler-ready context 최소 후보:
+
+```ts
+type PersonalKnowledgeHandlerExecutionContext = {
+  requestId: string;
+  routePath: WasRouteBinding["path"];
+  authenticatedPrincipal: WasAuthenticatedPrincipal;
+  requiredCapability: WasCapabilityName;
+  authorizedInput: {
+    userId: string;
+    preferredFamilies?: PersonalFamilyKey[];
+    canonicalPolicy: "personal_only" | "prefer_personal_with_canonical";
+  };
+  quotaDescriptor: WasQuotaDescriptor;
+};
+```
+
+설명:
+
+- raw transport payload는 debugging/audit용으로 그대로 둘 수 있습니다.
+- handler가 실제 query execution에 의존해야 하는 user scope, family scope, canonical policy는 `authorizedInput`으로 따로 전달하는 편이 맞습니다.
+- 이렇게 두면 handler는 policy 재계산 없이 transport normalization과 query execution에만 집중할 수 있습니다.
+- 이때 transport normalization도 raw request의 auth/policy field보다 `authorizedInput`을 우선 소비하는 편이 맞습니다.
+
+현재 framework-neutral adapter envelope 후보:
+
+```ts
+type PersonalKnowledgeHandlerEnvelope =
+  | {
+      method: "GET";
+      request: PersonalKnowledgeHttpRequest;
+      executionContext: PersonalKnowledgeHandlerExecutionContext;
+    }
+  | {
+      method: "POST";
+      request: PersonalKnowledgeRegenerationRequest;
+      executionContext: PersonalKnowledgeHandlerExecutionContext;
+    };
+```
+
+의도:
+
+- adapter는 raw request와 prepared execution context를 한 번에 handler-adjacent layer로 넘길 수 있습니다.
+- handler-adjacent layer는 `request.query.q` 또는 `request.body.q` 같은 transport field는 읽되, user scope/policy/family scope는 `executionContext.authorizedInput`을 우선 사용합니다.
+- 이 envelope는 framework object를 노출하지 않으면서도 adapter와 handler 경계를 분명히 합니다.
+- 이 기준선 위에서 envelope-based execution entrypoint를 두면, public HTTP handler와 adapter integration path를 분리해 유지할 수 있습니다.
+- 이후 direct HTTP handler도 먼저 동일 envelope를 만든 뒤 같은 execution entrypoint를 호출하도록 맞추는 편이 execution spine을 단순하게 유지합니다.
+- 같은 맥락에서 transport-level validation도 direct/public handler 안에 흩어두기보다 helper로 분리하는 편이 맞습니다.
 
 현재 WAS 기준선:
 

@@ -67,6 +67,7 @@ projection은 canonical object와 동일하지 않을 수 있으며, command exe
 - frontend는 현재 단계에서 POST regeneration surface를 쓸 수 있는 기본 consumer로 봅니다.
 - 다만 이 endpoint를 broad external consumer 기본 surface로 바로 확대하지는 않습니다.
 - frontend 밖 consumer에 이 endpoint를 열려면 auth separation, narrow capability, quota control이 먼저 있어야 합니다.
+- 이 gate는 endpoint contract를 더 늘리는 문제가 아니라 runtime access policy 문제로 유지하는 편이 맞습니다.
 
 ## Candidate Command Endpoints
 
