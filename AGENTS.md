@@ -31,6 +31,10 @@ Read these first before making substantial changes:
 
 If the task is exploratory or spans multiple files, also read relevant notes in `dev-wiki/` if available.
 
+For quick implementation-phase orientation, also check this working dashboard when relevant:
+
+- [dev-wiki/decisions/2026-04-16-project-phase-and-todo-map.md](/home/yebin/projects/Jobs-Wiki/dev-wiki/decisions/2026-04-16-project-phase-and-todo-map.md)
+
 ## Docs vs Dev Wiki
 
 ### Official docs
@@ -77,6 +81,7 @@ Use `dev-wiki/` for:
 - experiment notes
 - prompt drafts
 - implementation checkpoints
+- working dashboards for current phase, next priority, and weak spots
 
 Promotion rule:
 
@@ -133,6 +138,7 @@ Note:
 - still write notes there when useful during development
 - `dev-wiki` files should not build cross-note dependency chains
 - if a note matters later, promote the cleaned-up conclusion into `docs/`
+- for phase/status/TODO orientation, prefer the current dashboard note in `dev-wiki/decisions/` before inferring status from scattered commits or docs
 
 ## Architecture Boundaries
 
