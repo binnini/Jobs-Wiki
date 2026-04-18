@@ -3,10 +3,21 @@ export async function askWorkspaceService({
   userContext,
   input,
 }) {
-  return askWorkspace.askWorkspace({
+  const result = await askWorkspace.askWorkspace({
     userContext,
     question: input.question,
     opportunityId: input.opportunityId,
-    save: input.save,
+    // `save` stays reserved in the MVP contract and is intentionally a no-op.
   })
+
+  return {
+    ...result,
+    evidence: Array.isArray(result.evidence) ? result.evidence : [],
+    relatedOpportunities: Array.isArray(result.relatedOpportunities)
+      ? result.relatedOpportunities
+      : [],
+    relatedDocuments: Array.isArray(result.relatedDocuments)
+      ? result.relatedDocuments
+      : [],
+  }
 }

@@ -219,6 +219,59 @@ test("GET /api/calendar rejects invalid date queries", async () => {
   })
 })
 
+test("POST /api/workspace/ask returns a generic workspace answer without opportunity context", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      method: "POST",
+      url: "/api/workspace/ask",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        question: "What should I improve first?",
+        save: true,
+      },
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(response.body.projection, "ask")
+    assert.equal(response.body.answer.answerId, "answer_mock_gap_review")
+    assert.match(response.body.answer.markdown, /Question: What should I improve first\?/)
+    assert.equal(response.body.sync.visibility, "applied")
+    assert.equal(response.body.evidence.length, 1)
+    assert.equal(response.body.relatedOpportunities.length, 3)
+    assert.equal(response.body.relatedDocuments.length, 1)
+  })
+})
+
+test("POST /api/workspace/ask returns an opportunity-scoped answer and excludes the current opportunity from related cards", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      method: "POST",
+      url: "/api/workspace/ask",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        question: "How should I position my API work for this role?",
+        opportunityId: "opp_backend_platform",
+        save: false,
+      },
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(response.body.projection, "ask")
+    assert.match(response.body.answer.markdown, /Focused fit for Backend Platform Engineer/)
+    assert.equal(response.body.evidence.length, 2)
+    assert.equal(response.body.relatedOpportunities.length, 2)
+    assert.deepEqual(
+      response.body.relatedOpportunities.map((item) => item.opportunityRef.opportunityId),
+      ["opp_report_runtime", "opp_product_data"],
+    )
+    assert.equal(response.body.relatedDocuments.length, 2)
+  })
+})
+
 test("POST /api/workspace/ask validates the request body", async () => {
   await withApp(async (app) => {
     const response = await invokeApp(app, {
@@ -232,6 +285,75 @@ test("POST /api/workspace/ask validates the request body", async () => {
 
     assert.equal(response.status, 400)
     assert.equal(response.body.error.code, "validation_failed")
+    assert.equal(response.body.error.message, "question is required")
+    assert.deepEqual(response.body.error.details, {
+      field: "question",
+    })
+  })
+})
+
+test("POST /api/workspace/ask normalizes blank optional opportunityId to generic context", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      method: "POST",
+      url: "/api/workspace/ask",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        question: "What else should I compare?",
+        opportunityId: "   ",
+      },
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(response.body.relatedOpportunities.length, 3)
+  })
+})
+
+test("POST /api/workspace/ask returns not_found for unknown opportunity context", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      method: "POST",
+      url: "/api/workspace/ask",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        question: "How should I position this role?",
+        opportunityId: "opp_unknown",
+      },
+    })
+
+    assert.equal(response.status, 404)
+    assert.equal(response.body.error.code, "not_found")
+    assert.equal(response.body.error.message, "opportunity not found")
+    assert.deepEqual(response.body.error.details, {
+      opportunityId: "opp_unknown",
+    })
+  })
+})
+
+test("POST /api/workspace/ask rejects invalid save values with normalized error details", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      method: "POST",
+      url: "/api/workspace/ask",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        question: "What should I improve first?",
+        save: "yes",
+      },
+    })
+
+    assert.equal(response.status, 400)
+    assert.equal(response.body.error.code, "validation_failed")
+    assert.equal(response.body.error.message, "save must be a boolean when provided")
+    assert.deepEqual(response.body.error.details, {
+      field: "save",
+    })
   })
 })
 
@@ -320,6 +442,35 @@ test("real adapter mode returns normalized temporary unavailability errors", asy
       assert.equal(response.status, 503)
       assert.equal(response.body.error.code, "temporarily_unavailable")
       assert.equal(response.body.error.details.adapter, "stratawiki_read_authority")
+    },
+  )
+})
+
+test("real ask adapter mode returns normalized temporary unavailability errors", async () => {
+  await withConfiguredApp(
+    {
+      serviceName: "jobs-wiki-was-test",
+      host: "127.0.0.1",
+      port: 0,
+      nodeEnv: "test",
+      dataMode: "real",
+      logLevel: "silent",
+    },
+    async (app) => {
+      const response = await invokeApp(app, {
+        method: "POST",
+        url: "/api/workspace/ask",
+        headers: {
+          "content-type": "application/json",
+        },
+        body: {
+          question: "What should I improve first?",
+        },
+      })
+
+      assert.equal(response.status, 503)
+      assert.equal(response.body.error.code, "temporarily_unavailable")
+      assert.equal(response.body.error.details.adapter, "stratawiki_ask_workspace")
     },
   )
 })

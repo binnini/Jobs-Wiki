@@ -10,8 +10,10 @@ export function mapAskWorkspace(record) {
     projection: "ask",
     sync: mapProjectionSync(record.sync, "ask"),
     answer: record.answer,
-    evidence: record.evidence.map(mapEvidenceItem),
-    relatedOpportunities: record.relatedOpportunities?.map(mapOpportunityListItem),
-    relatedDocuments: record.relatedDocuments?.map(mapRelatedDocument),
+    evidence: (record.evidence ?? []).map(mapEvidenceItem),
+    relatedOpportunities: (record.relatedOpportunities ?? []).map(
+      mapOpportunityListItem,
+    ),
+    relatedDocuments: (record.relatedDocuments ?? []).map(mapRelatedDocument),
   }
 }
