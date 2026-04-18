@@ -17,6 +17,31 @@ Draft
 - 기업, 직업, 문서, 일정과 연결되는 recruitment object를 어떤 공통 개념으로 설명할 것인가
 - 아직 확정되지 않은 필드는 무엇인가
 
+## Current Pack Baseline
+
+2026-04-18 기준 recruiting canonical fact baseline은
+[Recruiting Domain Pack](/Users/yebin/workSpace/Jobs-Wiki/docs/domain/recruiting-domain-pack.md:1)
+문서와
+[packages/domain-packs/recruiting/v1.json](/Users/yebin/workSpace/Jobs-Wiki/packages/domain-packs/recruiting/v1.json:1)
+artifact에 정리되어 있습니다.
+
+현재 v1에서 pack이 승격하는 canonical entity / relation은 아래입니다.
+
+- `job_posting`
+- `company`
+- `role`
+- `posted_by`
+- `for_role`
+
+현재 v1에서 pack이 entity로 승격하지 않고 `job_posting` attribute로 남기는 항목은 아래입니다.
+
+- `location`
+- `skill`
+- `selection_step`
+
+즉 이 문서는 recruitment read model / public-resource 후보를 설명하고,
+pack 자체의 canonical fact scope와 identity hint 결정은 별도 domain-pack 문서를 source of truth로 둡니다.
+
 ## Stable Concepts
 
 현재 시점에서 비교적 안정적으로 볼 수 있는 개념은 아래와 같습니다.

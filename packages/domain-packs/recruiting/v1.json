@@ -1,0 +1,237 @@
+{
+  "manifest": {
+    "domain": "recruiting",
+    "packVersion": "2026-04-18",
+    "status": "draft",
+    "compatibility": {
+      "minStrataWikiVersion": "0.2.0"
+    },
+    "owner": {
+      "system": "jobs-wiki",
+      "team": "career-knowledge"
+    },
+    "sourceProfiles": ["worknet.open_recruitment"]
+  },
+  "proposalSurface": {
+    "accepts": {
+      "factProposal": true,
+      "relationProposal": true
+    },
+    "strictUnknownAttributes": true,
+    "batchMode": "atomic"
+  },
+  "entityTypes": {
+    "job_posting": {
+      "description": "A source-backed hiring opportunity that remains source-scoped in v1.",
+      "requiredAttributes": ["title"],
+      "attributes": {
+        "title": {
+          "type": "string",
+          "description": "Human-readable posting title."
+        },
+        "summary": {
+          "type": "markdown",
+          "description": "Primary posting summary or recruiting description."
+        },
+        "employment_type": {
+          "type": "string",
+          "description": "Employment category text."
+        },
+        "opens_at": {
+          "type": "datetime",
+          "description": "Opening timestamp when available."
+        },
+        "closes_at": {
+          "type": "datetime",
+          "description": "Closing timestamp when available."
+        },
+        "source_url": {
+          "type": "url",
+          "description": "Desktop source page URL."
+        },
+        "mobile_source_url": {
+          "type": "url",
+          "description": "Mobile source page URL."
+        },
+        "location_text": {
+          "type": "string",
+          "description": "Posting-local work location text kept as an attribute in v1."
+        },
+        "requirements_text": {
+          "type": "markdown",
+          "description": "Free-form qualification text that is not promoted to skill facts in v1."
+        },
+        "selection_process_text": {
+          "type": "markdown",
+          "description": "Free-form selection process text kept as an attribute in v1."
+        }
+      },
+      "identity": {
+        "mode": "hint_priority",
+        "strategies": [
+          {
+            "hint": "source_id",
+            "prefix": "job_posting",
+            "normalization": ["trim"],
+            "description": "Use the provider-scoped posting identifier. v1 does not merge postings across providers."
+          }
+        ],
+        "fallback": "reject"
+      },
+      "mergePolicy": {
+        "mode": "upsert",
+        "conflictStrategy": "prefer_newer_source"
+      }
+    },
+    "company": {
+      "description": "The hiring organization linked from a job posting.",
+      "requiredAttributes": ["name"],
+      "attributes": {
+        "name": {
+          "type": "string",
+          "description": "Display name for the organization."
+        },
+        "normalized_name": {
+          "type": "string",
+          "description": "Name normalized for fallback identity matching."
+        },
+        "company_type": {
+          "type": "string",
+          "description": "Organization classification text."
+        },
+        "homepage_url": {
+          "type": "url",
+          "description": "Canonical homepage or company page."
+        },
+        "business_number": {
+          "type": "string",
+          "description": "Registration number when available."
+        },
+        "summary": {
+          "type": "markdown",
+          "description": "Short company introduction."
+        },
+        "description": {
+          "type": "markdown",
+          "description": "Longer company profile text."
+        },
+        "main_business": {
+          "type": "string",
+          "description": "Primary business description."
+        }
+      },
+      "identity": {
+        "mode": "hint_priority",
+        "strategies": [
+          {
+            "hint": "external_id",
+            "prefix": "company",
+            "normalization": ["trim"],
+            "description": "Preferred when a source-specific company identifier is available, such as WorkNet empCoNo."
+          },
+          {
+            "hint": "business_number",
+            "prefix": "company",
+            "normalization": ["digits_only"],
+            "description": "Cross-source fallback when a business registration number is available."
+          },
+          {
+            "hint": "normalized_name",
+            "prefix": "company",
+            "normalization": ["trim", "lowercase", "collapse_whitespace"],
+            "description": "Last-resort fallback when no stronger company identifier exists."
+          }
+        ],
+        "fallback": "manual_review"
+      },
+      "mergePolicy": {
+        "mode": "upsert",
+        "conflictStrategy": "manual_review"
+      }
+    },
+    "role": {
+      "description": "The role or occupation targeted by a job posting.",
+      "requiredAttributes": ["display_name"],
+      "attributes": {
+        "display_name": {
+          "type": "string",
+          "description": "Human-readable role label."
+        },
+        "normalized_name": {
+          "type": "string",
+          "description": "Role label normalized for fallback identity matching."
+        },
+        "source_code": {
+          "type": "string",
+          "description": "Provider role or occupation code when available."
+        }
+      },
+      "identity": {
+        "mode": "hint_priority",
+        "strategies": [
+          {
+            "hint": "external_id",
+            "prefix": "role",
+            "normalization": ["trim"],
+            "description": "Preferred when a provider emits a stable occupation code, such as WorkNet jobsCode."
+          },
+          {
+            "hint": "normalized_name",
+            "prefix": "role",
+            "normalization": ["trim", "lowercase", "collapse_whitespace"],
+            "description": "Fallback when only a role label is present."
+          }
+        ],
+        "fallback": "reject"
+      },
+      "mergePolicy": {
+        "mode": "upsert",
+        "conflictStrategy": "prefer_existing"
+      }
+    }
+  },
+  "relationTypes": {
+    "posted_by": {
+      "description": "Connects a job posting to the company that published or owns the recruitment.",
+      "fromEntityTypes": ["job_posting"],
+      "toEntityTypes": ["company"],
+      "cardinality": "many_to_many",
+      "evidencePolicy": "required"
+    },
+    "for_role": {
+      "description": "Connects a job posting to a target role or occupation.",
+      "fromEntityTypes": ["job_posting"],
+      "toEntityTypes": ["role"],
+      "cardinality": "many_to_many",
+      "evidencePolicy": "required"
+    }
+  },
+  "projectionHints": {
+    "defaultTitleAttribute": {
+      "job_posting": "title",
+      "company": "name",
+      "role": "display_name"
+    },
+    "searchableAttributes": {
+      "job_posting": ["title", "summary", "location_text", "requirements_text"],
+      "company": ["name", "summary", "main_business"],
+      "role": ["display_name"]
+    },
+    "summaryAttributes": {
+      "job_posting": ["summary", "selection_process_text"],
+      "company": ["summary", "description"],
+      "role": []
+    },
+    "temporalAttributes": {
+      "job_posting": {
+        "start": "opens_at",
+        "end": "closes_at"
+      }
+    },
+    "defaultFamilyByEntityType": {
+      "job_posting": "opportunity",
+      "company": "company",
+      "role": "role"
+    }
+  }
+}

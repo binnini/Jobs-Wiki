@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:domain-pack": "node --test tests/domain-packs/recruiting-pack.test.mjs",
     "test:worknet": "node tests/worknet/smoke.mjs",
     "test:worknet:mappers": "node --test packages/integrations/worknet/test/mappers.test.ts",
     "test:worknet:providers": "node --test packages/integrations/worknet/test/recruiting-provider.test.ts"

@@ -16,9 +16,11 @@ docs/
   third-party/
     worknet/    # 외부 문서 정리본과 원문 보관
 packages/
+  domain-packs/ # Jobs-Wiki가 소유하는 versioned domain pack artifacts
   integrations/
     worknet/    # 외부 WorkNet 연동 계약과 구현
 tests/
+  domain-packs/ # domain pack artifact 검증 테스트
   worknet/      # 실제 WorkNet 호출 스모크 테스트
 dev-wiki/       # 개발 중 작업 노트와 실험 기록, gitignored
 ```
