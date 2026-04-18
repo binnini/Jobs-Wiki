@@ -1,0 +1,12 @@
+{
+  "name": "jobs-wiki-ingestion",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/jobs/manual-run.js --source worknet --dry-run",
+    "start": "node src/jobs/manual-run.js",
+    "ingest:worknet": "node src/jobs/manual-run.js --source worknet --dry-run",
+    "ingest:worknet:apply": "node src/jobs/manual-run.js --source worknet --apply"
+  }
+}
