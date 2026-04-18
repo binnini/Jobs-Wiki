@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -35,14 +35,12 @@ import {
   Database,
 } from "lucide-react";
 import {
+  askWorkspace,
   getCalendar,
   getOpportunityDetail,
   getWorkspaceSummary,
   WasClientError,
 } from "./was-client";
-
-// Ask workspace remains mock-backed in this slice.
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const MOCK_PROFILE = {
   name: "김지훈",
@@ -149,71 +147,6 @@ const MOCK_OPPORTUNITIES = [
   },
 ];
 
-const MockAppService = {
-  async askWorkspace(query, activeJob, profile) {
-    await delay(1800);
-    const focusRequirement =
-      activeJob?.requirements?.[2] ??
-      activeJob?.requirements?.[0] ??
-      activeJob?.qualification?.requirementsText ??
-      "대규모 트래픽 처리 및 시스템 확장성 우대";
-
-    if (query.includes("이력서") || query.includes("수정")) {
-      return {
-        responseText:
-          "### 1. 직무 연관성이 높은 경험을 먼저 배치하세요\n현재 이력서에서는 인턴십 경험이 단순 성과 중심으로 보입니다. 이 공고 기준에서는 **병목 해결**, **성능 개선**, **트래픽 증가 대응 관점**이 더 앞에 보이는 편이 좋습니다.\n\n### 2. 정량 지표를 더 구체적으로 드러내세요\n응답 속도 개선, 쿼리 최적화, 장애 감소 같은 결과가 있다면 가능한 범위에서 수치와 맥락을 함께 보여주세요.\n\n### 3. 실무 확장 가능성을 한 줄로 보완하세요\n현재 경험이 대규모 분산 환경은 아니더라도, 같은 구조가 더 큰 트래픽에서 어떻게 확장될 수 있는지 설명하면 설득력이 올라갑니다.",
-        evidence: [
-          {
-            type: "profile",
-            title: "이력서 파싱 결과",
-            snippet: "인턴십 중 API 응답 속도 개선 및 쿼리 최적화 경험 확인",
-          },
-          {
-            type: "job",
-            title: activeJob
-              ? `${activeJob.company} 공고 요약`
-              : "추천 공고 요구사항",
-            snippet: focusRequirement,
-          },
-        ],
-      };
-    }
-
-    if (query.includes("메시지 큐") || query.includes("면접")) {
-      return {
-        responseText:
-          "### 1. 메시지 큐 도입 기준을 먼저 설명하세요\n동기 호출보다 비동기 처리가 더 적절한 상황, 시스템 결합도를 낮춰야 하는 상황, 처리량을 늘려야 하는 상황을 기준으로 설명하면 좋습니다.\n\n### 2. 유실과 중복 처리에 대한 관점이 중요합니다\nAck, 재처리, 멱등성, Dead Letter Queue 같은 키워드를 함께 언급하면 분산 시스템에 대한 이해가 더 명확하게 드러납니다.\n\n### 3. 장점과 트레이드오프를 같이 말하세요\n확장성과 처리량 증가는 장점이지만, 시스템 복잡도와 추적 난이도 증가는 단점이라는 균형감을 보여주는 것이 좋습니다.",
-        evidence: [
-          {
-            type: "market",
-            title: "최근 기술 면접 경향",
-            snippet: "비동기 아키텍처와 대규모 트래픽 대응 관점 검증 증가",
-          },
-          {
-            type: "job",
-            title: activeJob
-              ? `${activeJob.company} 공고 우대사항`
-              : "추천 공고 우대사항",
-            snippet: "Kafka, Redis 등 분산 처리 경험 우대",
-          },
-        ],
-      };
-    }
-
-    return {
-      responseText:
-        "### 1. 현재 상태 진단\n현재 프로필은 서버 개발의 기본기와 API 설계 역량이 분명한 편입니다. 다만 주요 추천 공고 다수가 요구하는 대규모 트래픽 및 분산 처리 경험은 보완 지점으로 남아 있습니다.\n\n### 2. 바로 적용 가능한 전략\n기존 경험을 단순 구현 경험이 아니라 **문제 정의 -> 병목 발견 -> 개선 -> 결과 측정**의 구조로 다시 정리해 보세요. 이 방식은 실무 연관성을 크게 높여줍니다.\n\n### 3. 다음 액션 제안\n특정 공고를 기준으로 이력서 문구를 재작성하거나, 부족한 역량만 따로 추려 단기 학습 계획으로 연결하는 것이 가장 효과적입니다.",
-      evidence: [
-        {
-          type: "profile",
-          title: "프로필 종합 분석",
-          snippet: `핵심 기술: ${profile.skills.join(", ")}`,
-        },
-      ],
-    };
-  },
-};
-
 const SYNC_VISIBILITY_META = {
   applied: {
     badgeLabel: "최신 반영",
@@ -292,6 +225,126 @@ function formatMonthDay(value) {
     month: "2-digit",
     day: "2-digit",
   }).format(date);
+}
+
+function formatKoreanDateTime(value) {
+  if (!value) {
+    return null;
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return null;
+  }
+
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function trimOptionalQueryParam(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed || null;
+}
+
+function readAppRoute(location = window.location) {
+  const normalizedPathname =
+    location.pathname.replace(/\/+$/, "") || "/";
+  const searchParams = new URLSearchParams(location.search);
+
+  if (normalizedPathname === "/" || normalizedPathname === "/onboarding") {
+    return { view: "onboarding", opportunityId: null };
+  }
+
+  if (normalizedPathname === "/review") {
+    return { view: "extraction", opportunityId: null };
+  }
+
+  if (normalizedPathname === "/report") {
+    return { view: "report", opportunityId: null };
+  }
+
+  if (normalizedPathname === "/ask") {
+    return {
+      view: "ask",
+      opportunityId: trimOptionalQueryParam(searchParams.get("opportunityId")),
+    };
+  }
+
+  if (normalizedPathname === "/calendar") {
+    return { view: "calendar", opportunityId: null };
+  }
+
+  const opportunityMatch = normalizedPathname.match(
+    /^\/opportunities\/([^/]+)$/,
+  );
+
+  if (opportunityMatch) {
+    return {
+      view: "detail",
+      opportunityId: decodeURIComponent(opportunityMatch[1]),
+    };
+  }
+
+  return { view: "onboarding", opportunityId: null };
+}
+
+function buildAppPath(view, opportunityId = null) {
+  switch (view) {
+    case "onboarding":
+      return "/onboarding";
+    case "extraction":
+      return "/review";
+    case "report":
+      return "/report";
+    case "detail":
+      return opportunityId
+        ? `/opportunities/${encodeURIComponent(opportunityId)}`
+        : "/report";
+    case "ask": {
+      const searchParams = new URLSearchParams();
+
+      if (opportunityId) {
+        searchParams.set("opportunityId", opportunityId);
+      }
+
+      const search = searchParams.toString();
+      return `/ask${search ? `?${search}` : ""}`;
+    }
+    case "calendar":
+      return "/calendar";
+    default:
+      return "/onboarding";
+  }
+}
+
+function writeAppRoute(route, { replace = false } = {}) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  if (route.view === "workspace") {
+    return;
+  }
+
+  const nextUrl = buildAppPath(route.view, route.opportunityId);
+  const currentUrl = `${window.location.pathname}${window.location.search}`;
+
+  if (currentUrl === nextUrl) {
+    return;
+  }
+
+  const method = replace ? "replaceState" : "pushState";
+  window.history[method]({}, "", nextUrl);
 }
 
 function formatEmploymentType(value) {
@@ -478,6 +531,34 @@ function mapCalendarItem(item) {
   };
 }
 
+function mapAskEvidenceItem(item) {
+  return {
+    evidenceId: item.evidenceId,
+    kind: item.kind ?? "fact",
+    label: item.label ?? "근거 자료",
+    excerpt: item.excerpt ?? item.label ?? "",
+    documentTitle: item.documentRef?.title ?? null,
+    provenance: item.provenance?.sourceVersion ?? null,
+  };
+}
+
+function mapAskResponse(response) {
+  return {
+    answerText: response.answer?.markdown ?? "",
+    answerId: response.answer?.answerId ?? null,
+    generatedAt: response.answer?.generatedAt ?? null,
+    sync: response.sync ?? null,
+    evidence: (response.evidence ?? []).map(mapAskEvidenceItem),
+    relatedOpportunities: (response.relatedOpportunities ?? []).map(
+      mapSummaryOpportunity,
+    ),
+  };
+}
+
+function createRouteOpportunityContext(opportunityId) {
+  return normalizeOpportunityContext({ opportunityId });
+}
+
 function buildHeroHeadline(summary) {
   const opportunityCount = summary.recommendedOpportunities.length;
   const strengtheningCount =
@@ -573,13 +654,6 @@ function StructuredResponse({ text }) {
       })}
     </div>
   );
-}
-
-function lastModelMessage(messages) {
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    if (messages[i].role === "model") return messages[i];
-  }
-  return null;
 }
 
 const OnboardingView = ({ onNext }) => {
@@ -1143,7 +1217,12 @@ const BaselineReportView = ({
                 </div>
                 <div className="flex flex-wrap gap-3">
                   <button
-                    onClick={() => onOpenAsk(null)}
+                    onClick={() =>
+                      onOpenAsk(null, {
+                        prefillQuestion:
+                          "현재 조건을 완화하면 어떤 방향의 공고를 우선 검토해야 할지 분석해 줘.",
+                      })
+                    }
                     className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm"
                   >
                     조건 완화 방향 분석하기
@@ -1396,7 +1475,11 @@ const BaselineReportView = ({
                 {summary.askFollowUps.map((followUp) => (
                   <button
                     key={followUp}
-                    onClick={() => onOpenAsk(null)}
+                    onClick={() =>
+                      onOpenAsk(null, {
+                        prefillQuestion: followUp,
+                      })
+                    }
                     className="flex w-full items-start rounded-sm border border-slate-200 bg-white p-4 text-left text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:border-indigo-600"
                   >
                     <MessageSquare
@@ -1778,7 +1861,12 @@ const OpportunityDetailView = ({
                 Ask Workspace로 이어서 진행합니다.
               </div>
               <button
-                onClick={() => onOpenAsk(detail)}
+                onClick={() =>
+                  onOpenAsk(detail, {
+                    prefillQuestion:
+                      "이 공고 기준으로 예상 면접 질문과 답변 전략을 정리해 줘.",
+                  })
+                }
                 className="flex w-full items-center justify-center rounded-sm bg-slate-900 py-3.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
               >
                 <Sparkles size={18} className="mr-2 text-indigo-300" />
@@ -1799,7 +1887,12 @@ const OpportunityDetailView = ({
   );
 };
 
-const ContextPanel = ({ job, profile }) => (
+const ContextPanel = ({
+  job,
+  profile,
+  isLoadingJob = false,
+  contextError = null,
+}) => (
   <Panel>
     <h3 className="mb-4 flex items-center border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
       <Target size={16} className="mr-2 text-slate-500" />
@@ -1818,17 +1911,40 @@ const ContextPanel = ({ job, profile }) => (
       <div>
         <Label className="mb-1">분석 대상 공고</Label>
         {job ? (
-          <div className="rounded-sm border border-indigo-100 bg-indigo-50 p-3 shadow-sm">
-            <div className="mb-1 text-xs font-bold text-indigo-900">
-              {job.company}
+          <div className="space-y-3 rounded-sm border border-indigo-100 bg-indigo-50 p-4 shadow-sm">
+            <div>
+              <div className="mb-1 text-xs font-bold text-indigo-900">
+                {job.company}
+              </div>
+              <div className="text-sm font-bold text-indigo-700">{job.title}</div>
             </div>
-            <div className="text-sm font-bold text-indigo-700">{job.title}</div>
+            {job.summary ? (
+              <p className="text-sm font-medium leading-relaxed text-indigo-950/80">
+                {job.summary}
+              </p>
+            ) : null}
+            {job.deadline || job.urgency ? (
+              <div className="flex flex-wrap gap-3 text-[11px] font-bold text-indigo-800/70">
+                {job.deadline ? <span>마감 {job.deadline}</span> : null}
+                {job.urgency ? <span>{job.urgency}</span> : null}
+              </div>
+            ) : null}
           </div>
         ) : (
           <div className="rounded-sm border border-slate-200 bg-slate-50 p-3 text-center text-sm font-bold text-slate-600">
             전체 프로필 기반 분석 (지정 공고 없음)
           </div>
         )}
+        {isLoadingJob ? (
+          <p className="mt-3 text-xs font-bold text-slate-500">
+            선택 공고의 컨텍스트를 보강하는 중입니다.
+          </p>
+        ) : null}
+        {contextError ? (
+          <div className="mt-3 rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 shadow-sm">
+            {contextError.message}
+          </div>
+        ) : null}
       </div>
       <div>
         <Label className="mb-1">핵심 역량</Label>
@@ -1847,6 +1963,33 @@ const ContextPanel = ({ job, profile }) => (
   </Panel>
 );
 
+function getEvidenceMeta(kind) {
+  if (kind === "personal") {
+    return {
+      Icon: FileText,
+      iconClassName: "text-indigo-600",
+      badgeClassName: "border-indigo-200 bg-indigo-50 text-indigo-700",
+      label: "개인 자료",
+    };
+  }
+
+  if (kind === "interpretation") {
+    return {
+      Icon: BarChart2,
+      iconClassName: "text-amber-600",
+      badgeClassName: "border-amber-200 bg-amber-50 text-amber-700",
+      label: "해석",
+    };
+  }
+
+  return {
+    Icon: Briefcase,
+    iconClassName: "text-emerald-600",
+    badgeClassName: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    label: "사실",
+  };
+}
+
 const EvidencePanel = ({ evidence }) => (
   <Panel className="flex flex-1 flex-col">
     <h3 className="mb-4 flex items-center border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
@@ -1855,43 +1998,66 @@ const EvidencePanel = ({ evidence }) => (
     </h3>
     <div className="custom-scrollbar max-h-[260px] flex-1 space-y-4 overflow-y-auto pr-2">
       {evidence && evidence.length > 0 ? (
-        evidence.map((ev, index) => (
-          <div
-            key={`${ev.title}-${index}`}
-            className="rounded-sm border border-slate-200 bg-slate-50 p-4 shadow-sm"
-          >
-            <div className="mb-2 flex items-center">
-              {ev.type === "profile" ? (
-                <FileText size={14} className="mr-2 text-indigo-600" />
-              ) : ev.type === "job" ? (
-                <Briefcase size={14} className="mr-2 text-emerald-600" />
-              ) : (
-                <BarChart2 size={14} className="mr-2 text-amber-600" />
-              )}
-              <span className="text-xs font-bold text-slate-800">
-                {ev.title}
-              </span>
+        evidence.map((ev, index) => {
+          const evidenceMeta = getEvidenceMeta(ev.kind);
+          const { Icon } = evidenceMeta;
+
+          return (
+            <div
+              key={ev.evidenceId ?? `${ev.label}-${index}`}
+              className="rounded-sm border border-slate-200 bg-slate-50 p-4 shadow-sm"
+            >
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="flex items-center">
+                  <Icon
+                    size={14}
+                    className={`mr-2 ${evidenceMeta.iconClassName}`}
+                  />
+                  <span className="text-xs font-bold text-slate-800">
+                    {ev.label}
+                  </span>
+                </div>
+                <span
+                  className={`rounded-sm border px-2 py-0.5 text-[11px] font-bold ${evidenceMeta.badgeClassName}`}
+                >
+                  {evidenceMeta.label}
+                </span>
+              </div>
+              <p className="text-sm font-medium leading-relaxed text-slate-700">
+                {ev.excerpt || "직접 연결된 발췌문은 아직 없습니다."}
+              </p>
+              {ev.documentTitle || ev.provenance ? (
+                <div className="mt-3 flex flex-wrap gap-2 text-[11px] font-bold text-slate-500">
+                  {ev.documentTitle ? <span>문서: {ev.documentTitle}</span> : null}
+                  {ev.provenance ? <span>출처 버전: {ev.provenance}</span> : null}
+                </div>
+              ) : null}
             </div>
-            <p className="text-sm font-medium leading-relaxed text-slate-700">
-              "{ev.snippet}"
-            </p>
-          </div>
-        ))
+          );
+        })
       ) : (
         <div className="p-4 text-center text-sm font-medium text-slate-500">
-          현재 답변에 명시적으로 연결된 문서 근거가 없습니다.
+          현재 답변에 직접 연결된 근거가 없습니다.
         </div>
       )}
     </div>
   </Panel>
 );
 
-const RelatedOpportunitiesPanel = ({ currentJob, allJobs, onOpenJob, onSwitch }) => {
-  const relatedJobs = allJobs
-    .filter((job) => !currentJob || job.id !== currentJob.id)
-    .slice(0, 2);
+const RelatedOpportunitiesPanel = ({
+  currentJob,
+  relatedJobs,
+  onOpenJob,
+  onSwitch,
+  isSwitching = false,
+}) => {
+  const visibleJobs = (relatedJobs ?? []).filter(
+    (job) => job.opportunityId !== currentJob?.opportunityId,
+  );
 
-  if (relatedJobs.length === 0) return null;
+  if (visibleJobs.length === 0) {
+    return null;
+  }
 
   return (
     <Panel>
@@ -1900,24 +2066,24 @@ const RelatedOpportunitiesPanel = ({ currentJob, allJobs, onOpenJob, onSwitch })
         연관 추천 공고 비교
       </h3>
       <div className="space-y-4">
-        {relatedJobs.map((job) => (
+        {visibleJobs.map((job) => (
           <div
-            key={job.id}
+            key={job.opportunityId}
             className="rounded-sm border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-slate-400"
           >
-            <div className="mb-2 flex items-start justify-between">
+            <div className="mb-2 flex items-start justify-between gap-3">
               <span className="text-xs font-bold text-slate-900">
                 {job.company}
               </span>
               <span className="text-xs font-bold text-slate-500">
-                적합도 {job.matchScore}
+                {job.matchScore ? `적합도 ${job.matchScore}` : job.urgency ?? "비교 가능"}
               </span>
             </div>
             <h4 className="mb-3 text-sm font-bold text-slate-800">
               {job.title}
             </h4>
             <p className="mb-4 text-xs font-medium leading-relaxed text-slate-600">
-              {job.matchReason}
+              {job.matchReason ?? job.summary ?? "연관 공고 설명이 아직 준비되지 않았습니다."}
             </p>
             <div className="grid grid-cols-2 gap-2">
               <button
@@ -1928,7 +2094,8 @@ const RelatedOpportunitiesPanel = ({ currentJob, allJobs, onOpenJob, onSwitch })
               </button>
               <button
                 onClick={() => onSwitch(job)}
-                className="rounded-sm border border-indigo-200 bg-indigo-50 py-2 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100"
+                disabled={isSwitching}
+                className="rounded-sm border border-indigo-200 bg-indigo-50 py-2 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 이 공고로 다시 분석
               </button>
@@ -1993,76 +2160,193 @@ const FollowUpPanel = ({ hasJob, onSelect }) => (
   </Panel>
 );
 
-function seedAskMessages(activeJob) {
-  const welcomeText = activeJob
-    ? `**${activeJob.company}**의 **${activeJob.title}** 공고를 기준으로 심층 분석을 시작합니다. 이력서 최적화, 면접 준비, 역량 갭 분석처럼 필요한 방향을 요청해 주세요.`
-    : "현재 전체 프로필을 기준으로 심층 분석 워크스페이스가 활성화되었습니다. 특정 공고를 선택하거나 전반적인 지원 전략에 대해 질문할 수 있습니다.";
+function buildAskWelcomeText(activeJob) {
+  if (activeJob) {
+    return `**${activeJob.company}**의 **${activeJob.title}** 공고를 기준으로 심층 분석을 시작할 준비가 되었습니다. 질문을 보내면 실제 WAS 응답을 기준으로 답변, 근거, 연관 공고를 함께 보여줍니다.`;
+  }
 
-  return [
-    {
-      role: "model",
-      text: welcomeText,
-      evidence: activeJob
-        ? [
-            {
-              type: "job",
-              title: `${activeJob.company} 공고 요약`,
-              snippet: activeJob.summary,
-            },
-            {
-              type: "profile",
-              title: "기준 프로필",
-              snippet: MOCK_PROFILE.skills.join(", "),
-            },
-          ]
-        : [],
-    },
-  ];
+  return "현재 전체 프로필을 기준으로 심층 분석 워크스페이스가 활성화되었습니다. 특정 공고 없이도 지원 전략, 역량 보완, 우선순위 질문을 바로 보낼 수 있습니다.";
 }
 
-const AskWorkspaceView = ({ activeJob, onContextChange, onOpenJob }) => {
-  const [messages, setMessages] = useState(() => seedAskMessages(activeJob));
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+const AskWorkspaceView = ({
+  activeJob,
+  initialPrompt = "",
+  onContextChange,
+  onOpenJob,
+}) => {
+  const [contextJob, setContextJob] = useState(() =>
+    activeJob ? normalizeOpportunityContext(activeJob) : null,
+  );
+  const [contextError, setContextError] = useState(null);
+  const [isLoadingContext, setIsLoadingContext] = useState(false);
+  const [input, setInput] = useState(() => initialPrompt ?? "");
+  const [submittedQuestion, setSubmittedQuestion] = useState(null);
+  const [askResult, setAskResult] = useState(null);
+  const [initialError, setInitialError] = useState(null);
+  const [submitError, setSubmitError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSwitchingContext, setIsSwitchingContext] = useState(false);
   const scrollRef = useRef(null);
+  const requestIdRef = useRef(0);
+  const contextRequestIdRef = useRef(0);
 
   useEffect(() => {
-    setMessages(seedAskMessages(activeJob));
+    setContextJob(activeJob ? normalizeOpportunityContext(activeJob) : null);
+    setContextError(null);
+  }, [activeJob]);
+
+  useEffect(() => {
+    const opportunityId = activeJob?.opportunityId ?? null;
+    const shouldHydrate =
+      Boolean(opportunityId) &&
+      (!activeJob?.company || !activeJob?.summary);
+
+    if (!shouldHydrate) {
+      setIsLoadingContext(false);
+      return undefined;
+    }
+
+    const requestId = contextRequestIdRef.current + 1;
+    contextRequestIdRef.current = requestId;
+    setIsLoadingContext(true);
+
+    getOpportunityDetail(opportunityId)
+      .then((response) => {
+        if (requestId !== contextRequestIdRef.current) {
+          return;
+        }
+
+        setContextJob(mapDetailOpportunity(response));
+        setContextError(null);
+      })
+      .catch((requestError) => {
+        if (requestId !== contextRequestIdRef.current) {
+          return;
+        }
+
+        const normalizedError =
+          requestError instanceof WasClientError
+            ? requestError
+            : new WasClientError({
+                message: "선택한 공고 컨텍스트를 보강하지 못했습니다.",
+              });
+
+        setContextError(normalizedError);
+      })
+      .finally(() => {
+        if (requestId === contextRequestIdRef.current) {
+          setIsLoadingContext(false);
+        }
+      });
+
+    return () => {
+      contextRequestIdRef.current += 1;
+    };
   }, [activeJob]);
 
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [messages, isLoading]);
+  }, [askResult, initialError, isSubmitting]);
 
-  const currentEvidence = useMemo(() => {
-    const message = lastModelMessage(messages);
-    return message?.evidence || [];
-  }, [messages]);
+  const submitQuestion = async (
+    rawQuestion,
+    { contextOverride = contextJob, switchingContext = false } = {},
+  ) => {
+    const normalizedQuestion = rawQuestion.trim();
 
-  const handleSend = async (overrideText = null) => {
-    const queryToUse = (overrideText || input).trim();
-    if (!queryToUse || isLoading) return;
+    if (!normalizedQuestion || isSubmitting) {
+      return;
+    }
 
-    setMessages((prev) => [...prev, { role: "user", text: queryToUse }]);
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+    const hadVisibleResult = Boolean(askResult);
+
+    setSubmittedQuestion(normalizedQuestion);
     setInput("");
-    setIsLoading(true);
+    setInitialError(null);
+    setSubmitError(null);
+    setIsSubmitting(true);
+    setIsSwitchingContext(switchingContext);
 
     try {
-      const { responseText, evidence } = await MockAppService.askWorkspace(
-        queryToUse,
-        activeJob,
-        MOCK_PROFILE,
-      );
+      const response = await askWorkspace({
+        question: normalizedQuestion,
+        opportunityId: contextOverride?.opportunityId,
+      });
 
-      setMessages((prev) => [
-        ...prev,
-        { role: "model", text: responseText, evidence },
-      ]);
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      setAskResult(mapAskResponse(response));
+      setInitialError(null);
+      setSubmitError(null);
+    } catch (requestError) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      const normalizedError =
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "Ask 응답을 불러오지 못했습니다.",
+            });
+
+      if (hadVisibleResult) {
+        setSubmitError(normalizedError);
+      } else {
+        setInitialError(normalizedError);
+      }
     } finally {
-      setIsLoading(false);
+      if (requestId === requestIdRef.current) {
+        setIsSubmitting(false);
+        setIsSwitchingContext(false);
+      }
     }
+  };
+
+  const handleSend = (overrideText = null) => {
+    const nextQuestion = (overrideText ?? input).trim();
+    submitQuestion(nextQuestion);
+  };
+
+  const handleRetry = () => {
+    if (!submittedQuestion) {
+      return;
+    }
+
+    submitQuestion(submittedQuestion, {
+      contextOverride: contextJob,
+      switchingContext: false,
+    });
+  };
+
+  const handleSwitchContext = (job) => {
+    const nextContext = normalizeOpportunityContext(job);
+
+    if (!nextContext) {
+      return;
+    }
+
+    setContextJob(nextContext);
+    setContextError(null);
+    onContextChange(nextContext);
+
+    if (submittedQuestion) {
+      submitQuestion(submittedQuestion, {
+        contextOverride: nextContext,
+        switchingContext: true,
+      });
+      return;
+    }
+
+    setAskResult(null);
+    setInitialError(null);
+    setSubmitError(null);
   };
 
   const handleKeyDown = (event) => {
@@ -2071,6 +2355,11 @@ const AskWorkspaceView = ({ activeJob, onContextChange, onOpenJob }) => {
       handleSend();
     }
   };
+
+  const currentEvidence = askResult?.evidence ?? [];
+  const relatedJobs = askResult?.relatedOpportunities ?? [];
+  const currentSync = askResult?.sync ?? null;
+  const generatedAt = formatKoreanDateTime(askResult?.generatedAt);
 
   return (
     <div className="mx-auto flex h-[calc(100vh-6rem)] w-full max-w-[1400px] flex-col gap-8 animate-in fade-in lg:flex-row">
@@ -2081,44 +2370,62 @@ const AskWorkspaceView = ({ activeJob, onContextChange, onOpenJob }) => {
               메인 분석 패널
             </h2>
             <p className="mt-1 text-sm font-medium text-slate-600">
-              제시된 컨텍스트를 바탕으로 심층 분석 리포트를 생성합니다.
+              실제 WAS Ask projection을 기준으로 답변, 근거, 연관 공고를 함께 읽습니다.
             </p>
           </div>
+          {generatedAt ? (
+            <div className="text-right text-xs font-bold text-slate-500">
+              마지막 응답
+              <div className="mt-1 text-sm text-slate-700">{generatedAt}</div>
+            </div>
+          ) : null}
         </div>
 
         <div
           className="custom-scrollbar h-[calc(100%-150px)] overflow-y-auto bg-white p-10"
           ref={scrollRef}
         >
-          <div className="mx-auto max-w-3xl space-y-12">
-            {messages.map((msg, index) => (
-              <div
-                key={`${msg.role}-${index}`}
-                className={
-                  msg.role === "user"
-                    ? "border-b border-slate-100 pb-10"
-                    : "pb-6"
-                }
-              >
-                {msg.role === "user" ? (
-                  <div>
-                    <Label className="mb-3 text-indigo-600">
-                      분석 요청 사항
-                    </Label>
-                    <div className="whitespace-pre-wrap text-xl font-bold leading-relaxed text-slate-900">
-                      {msg.text}
-                    </div>
-                  </div>
-                ) : (
-                  <div>
-                    <Label className="mb-4 text-slate-500">분석 결과 종합</Label>
-                    <StructuredResponse text={msg.text} />
-                  </div>
-                )}
-              </div>
-            ))}
+          <div className="mx-auto max-w-3xl space-y-8">
+            <SyncNotice sync={currentSync} refreshError={submitError} />
 
-            {isLoading && (
+            {isSwitchingContext ? (
+              <InlineNotice
+                title="새 공고 컨텍스트로 같은 질문을 다시 분석하는 중입니다"
+                message="현재 화면은 유지하고, 새 공고 기준의 답변이 준비되면 갱신합니다."
+                className="border-sky-200 bg-sky-50 text-sky-900"
+              />
+            ) : null}
+
+            {submittedQuestion ? (
+              <div className="border-b border-slate-100 pb-8">
+                <Label className="mb-3 text-indigo-600">분석 요청 사항</Label>
+                <div className="whitespace-pre-wrap text-xl font-bold leading-relaxed text-slate-900">
+                  {submittedQuestion}
+                </div>
+              </div>
+            ) : (
+              <Panel className="border-dashed bg-slate-50">
+                <Label className="mb-3 text-indigo-600">Welcome</Label>
+                <StructuredResponse text={buildAskWelcomeText(contextJob)} />
+              </Panel>
+            )}
+
+            {askResult ? (
+              <div className="pb-6">
+                <Label className="mb-4 text-slate-500">분석 결과 종합</Label>
+                <StructuredResponse text={askResult.answerText} />
+              </div>
+            ) : null}
+
+            {initialError && !askResult ? (
+              <RetryPanel
+                title="Ask 응답을 불러오지 못했습니다"
+                message={initialError.message}
+                onRetry={handleRetry}
+              />
+            ) : null}
+
+            {isSubmitting ? (
               <div className="border-t border-slate-100 pt-4">
                 <Label className="mb-4 flex items-center text-indigo-600">
                   <Loader2 size={16} className="mr-2 animate-spin" />
@@ -2130,7 +2437,7 @@ const AskWorkspaceView = ({ activeJob, onContextChange, onOpenJob }) => {
                   <div className="h-3 w-4/6 animate-pulse rounded bg-slate-100" />
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -2148,7 +2455,7 @@ const AskWorkspaceView = ({ activeJob, onContextChange, onOpenJob }) => {
             />
             <button
               onClick={() => handleSend()}
-              disabled={isLoading || !input.trim()}
+              disabled={isSubmitting || !input.trim()}
               className="absolute right-2 rounded-sm bg-slate-900 p-2 text-white transition-colors hover:bg-slate-800 disabled:opacity-30"
             >
               <MoveRight size={20} />
@@ -2158,15 +2465,21 @@ const AskWorkspaceView = ({ activeJob, onContextChange, onOpenJob }) => {
       </div>
 
       <div className="custom-scrollbar flex w-[420px] flex-shrink-0 flex-col gap-6 overflow-y-auto pr-2 pb-8">
-        <ContextPanel job={activeJob} profile={MOCK_PROFILE} />
+        <ContextPanel
+          job={contextJob}
+          profile={MOCK_PROFILE}
+          isLoadingJob={isLoadingContext}
+          contextError={contextError}
+        />
         <EvidencePanel evidence={currentEvidence} />
         <RelatedOpportunitiesPanel
-          currentJob={activeJob}
-          allJobs={MOCK_OPPORTUNITIES}
-          onOpenJob={(job) => onOpenJob(job)}
-          onSwitch={(job) => onContextChange(job)}
+          currentJob={contextJob}
+          relatedJobs={relatedJobs}
+          onOpenJob={onOpenJob}
+          onSwitch={handleSwitchContext}
+          isSwitching={isSwitchingContext}
         />
-        <FollowUpPanel hasJob={!!activeJob} onSelect={handleSend} />
+        <FollowUpPanel hasJob={!!contextJob} onSelect={handleSend} />
       </div>
     </div>
   );
@@ -2193,7 +2506,7 @@ const CalendarLoadingView = () => (
   </div>
 );
 
-const CalendarView = ({ onOpenJob, onOpenReport }) => {
+const CalendarView = ({ onOpenJob, onOpenReport, onOpenAsk }) => {
   const [viewMode, setViewMode] = useState("list");
   const [calendarResponse, setCalendarResponse] = useState(null);
   const [error, setError] = useState(null);
@@ -2307,6 +2620,13 @@ const CalendarView = ({ onOpenJob, onOpenReport }) => {
       date.getMonth() === currentMonth.getMonth()
     );
   });
+  const buildCalendarOpportunityContext = (item) => ({
+    opportunityId: item.opportunityId,
+    title: item.title,
+    company: item.company,
+    deadline: formatKoreanDate(item.startsAt),
+    urgency: item.urgencyLabel,
+  });
 
   return (
     <div className="mx-auto max-w-5xl space-y-12 animate-in fade-in">
@@ -2402,21 +2722,25 @@ const CalendarView = ({ onOpenJob, onOpenReport }) => {
                       {item.title}
                     </p>
                   </div>
-                  <div>
+                  <div className="flex flex-wrap gap-3">
                     <button
-                      onClick={() =>
-                        onOpenJob({
-                          opportunityId: item.opportunityId,
-                          title: item.title,
-                          company: item.company,
-                          deadline: formatKoreanDate(item.startsAt),
-                          urgency: item.urgencyLabel,
-                        })
-                      }
+                      onClick={() => onOpenJob(buildCalendarOpportunityContext(item))}
                       disabled={!item.deepLinkEnabled}
                       className="rounded-sm border border-slate-300 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition-colors hover:border-slate-900 hover:text-slate-900 disabled:cursor-not-allowed disabled:opacity-40"
                     >
                       상세 보기
+                    </button>
+                    <button
+                      onClick={() =>
+                        onOpenAsk(buildCalendarOpportunityContext(item), {
+                          prefillQuestion:
+                            "이 공고의 마감 시점과 적합도를 같이 고려해서 지금 준비해야 할 우선순위를 정리해 줘.",
+                        })
+                      }
+                      disabled={!item.deepLinkEnabled}
+                      className="rounded-sm border border-indigo-200 bg-indigo-50 px-6 py-3 text-sm font-bold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Ask에서 분석
                     </button>
                   </div>
                 </div>
@@ -2701,7 +3025,12 @@ const WorkspaceView = ({ onOpenAsk, onOpenJob }) => (
                 </div>
                 <div className="mt-4 flex gap-3">
                   <button
-                    onClick={() => onOpenAsk(MOCK_OPPORTUNITIES[0])}
+                    onClick={() =>
+                      onOpenAsk(MOCK_OPPORTUNITIES[0], {
+                        prefillQuestion:
+                          "이 공고 기준으로 이력서 문장을 어떤 순서로 재구성하면 더 설득력이 높아질지 분석해줘.",
+                      })
+                    }
                     className="rounded-sm border border-slate-300 bg-slate-50 px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-white hover:text-slate-900"
                   >
                     심층 분석 워크스페이스에서 열기
@@ -2723,19 +3052,83 @@ const WorkspaceView = ({ onOpenAsk, onOpenJob }) => (
 );
 
 export default function JobsWikiPrototype() {
-  const [currentView, setCurrentView] = useState("onboarding");
-  const [activeOpportunityContext, setActiveOpportunityContext] = useState(null);
+  const [currentRoute, setCurrentRoute] = useState(() =>
+    typeof window === "undefined"
+      ? { view: "onboarding", opportunityId: null }
+      : readAppRoute(window.location),
+  );
+  const [activeOpportunityContext, setActiveOpportunityContext] = useState(() =>
+    typeof window === "undefined" || !readAppRoute(window.location).opportunityId
+      ? null
+      : createRouteOpportunityContext(readAppRoute(window.location).opportunityId),
+  );
+  const [askComposerSeed, setAskComposerSeed] = useState("");
+  const currentView = currentRoute.view;
 
-  const navigateTo = (view, context = undefined) => {
-    if (context !== undefined) {
-      setActiveOpportunityContext(normalizeOpportunityContext(context));
+  useEffect(() => {
+    const handlePopState = () => {
+      const nextRoute = readAppRoute(window.location);
+      setCurrentRoute(nextRoute);
+      setAskComposerSeed("");
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (currentView === "ask") {
+      if (!currentRoute.opportunityId) {
+        setActiveOpportunityContext(null);
+        return;
+      }
+
+      setActiveOpportunityContext((current) =>
+        current?.opportunityId === currentRoute.opportunityId
+          ? current
+          : createRouteOpportunityContext(currentRoute.opportunityId),
+      );
+      return;
     }
 
-    setCurrentView(view);
+    if (currentView === "detail" && currentRoute.opportunityId) {
+      setActiveOpportunityContext((current) =>
+        current?.opportunityId === currentRoute.opportunityId
+          ? current
+          : createRouteOpportunityContext(currentRoute.opportunityId),
+      );
+    }
+  }, [currentRoute.opportunityId, currentView]);
+
+  const navigateTo = (view, context = undefined, options = {}) => {
+    const normalizedContext =
+      context === undefined ? undefined : normalizeOpportunityContext(context);
+    const nextRoute = {
+      view,
+      opportunityId:
+        view === "ask" || view === "detail"
+          ? normalizedContext?.opportunityId ?? null
+          : null,
+    };
+
+    if (context !== undefined) {
+      if (view === "ask" && !normalizedContext) {
+        setActiveOpportunityContext(null);
+      } else if (normalizedContext) {
+        setActiveOpportunityContext(normalizedContext);
+      }
+    }
+
+    setAskComposerSeed(view === "ask" ? options.prefillQuestion ?? "" : "");
+    setCurrentRoute(nextRoute);
+    writeAppRoute(nextRoute, { replace: options.replace ?? false });
   };
 
   const openJobDetail = (job) => navigateTo("detail", job);
-  const openAsk = (job = null) => navigateTo("ask", job);
+  const openAsk = (job = null, options = {}) =>
+    navigateTo("ask", job, options);
 
   const renderMainContent = () => {
     switch (currentView) {
@@ -2760,9 +3153,8 @@ export default function JobsWikiPrototype() {
         return (
           <AskWorkspaceView
             activeJob={activeOpportunityContext}
-            onContextChange={(job) =>
-              setActiveOpportunityContext(normalizeOpportunityContext(job))
-            }
+            initialPrompt={askComposerSeed}
+            onContextChange={(job) => navigateTo("ask", job)}
             onOpenJob={openJobDetail}
           />
         );
@@ -2771,6 +3163,7 @@ export default function JobsWikiPrototype() {
           <CalendarView
             onOpenJob={openJobDetail}
             onOpenReport={() => navigateTo("report")}
+            onOpenAsk={openAsk}
           />
         );
       case "workspace":
@@ -2803,10 +3196,10 @@ export default function JobsWikiPrototype() {
         </header>
         <main className="flex min-h-[calc(100vh-81px)] items-center justify-center p-8 md:p-16">
           {currentView === "onboarding" && (
-            <OnboardingView onNext={() => setCurrentView("extraction")} />
+            <OnboardingView onNext={() => navigateTo("extraction")} />
           )}
           {currentView === "extraction" && (
-            <ExtractionReviewView onNext={() => setCurrentView("report")} />
+            <ExtractionReviewView onNext={() => navigateTo("report")} />
           )}
         </main>
       </div>

@@ -69,6 +69,17 @@ export function getWorkspaceSummary() {
   return request("/api/workspace/summary")
 }
 
+export function askWorkspace({ question, opportunityId, save } = {}) {
+  return request("/api/workspace/ask", {
+    method: "POST",
+    body: {
+      question,
+      ...(opportunityId ? { opportunityId } : {}),
+      ...(save !== undefined ? { save } : {}),
+    },
+  })
+}
+
 export function getOpportunityDetail(opportunityId) {
   return request(`/api/opportunities/${encodeURIComponent(opportunityId)}`)
 }
