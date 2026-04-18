@@ -168,6 +168,7 @@ export function loadEnv(overrides = {}) {
     logLevel: rawEnv.INGEST_LOG_LEVEL ?? "info",
     defaultSource: rawEnv.INGEST_SOURCE ?? "worknet",
     defaultDryRun: parseBoolean(rawEnv.INGEST_DRY_RUN, true),
+    ingestRunSummaryDir: rawEnv.INGEST_RUN_SUMMARY_DIR ?? null,
     worknetSourceId: rawEnv.WORKNET_SOURCE_ID ?? "worknet.recruiting",
     worknetFetchPage: parseInteger(rawEnv.WORKNET_FETCH_PAGE, 1),
     worknetFetchSize: parseInteger(rawEnv.WORKNET_FETCH_SIZE, 5),

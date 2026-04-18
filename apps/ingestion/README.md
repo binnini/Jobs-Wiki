@@ -66,6 +66,7 @@ npm start -- --source worknet --dry-run
 - `INGEST_SERVICE_NAME`
 - `INGEST_LOG_LEVEL`
 - `INGEST_DRY_RUN=true|false`
+- `INGEST_RUN_SUMMARY_DIR`
 - `INGEST_SOURCE=worknet`
 - `WORKNET_SOURCE_ID`
 - `WORKNET_FETCH_PAGE`
@@ -115,6 +116,9 @@ npm start -- --source worknet --dry-run
   StrataWiki `validate_domain_proposal_batch`까지만 호출합니다.
 - `--apply`는 validation 성공 후
   `ingest_domain_proposal_batch`까지 호출합니다.
+- 각 실행 결과는 JSON summary 파일로 저장됩니다.
+- `INGEST_RUN_SUMMARY_DIR`가 없으면 시스템 temp 아래
+  `jobs-wiki-ingestion-runs/`를 기본 저장 위치로 사용합니다.
 - Jobs-Wiki는 StrataWiki DB에 직접 접근하지 않습니다.
 - Jobs-Wiki는 `/Users/yebin/workSpace/stratawiki` 개발 checkout을 직접 호출하지 않습니다.
 - Jobs-Wiki는 `STRATAWIKI_CLI_WRAPPER`만 통해 StrataWiki를 실행합니다.
