@@ -1,0 +1,74 @@
+{
+  "payloadVersion": "recruiting-source-payload/v1",
+  "source": {
+    "provider": "worknet",
+    "kind": "open_recruitment",
+    "sourceId": "EMP-1",
+    "companySourceId": "COMP-1",
+    "sourceUrl": "https://example.com/jobs/EMP-1",
+    "mobileSourceUrl": "https://m.example.com/jobs/EMP-1",
+    "fetchedAt": "2026-04-15T00:00:00.000Z",
+    "contentHash": "hash-emp-1"
+  },
+  "posting": {
+    "title": "백엔드 개발자",
+    "companyName": "잡스위키",
+    "companyType": "중견기업",
+    "employmentType": "정규직",
+    "startsAt": "2026-04-01",
+    "closesAt": "2026-04-30",
+    "summary": "플랫폼 API 개발",
+    "applicationMethod": "홈페이지 접수",
+    "requiredDocuments": "이력서, 포트폴리오",
+    "acceptanceAnnouncement": "개별 안내",
+    "inquiry": "recruit@example.com",
+    "notes": "원격 근무 가능"
+  },
+  "company": {
+    "sourceCompanyId": "COMP-1",
+    "name": "잡스위키",
+    "companyType": "중견기업",
+    "homepageUrl": "https://jobswiki.example.com",
+    "businessNumber": "123-45-67890",
+    "summary": "채용 정보 플랫폼",
+    "description": "개발자 중심의 채용 데이터 서비스를 운영합니다.",
+    "mainBusiness": "채용 데이터 플랫폼",
+    "logoUrl": "https://example.com/logo.png",
+    "coordinates": {
+      "latitude": "37.0",
+      "longitude": "127.0"
+    }
+  },
+  "jobs": [
+    {
+      "sourceCode": "DEV-001",
+      "name": "백엔드 개발"
+    }
+  ],
+  "recruitmentSections": [
+    {
+      "title": "플랫폼팀",
+      "roleDescription": "API 설계 및 개발",
+      "selectionDescription": "코딩 테스트",
+      "location": "서울",
+      "careerRequirement": "3년 이상",
+      "educationRequirement": "대졸",
+      "otherRequirement": "Node.js 경험",
+      "openings": "2",
+      "note": "우대사항 있음"
+    }
+  ],
+  "selectionSteps": [
+    {
+      "name": "서류전형",
+      "schedule": "4월 2주",
+      "description": "서류 검토",
+      "note": "합격자 개별 통보"
+    }
+  ],
+  "attachments": [
+    {
+      "fileName": "guide.pdf"
+    }
+  ]
+}

@@ -250,6 +250,29 @@ Default family hint:
 즉 mapper의 역할은 source payload를 domain-aware proposal로 바꾸는 것이지,
 section/local text를 억지로 새로운 entity로 승격하는 것이 아닙니다.
 
+### WorkNet v1 mapper retention policy
+
+현재 `open_recruitment` mapper는 아래처럼 pack 허용 범위 안에서만 attribute를 만듭니다.
+
+| WorkNet normalized field | v1 proposal handling |
+| --- | --- |
+| `posting.title` | `job_posting.title` |
+| `posting.summary`, `recruitmentSections[].roleDescription` | `job_posting.summary`로 보존 |
+| `posting.employmentType` | `job_posting.employment_type` |
+| `posting.startsAt`, `posting.closesAt` | `job_posting.opens_at`, `job_posting.closes_at` |
+| `source.sourceUrl`, `source.mobileSourceUrl` | `job_posting.source_url`, `job_posting.mobile_source_url` |
+| `recruitmentSections[].location` | `job_posting.location_text`로만 보존 |
+| `recruitmentSections[].careerRequirement`, `educationRequirement`, `otherRequirement` | `job_posting.requirements_text`로만 보존 |
+| `recruitmentSections[].selectionDescription`, `selectionSteps[]`, `posting.acceptanceAnnouncement` | `job_posting.selection_process_text`로만 보존 |
+| `company.*` | `company` Fact 후보 + `posted_by` relation |
+| `jobs[]` | `role` Fact 후보 + `for_role` relation |
+
+애매한 필드 정책:
+
+- `posting.notes`는 현재 normalized payload에서 `etcContent`와 `commonRequirementContent`가 섞여 들어올 수 있으므로 v1에서 자동 승격하지 않습니다.
+- `posting.applicationMethod`, `posting.requiredDocuments`, `posting.inquiry`, `company.logoUrl`, `company.coordinates`, `recruitmentSections[].openings`, `recruitmentSections[].note`, `attachments[]`는 pack에 대응 attribute가 없어서 v1 proposal에서 제외합니다.
+- 즉 v1 mapper는 "보존 가능한 것만 명시적으로 보존"하고, 의미가 불안정한 필드는 proposal layer에 새 이름으로 끌어올리지 않습니다.
+
 ## Open Questions
 
 - `location`을 first-class entity로 승격할 최소 canonical geography contract는 무엇인가
