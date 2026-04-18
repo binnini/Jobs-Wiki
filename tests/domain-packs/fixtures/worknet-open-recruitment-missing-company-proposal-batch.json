@@ -1,0 +1,84 @@
+{
+  "domain": "recruiting",
+  "packVersion": "2026-04-18",
+  "producer": "jobs-wiki.worknet.open_recruitment.mapper/v1",
+  "facts": [
+    {
+      "proposalId": "job_posting:worknet:EMP-MISSING-COMPANY",
+      "domain": "recruiting",
+      "entityType": "job_posting",
+      "attributes": {
+        "title": "데이터 엔지니어",
+        "summary": "데이터 파이프라인 운영\n\n데이터플랫폼팀: ETL 파이프라인 운영",
+        "employment_type": "계약직",
+        "opens_at": "2026-05-01",
+        "closes_at": "2026-05-15",
+        "source_url": "https://example.com/jobs/EMP-MISSING-COMPANY",
+        "mobile_source_url": "https://m.example.com/jobs/EMP-MISSING-COMPANY",
+        "location_text": "데이터플랫폼팀: 부산",
+        "requirements_text": "데이터플랫폼팀 기타 요건: Python 경험"
+      },
+      "identityHints": {
+        "source_id": "EMP-MISSING-COMPANY"
+      },
+      "evidence": [
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-MISSING-COMPANY",
+          "pointer": "posting"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-MISSING-COMPANY",
+          "pointer": "recruitmentSections[0]"
+        }
+      ]
+    },
+    {
+      "proposalId": "role:worknet:DATA-001",
+      "domain": "recruiting",
+      "entityType": "role",
+      "attributes": {
+        "display_name": "데이터 엔지니어",
+        "normalized_name": "데이터 엔지니어",
+        "source_code": "DATA-001"
+      },
+      "identityHints": {
+        "external_id": "DATA-001",
+        "normalized_name": "데이터 엔지니어"
+      },
+      "evidence": [
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-MISSING-COMPANY",
+          "pointer": "jobs[0]"
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "proposalId": "relation:for_role:job_posting:worknet:EMP-MISSING-COMPANY:role:worknet:DATA-001",
+      "domain": "recruiting",
+      "relationType": "for_role",
+      "fromRef": {
+        "proposalId": "job_posting:worknet:EMP-MISSING-COMPANY"
+      },
+      "toRef": {
+        "proposalId": "role:worknet:DATA-001"
+      },
+      "evidence": [
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-MISSING-COMPANY",
+          "pointer": "posting"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-MISSING-COMPANY",
+          "pointer": "jobs[0]"
+        }
+      ]
+    }
+  ]
+}

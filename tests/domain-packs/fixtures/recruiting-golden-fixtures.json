@@ -1,0 +1,55 @@
+{
+  "schemaVersion": "recruiting-governance-fixtures/v1",
+  "domain": "recruiting",
+  "packVersion": "2026-04-18",
+  "fixtures": [
+    {
+      "id": "worknet_open_recruitment_normal",
+      "kind": "mapped_source",
+      "sourceProfile": "worknet.open_recruitment",
+      "description": "Nominal WorkNet payload with company, role, and both relations present.",
+      "sourcePayloadFile": "worknet-open-recruitment-source.json",
+      "proposalBatchFile": "worknet-open-recruitment-proposal-batch.json",
+      "coverage": ["normal", "job_posting", "company", "role", "relations"]
+    },
+    {
+      "id": "worknet_open_recruitment_missing_company",
+      "kind": "mapped_source",
+      "sourceProfile": "worknet.open_recruitment",
+      "description": "Valid mapping where company details are missing and only posting plus role survive.",
+      "sourcePayloadFile": "worknet-open-recruitment-missing-company-source.json",
+      "proposalBatchFile": "worknet-open-recruitment-missing-company-proposal-batch.json",
+      "coverage": ["missing_data", "company_missing", "relation_omission"]
+    },
+    {
+      "id": "worknet_open_recruitment_missing_role",
+      "kind": "mapped_source",
+      "sourceProfile": "worknet.open_recruitment",
+      "description": "Valid mapping where jobs exist but no reusable role label survives.",
+      "sourcePayloadFile": "worknet-open-recruitment-missing-role-source.json",
+      "proposalBatchFile": "worknet-open-recruitment-missing-role-proposal-batch.json",
+      "coverage": ["missing_data", "role_missing", "relation_omission"]
+    },
+    {
+      "id": "worknet_open_recruitment_ambiguous_noisy",
+      "kind": "mapped_source",
+      "sourceProfile": "worknet.open_recruitment",
+      "description": "Noisy WorkNet payload with duplicate roles, normalized-name fallback, and intentionally omitted ambiguous fields.",
+      "sourcePayloadFile": "worknet-open-recruitment-ambiguous-source.json",
+      "proposalBatchFile": "worknet-open-recruitment-ambiguous-proposal-batch.json",
+      "coverage": ["ambiguous_signal", "noisy_signal", "fallback_identity", "deduplication"]
+    },
+    {
+      "id": "recruiting_invalid_missing_title_and_unknown_attribute",
+      "kind": "invalid_proposal",
+      "sourceProfile": "recruiting.proposal_batch",
+      "description": "Intentionally invalid proposal batch for future validator and dry-run tests.",
+      "proposalBatchFile": "recruiting-invalid-proposal-batch.json",
+      "coverage": ["invalid", "missing_required_attribute", "unknown_attribute"],
+      "expectedInvalidReasons": [
+        "facts.job_posting:worknet:EMP-INVALID.missing_required_attribute:title",
+        "facts.job_posting:worknet:EMP-INVALID.unknown_attribute:application_method"
+      ]
+    }
+  ]
+}

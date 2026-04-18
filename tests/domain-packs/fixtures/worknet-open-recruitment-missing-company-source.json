@@ -1,0 +1,37 @@
+{
+  "payloadVersion": "recruiting-source-payload/v1",
+  "source": {
+    "provider": "worknet",
+    "kind": "open_recruitment",
+    "sourceId": "EMP-MISSING-COMPANY",
+    "sourceUrl": "https://example.com/jobs/EMP-MISSING-COMPANY",
+    "mobileSourceUrl": "https://m.example.com/jobs/EMP-MISSING-COMPANY",
+    "fetchedAt": "2026-04-18T00:00:00.000Z",
+    "contentHash": "hash-missing-company"
+  },
+  "posting": {
+    "title": "데이터 엔지니어",
+    "companyName": "미확인 기업",
+    "companyType": "중소기업",
+    "employmentType": "계약직",
+    "startsAt": "2026-05-01",
+    "closesAt": "2026-05-15",
+    "summary": "데이터 파이프라인 운영"
+  },
+  "jobs": [
+    {
+      "sourceCode": "DATA-001",
+      "name": "데이터 엔지니어"
+    }
+  ],
+  "recruitmentSections": [
+    {
+      "title": "데이터플랫폼팀",
+      "roleDescription": "ETL 파이프라인 운영",
+      "location": "부산",
+      "otherRequirement": "Python 경험"
+    }
+  ],
+  "selectionSteps": [],
+  "attachments": []
+}

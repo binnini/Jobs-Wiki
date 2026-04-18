@@ -1,0 +1,164 @@
+{
+  "domain": "recruiting",
+  "packVersion": "2026-04-18",
+  "producer": "jobs-wiki.worknet.open_recruitment.mapper/v1",
+  "facts": [
+    {
+      "proposalId": "job_posting:worknet:EMP-AMBIGUOUS-1",
+      "domain": "recruiting",
+      "entityType": "job_posting",
+      "attributes": {
+        "title": "플랫폼 데이터 분석가",
+        "summary": "데이터 파이프라인 운영\n\n데이터팀: 배치 파이프라인 운영",
+        "employment_type": "정규직",
+        "opens_at": "2026-06-01",
+        "closes_at": "2026-06-30",
+        "source_url": "https://example.com/jobs/EMP-AMBIGUOUS-1",
+        "mobile_source_url": "https://m.example.com/jobs/EMP-AMBIGUOUS-1",
+        "location_text": "데이터팀: 서울 강남",
+        "requirements_text": "데이터팀 경력: 5년 이상\n데이터팀 학력: 무관\n데이터팀 기타 요건: SQL 숙련",
+        "selection_process_text": "데이터팀: 실무 과제\n서류전형 | 일정: 상시 | 설명: 이력서 검토 | 비고: 수시 연락\n합격 발표: 추후 안내"
+      },
+      "identityHints": {
+        "source_id": "EMP-AMBIGUOUS-1"
+      },
+      "evidence": [
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "posting"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "recruitmentSections[0]"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "recruitmentSections[1]"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "selectionSteps[0]"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "selectionSteps[1]"
+        }
+      ]
+    },
+    {
+      "proposalId": "company:name:b39d5b8795cc",
+      "domain": "recruiting",
+      "entityType": "company",
+      "attributes": {
+        "name": "ACME LABS",
+        "normalized_name": "acme labs",
+        "company_type": "스타트업",
+        "homepage_url": "https://acme.example.com",
+        "summary": "데이터 자동화 회사",
+        "main_business": "데이터 자동화"
+      },
+      "identityHints": {
+        "normalized_name": "acme labs"
+      },
+      "evidence": [
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "company"
+        }
+      ]
+    },
+    {
+      "proposalId": "role:name:4e009ea224c8",
+      "domain": "recruiting",
+      "entityType": "role",
+      "attributes": {
+        "display_name": "데이터 분석가",
+        "normalized_name": "데이터 분석가"
+      },
+      "identityHints": {
+        "normalized_name": "데이터 분석가"
+      },
+      "evidence": [
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "jobs[0]"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "jobs[1]"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "jobs[2]"
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "proposalId": "relation:posted_by:job_posting:worknet:EMP-AMBIGUOUS-1:company:name:b39d5b8795cc",
+      "domain": "recruiting",
+      "relationType": "posted_by",
+      "fromRef": {
+        "proposalId": "job_posting:worknet:EMP-AMBIGUOUS-1"
+      },
+      "toRef": {
+        "proposalId": "company:name:b39d5b8795cc"
+      },
+      "evidence": [
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "posting"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "company"
+        }
+      ]
+    },
+    {
+      "proposalId": "relation:for_role:job_posting:worknet:EMP-AMBIGUOUS-1:role:name:4e009ea224c8",
+      "domain": "recruiting",
+      "relationType": "for_role",
+      "fromRef": {
+        "proposalId": "job_posting:worknet:EMP-AMBIGUOUS-1"
+      },
+      "toRef": {
+        "proposalId": "role:name:4e009ea224c8"
+      },
+      "evidence": [
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "posting"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "jobs[0]"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "jobs[1]"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-AMBIGUOUS-1",
+          "pointer": "jobs[2]"
+        }
+      ]
+    }
+  ]
+}

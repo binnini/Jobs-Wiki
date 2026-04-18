@@ -1,0 +1,95 @@
+{
+  "domain": "recruiting",
+  "packVersion": "2026-04-18",
+  "producer": "jobs-wiki.worknet.open_recruitment.mapper/v1",
+  "facts": [
+    {
+      "proposalId": "job_posting:worknet:EMP-MISSING-ROLE",
+      "domain": "recruiting",
+      "entityType": "job_posting",
+      "attributes": {
+        "title": "플랫폼 기획자",
+        "summary": "채용 운영 도구 개선",
+        "employment_type": "정규직",
+        "opens_at": "2026-05-10",
+        "closes_at": "2026-05-31",
+        "source_url": "https://example.com/jobs/EMP-MISSING-ROLE",
+        "mobile_source_url": "https://m.example.com/jobs/EMP-MISSING-ROLE",
+        "location_text": "서비스기획팀: 서울",
+        "requirements_text": "서비스기획팀 경력: 4년 이상",
+        "selection_process_text": "서비스기획팀: 직무 인터뷰\n서류전형 | 일정: 5월 3주 | 설명: 포트폴리오 검토"
+      },
+      "identityHints": {
+        "source_id": "EMP-MISSING-ROLE"
+      },
+      "evidence": [
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-MISSING-ROLE",
+          "pointer": "posting"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-MISSING-ROLE",
+          "pointer": "recruitmentSections[0]"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-MISSING-ROLE",
+          "pointer": "selectionSteps[0]"
+        }
+      ]
+    },
+    {
+      "proposalId": "company:worknet:COMP-MISSING-ROLE",
+      "domain": "recruiting",
+      "entityType": "company",
+      "attributes": {
+        "name": "알파리크루팅",
+        "normalized_name": "알파리크루팅",
+        "company_type": "중견기업",
+        "homepage_url": "https://alpha.example.com",
+        "business_number": "3215498765",
+        "summary": "채용 운영 자동화 서비스",
+        "main_business": "채용 SaaS"
+      },
+      "identityHints": {
+        "external_id": "COMP-MISSING-ROLE",
+        "business_number": "3215498765",
+        "normalized_name": "알파리크루팅"
+      },
+      "evidence": [
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-MISSING-ROLE",
+          "pointer": "company"
+        }
+      ]
+    }
+  ],
+  "relations": [
+    {
+      "proposalId": "relation:posted_by:job_posting:worknet:EMP-MISSING-ROLE:company:worknet:COMP-MISSING-ROLE",
+      "domain": "recruiting",
+      "relationType": "posted_by",
+      "fromRef": {
+        "proposalId": "job_posting:worknet:EMP-MISSING-ROLE"
+      },
+      "toRef": {
+        "proposalId": "company:worknet:COMP-MISSING-ROLE"
+      },
+      "evidence": [
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-MISSING-ROLE",
+          "pointer": "posting"
+        },
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-MISSING-ROLE",
+          "pointer": "company"
+        }
+      ]
+    }
+  ]
+}

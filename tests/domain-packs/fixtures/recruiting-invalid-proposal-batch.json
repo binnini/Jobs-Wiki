@@ -1,0 +1,27 @@
+{
+  "domain": "recruiting",
+  "packVersion": "2026-04-18",
+  "producer": "jobs-wiki.fixture.invalid/v1",
+  "facts": [
+    {
+      "proposalId": "job_posting:worknet:EMP-INVALID",
+      "domain": "recruiting",
+      "entityType": "job_posting",
+      "attributes": {
+        "summary": "제목이 없는 잘못된 공고",
+        "application_method": "이메일 접수"
+      },
+      "identityHints": {
+        "source_id": "EMP-INVALID"
+      },
+      "evidence": [
+        {
+          "connector": "worknet.open_recruitment",
+          "sourceId": "EMP-INVALID",
+          "pointer": "posting"
+        }
+      ]
+    }
+  ],
+  "relations": []
+}

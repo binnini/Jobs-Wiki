@@ -1,0 +1,79 @@
+{
+  "payloadVersion": "recruiting-source-payload/v1",
+  "source": {
+    "provider": "worknet",
+    "kind": "open_recruitment",
+    "sourceId": "EMP-AMBIGUOUS-1",
+    "sourceUrl": "https://example.com/jobs/EMP-AMBIGUOUS-1",
+    "mobileSourceUrl": "https://m.example.com/jobs/EMP-AMBIGUOUS-1",
+    "fetchedAt": "2026-04-18T00:00:00.000Z",
+    "contentHash": "hash-ambiguous-1"
+  },
+  "posting": {
+    "title": "플랫폼 데이터 분석가",
+    "companyName": "ACME LABS",
+    "companyType": "스타트업",
+    "employmentType": "정규직",
+    "startsAt": "2026-06-01",
+    "closesAt": "2026-06-30",
+    "summary": "  데이터 파이프라인 운영  ",
+    "acceptanceAnnouncement": " 추후 안내 ",
+    "notes": "상시채용 성격 / Python 우대"
+  },
+  "company": {
+    "name": "  ACME LABS  ",
+    "companyType": "스타트업",
+    "homepageUrl": "https://acme.example.com",
+    "summary": " 데이터 자동화 회사 ",
+    "mainBusiness": "데이터 자동화"
+  },
+  "jobs": [
+    {
+      "name": " 데이터 분석가 "
+    },
+    {
+      "name": "데이터   분석가"
+    },
+    {
+      "sourceCode": "",
+      "name": "데이터 분석가"
+    }
+  ],
+  "recruitmentSections": [
+    {
+      "title": "데이터팀",
+      "roleDescription": "배치 파이프라인 운영",
+      "selectionDescription": "실무 과제",
+      "location": "서울 강남",
+      "careerRequirement": "5년 이상",
+      "educationRequirement": "무관",
+      "otherRequirement": "SQL 숙련",
+      "openings": "1",
+      "note": "원격 일부 가능"
+    },
+    {
+      "title": "데이터팀 ",
+      "roleDescription": "배치 파이프라인 운영",
+      "selectionDescription": "실무 과제",
+      "location": "서울 강남",
+      "careerRequirement": "5년 이상",
+      "educationRequirement": "무관",
+      "otherRequirement": "SQL 숙련"
+    }
+  ],
+  "selectionSteps": [
+    {
+      "name": "서류전형",
+      "schedule": "상시",
+      "description": "이력서 검토",
+      "note": "수시 연락"
+    },
+    {
+      "name": "서류전형",
+      "schedule": "상시",
+      "description": "이력서 검토",
+      "note": "수시 연락"
+    }
+  ],
+  "attachments": []
+}
