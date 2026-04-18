@@ -21,3 +21,62 @@
   - 현재 구현 우선 endpoint 기준선
 - [mvp-api-examples.md](/Users/yebin/workSpace/Jobs-Wiki/docs/api/mvp-api-examples.md:1)
   - request/response example payload
+
+## Current Runtime Status
+
+현재 `apps/was`는 mock-first MVP runtime skeleton을 가집니다.
+
+- `src/server.js`
+  - HTTP server bootstrap과 graceful shutdown
+- `src/app.js`
+  - app assembly, health endpoint, route mount
+- `src/http/`
+  - 공통 response helper, error normalization, request parsing
+- `src/routes/`
+  - workspace / opportunity / calendar route family
+- `src/services/`
+  - endpoint 단위 orchestration
+- `src/mappers/`
+  - internal normalized record -> WAS response shape
+- `src/adapters/`
+  - `mock` / `real` mode adapter factory와 family skeleton
+- `src/fixtures/`
+  - mock adapter가 반환하는 normalized fixture
+
+기본 데이터 모드는 `WAS_DATA_MODE=mock` 입니다.
+
+## Run
+
+저장소 루트에서:
+
+```bash
+npm run start:was
+```
+
+또는 `apps/was` 안에서:
+
+```bash
+npm start
+```
+
+기본 health endpoint:
+
+```text
+GET /health
+```
+
+현재 mock runtime으로 제공되는 MVP baseline route:
+
+- `GET /api/workspace/summary`
+- `POST /api/workspace/ask`
+- `GET /api/opportunities`
+- `GET /api/opportunities/:opportunityId`
+- `GET /api/calendar`
+
+이 route들은 real authority 연결이 아니라 fixture 기반 internal record를 반환합니다.
+
+## Test
+
+```bash
+npm run test:was
+```
