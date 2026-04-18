@@ -91,21 +91,83 @@ test("GET /api/workspace/summary returns a mock workspace summary projection", a
 
     assert.equal(response.status, 200)
     assert.equal(response.body.projection, "workspace_summary")
-    assert.equal(response.body.recommendedOpportunities.length, 2)
+    assert.equal(response.body.recommendedOpportunities.length, 3)
     assert.equal(response.body.sync.visibility, "applied")
+    assert.equal(
+      response.body.recommendedOpportunities[0].decoration.urgencyLabel,
+      "D-13",
+    )
+    assert.equal(
+      response.body.actionQueue[0].relatedOpportunityRef.title,
+      "Backend Platform Engineer",
+    )
   })
 })
 
-test("GET /api/opportunities returns a filtered opportunity list projection", async () => {
+test("GET /api/opportunities returns filter-aware pagination and card-complete list items", async () => {
+  await withApp(async (app) => {
+    const firstPage = await invokeApp(app, {
+      url: "/api/opportunities?status=open&limit=1",
+    })
+
+    assert.equal(firstPage.status, 200)
+    assert.equal(firstPage.body.projection, "opportunity_list")
+    assert.equal(firstPage.body.items.length, 1)
+    assert.equal(firstPage.body.items[0].surface.companyName, "Northstar Data")
+    assert.equal(
+      firstPage.body.items[0].metadata.closesAt,
+      "2026-05-01T23:59:59+09:00",
+    )
+    assert.equal(
+      firstPage.body.items[0].decoration.whyMatched,
+      "Strong overlap with Node.js service architecture.",
+    )
+    assert.equal(firstPage.body.nextCursor, "cursor_001")
+
+    const secondPage = await invokeApp(app, {
+      url: `/api/opportunities?status=open&limit=1&cursor=${firstPage.body.nextCursor}`,
+    })
+
+    assert.equal(secondPage.status, 200)
+    assert.equal(secondPage.body.items.length, 1)
+    assert.equal(secondPage.body.items[0].surface.companyName, "Fieldline Labs")
+    assert.equal(secondPage.body.nextCursor, undefined)
+  })
+})
+
+test("GET /api/opportunities omits nextCursor when filtered results fit in one page", async () => {
   await withApp(async (app) => {
     const response = await invokeApp(app, {
       url: "/api/opportunities?status=closing_soon&limit=1",
     })
 
     assert.equal(response.status, 200)
-    assert.equal(response.body.projection, "opportunity_list")
     assert.equal(response.body.items.length, 1)
     assert.equal(response.body.items[0].surface.companyName, "Fieldline")
+    assert.equal(response.body.nextCursor, undefined)
+  })
+})
+
+test("GET /api/opportunities rejects malformed cursors", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      url: "/api/opportunities?cursor=page-2",
+    })
+
+    assert.equal(response.status, 400)
+    assert.equal(response.body.error.code, "validation_failed")
+  })
+})
+
+test("GET /api/opportunities normalizes blank optional string filters", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      url: "/api/opportunities?cursor=%20%20&status=%20%20&limit=2",
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(response.body.items.length, 2)
+    assert.equal(response.body.nextCursor, "cursor_002")
   })
 })
 

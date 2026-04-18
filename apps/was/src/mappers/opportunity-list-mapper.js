@@ -4,7 +4,7 @@ export function mapOpportunityList(record) {
   return {
     projection: "opportunity_list",
     sync: mapProjectionSync(record.sync, "opportunity_list"),
-    items: record.items.map(mapOpportunityListItem),
+    items: (record.items ?? []).map(mapOpportunityListItem),
     nextCursor: record.nextCursor,
   }
 }

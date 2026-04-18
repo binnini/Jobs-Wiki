@@ -18,6 +18,10 @@ function toEndOfDay(value) {
   return Date.parse(`${value}T23:59:59.999Z`)
 }
 
+function formatOpportunityCursor(offset) {
+  return `cursor_${String(offset).padStart(3, "0")}`
+}
+
 export function createMockReadAuthorityAdapter() {
   return {
     async getWorkspaceSummary() {
@@ -25,29 +29,31 @@ export function createMockReadAuthorityAdapter() {
     },
 
     async listOpportunities({ query } = {}) {
-      const filteredItems = opportunityListFixture
-        .filter((item) => {
-          if (query?.status && item.status !== query.status) {
-            return false
-          }
+      const filteredItems = opportunityListFixture.filter((item) => {
+        if (query?.status && item.status !== query.status) {
+          return false
+        }
 
-          if (
-            query?.closingWithinDays !== undefined &&
-            (item.closingInDays === undefined ||
-              item.closingInDays > query.closingWithinDays)
-          ) {
-            return false
-          }
+        if (
+          query?.closingWithinDays !== undefined &&
+          (item.closingInDays === undefined ||
+            item.closingInDays > query.closingWithinDays)
+        ) {
+          return false
+        }
 
-          return true
-        })
-        .slice(0, query?.limit ?? opportunityListFixture.length)
+        return true
+      })
+      const startIndex = query?.cursorOffset ?? 0
+      const limit = query?.limit ?? filteredItems.length
+      const items = filteredItems.slice(startIndex, startIndex + limit)
+      const nextOffset = startIndex + items.length
 
       return clone({
-        items: filteredItems,
+        items,
         nextCursor:
-          query?.limit && filteredItems.length < opportunityListFixture.length
-            ? "mock-next-page"
+          nextOffset < filteredItems.length
+            ? formatOpportunityCursor(nextOffset)
             : undefined,
         sync: {
           visibility: "applied",

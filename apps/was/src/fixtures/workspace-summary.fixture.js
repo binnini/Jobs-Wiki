@@ -30,6 +30,7 @@ export const workspaceSummaryFixture = {
       label: "Review backend platform role fit",
       description: "Compare current evidence against platform ownership requirements.",
       relatedOpportunityId: "opp_backend_platform",
+      relatedOpportunityTitle: "Backend Platform Engineer",
     },
   ],
   askFollowUps: [
