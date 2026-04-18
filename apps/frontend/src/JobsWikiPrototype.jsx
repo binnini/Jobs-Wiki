@@ -9,13 +9,11 @@ import {
   Check,
   CheckCircle,
   Clock,
-  ChevronDown,
   ChevronRight,
   ExternalLink,
   FileCode,
   FileQuestion,
   FileText,
-  Folder,
   GitMerge,
   Grid,
   Lightbulb,
@@ -42,7 +40,7 @@ import {
   WasClientError,
 } from "./was-client";
 
-const MOCK_PROFILE = {
+const ONBOARDING_PROFILE_FIXTURE = {
   name: "김지훈",
   targetRole: "Backend Engineer",
   experience: "1년 (인턴십)",
@@ -59,93 +57,13 @@ const MOCK_PROFILE = {
   source: "Resume_v2.pdf, Github_Readme.md",
 };
 
-const MOCK_OPPORTUNITIES = [
-  {
-    id: "opp_backend_platform",
-    opportunityId: "opp_backend_platform",
-    company: "Northstar Data",
-    title: "Backend Platform Engineer",
-    location: "Hybrid / Seoul",
-    deadline: "2026-05-01",
-    matchScore: 81,
-    summary:
-      "Build API surfaces for hiring intelligence products.",
-    companyContext: {
-      description:
-        "Builds workflow systems for recruiting and market intelligence.",
-      whyRelevant:
-        "API projection과 서비스 경계 설계 경험을 직접 활용할 수 있는 역할입니다.",
-    },
-    requirements: [
-      "Node.js",
-      "API design",
-      "Integration boundaries",
-      "Observability",
-    ],
-    matchReason:
-      "Node.js service architecture 경험이 역할 요구사항과 자연스럽게 맞습니다.",
-    gap:
-      "대규모 플랫폼 마이그레이션과 운영 소유권에 대한 증거는 더 보강할 필요가 있습니다.",
-    urgency: "D-13",
-    status: "open",
-  },
-  {
-    id: "opp_report_runtime",
-    opportunityId: "opp_report_runtime",
-    company: "Fieldline Labs",
-    title: "Report Runtime Engineer",
-    location: "Hybrid / Seoul",
-    deadline: "2026-05-15",
-    matchScore: 85,
-    summary:
-      "Own the serving layer for report generation and evidence-ready projections.",
-    companyContext: {
-      description:
-        "Builds report-centric workflow systems for recruiting teams.",
-      whyRelevant:
-        "현재 레포의 report-first 구현 경험과 가장 직접적으로 이어지는 포지션입니다.",
-    },
-    requirements: [
-      "TypeScript",
-      "Projection design",
-      "Serving runtime ownership",
-    ],
-    matchReason:
-      "Report projection과 contract 설계 경험이 직무 설명과 직접 연결됩니다.",
-    gap:
-      "운영 책임과 higher-traffic evidence는 추가 설명이 있으면 더 강한 후보로 보입니다.",
-    urgency: "D-27",
-    status: "open",
-  },
-  {
-    id: "opp_product_data",
-    opportunityId: "opp_product_data",
-    company: "Fieldline",
-    title: "Product Data Analyst",
-    location: "Remote",
-    deadline: "2026-04-25",
-    matchScore: 72,
-    summary:
-      "Support report metrics, opportunity scoring, and calendar insight blocks.",
-    companyContext: {
-      description:
-        "Analytics-heavy hiring workflow products.",
-      whyRelevant:
-        "Evidence-oriented reporting 경험을 다른 방향으로 확장할 수 있는 역할입니다.",
-    },
-    requirements: [
-      "SQL",
-      "Experimentation",
-      "Dashboard writing",
-    ],
-    matchReason:
-      "Reporting과 evidence surfacing 관점의 경험이 일부 연결됩니다.",
-    gap:
-      "제품 분석과 실험 설계에 대한 직접적인 근거는 더 필요합니다.",
-    urgency: "D-7",
-    status: "closing_soon",
-  },
-];
+const EMPTY_PROFILE_SNAPSHOT = {
+  targetRole: "프로필 기준 로딩 중",
+  experience: "기본 리포트 기준을 확인하는 중입니다",
+  location: null,
+  domain: null,
+  skills: [],
+};
 
 const SYNC_VISIBILITY_META = {
   applied: {
@@ -332,10 +250,6 @@ function writeAppRoute(route, { replace = false } = {}) {
     return;
   }
 
-  if (route.view === "workspace") {
-    return;
-  }
-
   const nextUrl = buildAppPath(route.view, route.opportunityId);
   const currentUrl = `${window.location.pathname}${window.location.search}`;
 
@@ -400,6 +314,16 @@ function getFallbackUrgencyLabel(value) {
   }
 
   return `D-${diff}`;
+}
+
+function normalizeProfileSnapshot(profileSnapshot) {
+  return {
+    ...EMPTY_PROFILE_SNAPSHOT,
+    ...(profileSnapshot ?? {}),
+    skills: Array.isArray(profileSnapshot?.skills)
+      ? profileSnapshot.skills
+      : EMPTY_PROFILE_SNAPSHOT.skills,
+  };
 }
 
 function splitBlockText(value) {
@@ -830,7 +754,7 @@ const ExtractionReviewView = ({ onNext }) => (
             <Label className="mb-0">목표 직무</Label>
           </div>
           <div className="col-span-2 text-lg font-bold text-slate-900">
-            {MOCK_PROFILE.targetRole}
+            {ONBOARDING_PROFILE_FIXTURE.targetRole}
           </div>
           <div className="col-span-1 text-right">
             <button className="flex w-full items-center justify-end text-sm font-bold text-slate-500 hover:text-slate-900">
@@ -845,7 +769,7 @@ const ExtractionReviewView = ({ onNext }) => (
             <Label className="mb-0">경력 수준</Label>
           </div>
           <div className="col-span-3 text-base font-bold text-slate-800">
-            {MOCK_PROFILE.experience}
+            {ONBOARDING_PROFILE_FIXTURE.experience}
           </div>
         </div>
 
@@ -854,7 +778,7 @@ const ExtractionReviewView = ({ onNext }) => (
             <Label className="mb-0 mt-1">식별된 보유 기술</Label>
           </div>
           <div className="col-span-3 flex flex-wrap gap-2">
-            {MOCK_PROFILE.skills.map((skill) => (
+            {ONBOARDING_PROFILE_FIXTURE.skills.map((skill) => (
               <span
                 key={skill}
                 className="rounded-sm border border-slate-200 bg-slate-100 px-3 py-1.5 text-sm font-bold text-slate-800 shadow-sm"
@@ -870,7 +794,7 @@ const ExtractionReviewView = ({ onNext }) => (
             <Label className="mb-0 mt-1">도출된 핵심 강점</Label>
           </div>
           <div className="col-span-3 space-y-3">
-            {MOCK_PROFILE.strengths.map((strength) => (
+            {ONBOARDING_PROFILE_FIXTURE.strengths.map((strength) => (
               <div
                 key={strength}
                 className="flex items-start text-base font-bold text-slate-800"
@@ -1889,79 +1813,85 @@ const OpportunityDetailView = ({
 
 const ContextPanel = ({
   job,
-  profile,
+  profileSnapshot,
   isLoadingJob = false,
   contextError = null,
-}) => (
-  <Panel>
-    <h3 className="mb-4 flex items-center border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
-      <Target size={16} className="mr-2 text-slate-500" />
-      현재 분석 기준
-    </h3>
-    <div className="space-y-5">
-      <div>
-        <Label className="mb-1">기준 프로필</Label>
-        <div className="flex items-center text-sm font-bold text-slate-800">
-          {profile.targetRole}
-          <span className="ml-2 font-semibold text-slate-500">
-            ({profile.experience})
-          </span>
-        </div>
-      </div>
-      <div>
-        <Label className="mb-1">분석 대상 공고</Label>
-        {job ? (
-          <div className="space-y-3 rounded-sm border border-indigo-100 bg-indigo-50 p-4 shadow-sm">
-            <div>
-              <div className="mb-1 text-xs font-bold text-indigo-900">
-                {job.company}
-              </div>
-              <div className="text-sm font-bold text-indigo-700">{job.title}</div>
-            </div>
-            {job.summary ? (
-              <p className="text-sm font-medium leading-relaxed text-indigo-950/80">
-                {job.summary}
-              </p>
-            ) : null}
-            {job.deadline || job.urgency ? (
-              <div className="flex flex-wrap gap-3 text-[11px] font-bold text-indigo-800/70">
-                {job.deadline ? <span>마감 {job.deadline}</span> : null}
-                {job.urgency ? <span>{job.urgency}</span> : null}
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <div className="rounded-sm border border-slate-200 bg-slate-50 p-3 text-center text-sm font-bold text-slate-600">
-            전체 프로필 기반 분석 (지정 공고 없음)
-          </div>
-        )}
-        {isLoadingJob ? (
-          <p className="mt-3 text-xs font-bold text-slate-500">
-            선택 공고의 컨텍스트를 보강하는 중입니다.
-          </p>
-        ) : null}
-        {contextError ? (
-          <div className="mt-3 rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 shadow-sm">
-            {contextError.message}
-          </div>
-        ) : null}
-      </div>
-      <div>
-        <Label className="mb-1">핵심 역량</Label>
-        <div className="flex flex-wrap gap-2">
-          {profile.skills.slice(0, 4).map((skill) => (
-            <span
-              key={skill}
-              className="rounded-sm border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700"
-            >
-              {skill}
+}) => {
+  const profile = normalizeProfileSnapshot(profileSnapshot);
+
+  return (
+    <Panel>
+      <h3 className="mb-4 flex items-center border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
+        <Target size={16} className="mr-2 text-slate-500" />
+        현재 분석 기준
+      </h3>
+      <div className="space-y-5">
+        <div>
+          <Label className="mb-1">기준 프로필</Label>
+          <div className="flex items-center text-sm font-bold text-slate-800">
+            {profile.targetRole}
+            <span className="ml-2 font-semibold text-slate-500">
+              ({profile.experience})
             </span>
-          ))}
+          </div>
+        </div>
+        <div>
+          <Label className="mb-1">분석 대상 공고</Label>
+          {job ? (
+            <div className="space-y-3 rounded-sm border border-indigo-100 bg-indigo-50 p-4 shadow-sm">
+              <div>
+                <div className="mb-1 text-xs font-bold text-indigo-900">
+                  {job.company}
+                </div>
+                <div className="text-sm font-bold text-indigo-700">
+                  {job.title}
+                </div>
+              </div>
+              {job.summary ? (
+                <p className="text-sm font-medium leading-relaxed text-indigo-950/80">
+                  {job.summary}
+                </p>
+              ) : null}
+              {job.deadline || job.urgency ? (
+                <div className="flex flex-wrap gap-3 text-[11px] font-bold text-indigo-800/70">
+                  {job.deadline ? <span>마감 {job.deadline}</span> : null}
+                  {job.urgency ? <span>{job.urgency}</span> : null}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="rounded-sm border border-slate-200 bg-slate-50 p-3 text-center text-sm font-bold text-slate-600">
+              전체 프로필 기반 분석 (지정 공고 없음)
+            </div>
+          )}
+          {isLoadingJob ? (
+            <p className="mt-3 text-xs font-bold text-slate-500">
+              선택 공고의 컨텍스트를 보강하는 중입니다.
+            </p>
+          ) : null}
+          {contextError ? (
+            <div className="mt-3 rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 shadow-sm">
+              {contextError.message}
+            </div>
+          ) : null}
+        </div>
+        <div>
+          <Label className="mb-1">핵심 역량</Label>
+          <div className="flex flex-wrap gap-2">
+            {profile.skills.slice(0, 4).map((skill) => (
+              <span
+                key={skill}
+                className="rounded-sm border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700"
+              >
+                {skill}
+              </span>
+            ))}
+          </div>
         </div>
       </div>
-    </div>
-  </Panel>
-);
+    </Panel>
+  );
+};
 
 function getEvidenceMeta(kind) {
   if (kind === "personal") {
@@ -2170,6 +2100,7 @@ function buildAskWelcomeText(activeJob) {
 
 const AskWorkspaceView = ({
   activeJob,
+  profileSnapshot,
   initialPrompt = "",
   onContextChange,
   onOpenJob,
@@ -2467,7 +2398,7 @@ const AskWorkspaceView = ({
       <div className="custom-scrollbar flex w-[420px] flex-shrink-0 flex-col gap-6 overflow-y-auto pr-2 pb-8">
         <ContextPanel
           job={contextJob}
-          profile={MOCK_PROFILE}
+          profileSnapshot={profileSnapshot}
           isLoadingJob={isLoadingContext}
           contextError={contextError}
         />
@@ -2878,179 +2809,6 @@ const CalendarView = ({ onOpenJob, onOpenReport, onOpenAsk }) => {
   );
 };
 
-const WorkspaceView = ({ onOpenAsk, onOpenJob }) => (
-  <div className="mx-auto flex h-[calc(100vh-6rem)] max-w-7xl flex-col space-y-8 animate-in fade-in">
-    <header className="mt-4 flex flex-shrink-0 items-end justify-between border-b border-slate-200 pb-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-          커리어 자산 및 노트
-        </h1>
-        <p className="mt-2 text-sm font-medium text-slate-500">
-          분석된 내용과 개인적인 조사 자료를 폴더 구조로 관리합니다.
-        </p>
-      </div>
-      <div className="flex gap-3">
-        <button className="rounded-sm bg-slate-900 px-6 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800">
-          새 문서 작성하기
-        </button>
-      </div>
-    </header>
-
-    <div className="mb-8 flex flex-1 overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm">
-      <div className="flex w-80 flex-col border-r border-slate-200 bg-slate-50">
-        <div className="border-b border-slate-200 p-5">
-          <div className="relative">
-            <Search size={16} className="absolute left-4 top-3.5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="문서 이름 검색..."
-              className="w-full rounded-sm border border-slate-300 bg-white py-2.5 pl-11 pr-4 text-sm transition-colors focus:border-indigo-600 focus:outline-none"
-            />
-          </div>
-        </div>
-
-        <div className="custom-scrollbar flex-1 select-none overflow-y-auto p-5">
-          <Label className="mb-4 text-slate-500">내 드라이브</Label>
-
-          <div className="space-y-2 text-sm font-medium text-slate-800">
-            <div>
-              <div className="group flex cursor-pointer items-center rounded-sm px-2 py-2.5 hover:bg-slate-200">
-                <ChevronDown size={16} className="mr-2 text-slate-400" />
-                <Folder
-                  size={16}
-                  className="mr-2 text-slate-500 group-hover:text-slate-700"
-                />
-                <span className="font-bold">01_지원_아카이브</span>
-              </div>
-              <div className="ml-7 mt-1 space-y-1 border-l-2 border-slate-200 pl-3">
-                <button
-                  onClick={() => onOpenJob(MOCK_OPPORTUNITIES[0])}
-                  className="flex w-full items-center rounded-sm bg-indigo-50 px-3 py-2 text-left font-bold text-indigo-700"
-                >
-                  <FileText size={14} className="mr-2" />
-                  토스페이먼츠_JD분석.md
-                </button>
-                <button className="flex w-full items-center rounded-sm px-3 py-2 text-left text-slate-600 hover:bg-slate-100">
-                  <FileText size={14} className="mr-2 text-slate-400" />
-                  당근마켓_역량매핑.md
-                </button>
-              </div>
-            </div>
-            <div className="mt-4">
-              <div className="group flex cursor-pointer items-center rounded-sm px-2 py-2.5 hover:bg-slate-200">
-                <ChevronRight size={16} className="mr-2 text-slate-400" />
-                <Folder
-                  size={16}
-                  className="mr-2 text-slate-500 group-hover:text-slate-700"
-                />
-                <span className="font-bold">02_면접_준비자료</span>
-              </div>
-            </div>
-            <div className="mt-2">
-              <div className="group flex cursor-pointer items-center rounded-sm px-2 py-2.5 hover:bg-slate-200">
-                <ChevronDown size={16} className="mr-2 text-slate-400" />
-                <Folder
-                  size={16}
-                  className="mr-2 text-slate-500 group-hover:text-slate-700"
-                />
-                <span className="font-bold">03_기술_개념정리</span>
-              </div>
-              <div className="ml-7 mt-1 space-y-1 border-l-2 border-slate-200 pl-3">
-                <button className="flex w-full items-center rounded-sm px-3 py-2 text-left text-slate-600 hover:bg-slate-100">
-                  <FileText size={14} className="mr-2 text-slate-400" />
-                  Kafka_메시지큐_구조.md
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div className="flex flex-1 flex-col overflow-hidden bg-white">
-        <div className="border-b border-slate-100 bg-slate-50 px-10 py-4 text-sm font-medium text-slate-500">
-          내 드라이브 / 01_지원_아카이브 /
-          <span className="ml-2 font-bold text-slate-900">
-            토스페이먼츠_JD분석.md
-          </span>
-        </div>
-
-        <div className="custom-scrollbar flex-1 overflow-y-auto bg-white p-12">
-          <div className="max-w-3xl text-slate-800">
-            <h1 className="mb-6 text-4xl font-extrabold tracking-tight text-slate-900">
-              토스페이먼츠 코어 백엔드 분석
-            </h1>
-
-            <div className="mb-10 flex flex-wrap gap-3 border-b border-slate-200 pb-8">
-              <span className="rounded-sm border border-slate-200 bg-slate-100 px-3 py-1 text-xs font-bold text-slate-700">
-                상태: 진행 중
-              </span>
-              <span className="rounded-sm border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-bold text-indigo-700">
-                도메인: 결제/금융
-              </span>
-            </div>
-
-            <div className="prose prose-slate max-w-none">
-              <h3 className="mt-8 border-b border-slate-200 pb-2 text-xl font-bold text-slate-900">
-                1. 직무 메타데이터 요약
-              </h3>
-              <p className="font-medium leading-relaxed text-slate-700">
-                초당 수천 건의 트랜잭션을 무결성 있게 처리하는 시스템 설계.
-                현재 프로필의 REST API 설계 경험과 Docker 환경 숙련도가 주요
-                어필 포인트로 분석됩니다.
-              </p>
-
-              <h3 className="mt-10 border-b border-slate-200 pb-2 text-xl font-bold text-slate-900">
-                2. 스킬 갭 검증 및 전략
-              </h3>
-              <ul className="space-y-3">
-                <li>
-                  <strong>식별된 요구사항:</strong> 대용량 트래픽 처리 경험
-                  (Kafka, Redis)
-                </li>
-                <li>
-                  <strong>대응 로직:</strong> 인턴십 중 병목 현상 해결 경험을
-                  기반으로, 캐싱 아키텍처 도입을 고민했던 점을 함께 정리하면
-                  설득력이 높아집니다.
-                </li>
-              </ul>
-
-              <div className="mt-12 rounded-sm border border-indigo-100 bg-indigo-50/30 p-6">
-                <Label className="mb-3 flex items-center text-sm text-indigo-700">
-                  <Zap size={16} className="mr-2" />
-                  이어서 분석하기 좋은 질문
-                </Label>
-                <div className="rounded-sm border border-slate-200 bg-white p-4 text-sm font-medium leading-relaxed text-slate-800">
-                  "이 공고 기준으로 이력서 문장을 어떤 순서로 재구성하면 더
-                  설득력이 높아질지 분석해줘."
-                </div>
-                <div className="mt-4 flex gap-3">
-                  <button
-                    onClick={() =>
-                      onOpenAsk(MOCK_OPPORTUNITIES[0], {
-                        prefillQuestion:
-                          "이 공고 기준으로 이력서 문장을 어떤 순서로 재구성하면 더 설득력이 높아질지 분석해줘.",
-                      })
-                    }
-                    className="rounded-sm border border-slate-300 bg-slate-50 px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-white hover:text-slate-900"
-                  >
-                    심층 분석 워크스페이스에서 열기
-                  </button>
-                  <button
-                    onClick={() => onOpenJob(MOCK_OPPORTUNITIES[0])}
-                    className="rounded-sm border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
-                  >
-                    공고 상세 보기
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
 export default function JobsWikiPrototype() {
   const [currentRoute, setCurrentRoute] = useState(() =>
     typeof window === "undefined"
@@ -3063,7 +2821,11 @@ export default function JobsWikiPrototype() {
       : createRouteOpportunityContext(readAppRoute(window.location).opportunityId),
   );
   const [askComposerSeed, setAskComposerSeed] = useState("");
+  const [shellProfileSnapshot, setShellProfileSnapshot] = useState(() =>
+    normalizeProfileSnapshot(),
+  );
   const currentView = currentRoute.view;
+  const displayProfileSnapshot = normalizeProfileSnapshot(shellProfileSnapshot);
 
   useEffect(() => {
     const handlePopState = () => {
@@ -3075,6 +2837,24 @@ export default function JobsWikiPrototype() {
     window.addEventListener("popstate", handlePopState);
     return () => {
       window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
+
+  useEffect(() => {
+    let isSubscribed = true;
+
+    getWorkspaceSummary()
+      .then((response) => {
+        if (!isSubscribed) {
+          return;
+        }
+
+        setShellProfileSnapshot(normalizeProfileSnapshot(response.profileSnapshot));
+      })
+      .catch(() => {});
+
+    return () => {
+      isSubscribed = false;
     };
   }, []);
 
@@ -3153,6 +2933,7 @@ export default function JobsWikiPrototype() {
         return (
           <AskWorkspaceView
             activeJob={activeOpportunityContext}
+            profileSnapshot={displayProfileSnapshot}
             initialPrompt={askComposerSeed}
             onContextChange={(job) => navigateTo("ask", job)}
             onOpenJob={openJobDetail}
@@ -3166,8 +2947,6 @@ export default function JobsWikiPrototype() {
             onOpenAsk={openAsk}
           />
         );
-      case "workspace":
-        return <WorkspaceView onOpenAsk={openAsk} onOpenJob={openJobDetail} />;
       default:
         return (
           <BaselineReportView
@@ -3268,30 +3047,19 @@ export default function JobsWikiPrototype() {
               지원 일정 관리
             </span>
           </button>
-          <button
-            onClick={() => navigateTo("workspace")}
-            className={`w-full rounded-sm px-4 py-3 text-left text-sm font-bold transition-all ${
-              currentView === "workspace"
-                ? "bg-slate-700 text-white shadow-sm"
-                : "hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            <span className="flex items-center">
-              <Folder size={18} className="mr-3 opacity-90" />
-              커리어 자산 저장소
-            </span>
-          </button>
         </nav>
 
-        <div className="cursor-pointer border-t border-slate-800/50 bg-slate-900/50 p-5 transition-colors hover:bg-slate-800">
+        <div className="border-t border-slate-800/50 bg-slate-900/50 p-5">
           <div className="flex items-center">
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600 text-sm font-bold text-white shadow-sm">
-              {MOCK_PROFILE.name.charAt(0)}
+              {displayProfileSnapshot.targetRole.charAt(0)}
             </div>
             <div className="ml-3">
-              <p className="text-sm font-bold text-white">{MOCK_PROFILE.name}</p>
+              <p className="text-sm font-bold text-white">
+                {displayProfileSnapshot.targetRole}
+              </p>
               <p className="mt-0.5 text-[11px] font-medium text-slate-400">
-                현재 워크스페이스
+                {displayProfileSnapshot.experience}
               </p>
             </div>
           </div>
