@@ -21,6 +21,45 @@
 - `operations/`: 환경, 설정, 보안, 관측성
 - `third-party/`: 외부 서비스 원문과 정리본
 
+## Current Anchor Docs
+
+현재 웹 서비스 구현 논의를 시작할 때 우선 보는 문서:
+
+- `api/mvp-api-baseline.md`
+  - 현재 wireframe/prototype 기준으로 실제 구현에 쓸 endpoint와 response shape를 한 장으로 좁게 고정한 문서
+- `api/mvp-api-examples.md`
+  - MVP endpoint별 request, success, empty, error example payload를 정리한 문서
+- `product/ui-screen-spec.md`
+  - wireframe 다음 단계에서 화면별 역할, 필요한 데이터, CTA, 이동 흐름을 정리한 UI 명세 문서
+- `product/ui-state-spec.md`
+  - 화면별 loading, empty, error, stale, no-selection 상태를 정리한 UI 상태 명세 문서
+- `product/mvp-requirements-baseline.md`
+  - 현재 MVP에서 반드시 구현할 것과 이번 slice에서 미룰 것을 한 장으로 고정한 요구사항 기준선 문서
+- `architecture/frontend-view-model.md`
+  - API response field가 실제 UI block에 어떻게 매핑되는지 정리한 frontend 구현 기준 문서
+- `architecture/frontend-routing-baseline.md`
+  - report-first MVP 기준의 현재 frontend route set과 Ask query context 규칙을 정리한 문서
+- `architecture/was-runtime-layout.md`
+  - apps/was의 route, service, mapper, adapter, fixture 구조를 구현 직전 수준으로 정리한 문서
+- `architecture/was-adapter-contract.md`
+  - WAS 내부 adapter interface와 normalized record shape를 정리한 문서
+- `operations/non-functional-requirements.md`
+  - timeout, retry, cache, observability, security, privacy 등 MVP 비기능 요구사항 기준선 문서
+- `architecture/web-service-requirements-analysis.md`
+  - 웹 서비스 구현에 필요한 것, 이미 구현된 것, 보완이 필요한 것을 한 번에 정리한 기준 문서
+- `api/was-mvp-contract.md`
+  - 첫 구현에 사용할 WAS endpoint 범위와 shared vocabulary를 좁게 고정한 문서
+- `api/opportunity-projection.md`
+  - opportunity list/detail, evidence, company/role block을 정의한 사용자-facing projection 문서
+- `product/baseline-report-wireframe.md`
+  - onboarding 직후 보여줄 기본 리포트 화면의 desktop/mobile 저해상도 wireframe
+- `architecture/was.md`
+  - WAS 책임과 경계
+- `api/workspace-mvp-read-contract.md`
+  - workspace projection MVP read contract 후보
+- `architecture/stratawiki-web-integration.md`
+  - StrataWiki와 Jobs-Wiki의 통합 방향
+
 ## Official vs Working Docs
 
 - `docs/`: 공식 프로젝트 문서

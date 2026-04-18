@@ -9,7 +9,43 @@ Draft
 - 사용자 입력과 화면 상태 관리
 - WAS 공개 API 호출
 - workspace projection을 사용자 경험에 맞게 표시
-- 개인 지식 공간을 PKM형 워크스페이스로 구성
+- 장기적으로 개인 지식 공간을 PKM형 워크스페이스로 확장할 수 있는 frontend 기반을 제공
+
+## Current MVP Baseline
+
+현재 구현 기준선은 장기 PKM explorer보다 `report-first` MVP에 둡니다.
+
+현재 우선 화면:
+
+- `Onboarding`
+- `Extraction Review`
+- `Baseline Report`
+- `Opportunity Detail`
+- `Ask Workspace`
+- `Calendar`
+
+즉, `tree`, `document`, `graph`, `search`는 장기 방향 문서로 유지하되,
+현재 첫 구현 slice의 필수 frontend 범위로 보지 않습니다.
+
+## Current MVP Routes
+
+현재 route baseline은 아래처럼 둡니다.
+
+- `/onboarding`
+- `/review`
+- `/report`
+- `/opportunities/:opportunityId`
+- `/ask`
+- `/calendar`
+
+`Ask`는 별도 화면이지만, 선택 공고 컨텍스트는 optional query로 받습니다.
+
+- `/ask`
+- `/ask?opportunityId=opp_toss_core_backend`
+
+자세한 기준은 아래 문서를 따릅니다.
+
+- `docs/architecture/frontend-routing-baseline.md`
 
 ## Workspace Views
 
@@ -99,7 +135,6 @@ Draft
 
 ## Open Questions
 
-- 라우팅 구조
 - 캐시 전략
 - 인증 방식
 - 그래프 렌더링과 대규모 노드 탐색의 성능 한계
