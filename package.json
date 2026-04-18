@@ -8,6 +8,7 @@
     "preview:frontend": "npm --prefix apps/frontend run preview",
     "dev:ingestion": "npm --prefix apps/ingestion run dev",
     "start:ingestion": "npm --prefix apps/ingestion run start",
+    "test:ingestion": "npm --prefix apps/ingestion run test",
     "ingest:worknet": "npm --prefix apps/ingestion run ingest:worknet",
     "ingest:worknet:apply": "npm --prefix apps/ingestion run ingest:worknet:apply",
     "dev:was": "npm --prefix apps/was run dev",

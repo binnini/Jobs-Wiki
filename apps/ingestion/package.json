@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node --watch src/jobs/manual-run.js --source worknet --dry-run",
     "start": "node src/jobs/manual-run.js",
+    "test": "node --test test/*.test.js",
     "ingest:worknet": "node src/jobs/manual-run.js --source worknet --dry-run",
     "ingest:worknet:apply": "node src/jobs/manual-run.js --source worknet --apply"
   }

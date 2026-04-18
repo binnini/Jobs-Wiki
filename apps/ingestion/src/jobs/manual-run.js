@@ -36,6 +36,7 @@ async function main() {
     source,
     dryRun,
     nodeEnv: env.nodeEnv,
+    worknetConfigured: env.worknetConfigured,
     stratawikiConfigured: clients.stratawiki.configured,
   })
 
@@ -48,6 +49,7 @@ async function main() {
       dryRun,
       sourceId: env.worknetSourceId,
       runId,
+      clients,
     })
   }
 
