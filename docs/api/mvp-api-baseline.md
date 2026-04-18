@@ -281,7 +281,9 @@ type CalendarResponse = {
     label: string;
     startsAt: string;
     endsAt?: string;
-    objectRef: KnowledgeObjectRef;
+    objectRef: KnowledgeObjectRef & {
+      opportunityId?: string;
+    };
     decoration?: {
       urgencyLabel?: string;
       companyName?: string;
@@ -289,6 +291,12 @@ type CalendarResponse = {
   }>;
 };
 ```
+
+메모:
+
+- `objectRef.objectKind === "opportunity"` 인 calendar item은
+  `objectRef.opportunityId`를 함께 제공하는 것을 현재 MVP 기준선으로 둡니다.
+- 목적은 calendar item만으로 opportunity detail route를 바로 여는 것입니다.
 
 ## Opportunity Projection Baseline
 

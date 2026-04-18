@@ -6,6 +6,14 @@ function compactObject(value) {
   )
 }
 
+function mapCalendarObjectRef(item) {
+  return compactObject({
+    ...mapKnowledgeObjectRef(item.objectId, item.objectKind, item.objectTitle),
+    opportunityId:
+      item.objectKind === "opportunity" ? item.opportunityId : undefined,
+  })
+}
+
 export function mapCalendar(record) {
   return {
     projection: "calendar",
@@ -17,11 +25,7 @@ export function mapCalendar(record) {
         label: item.label,
         startsAt: item.startsAt,
         endsAt: item.endsAt,
-        objectRef: mapKnowledgeObjectRef(
-          item.objectId,
-          item.objectKind,
-          item.objectTitle,
-        ),
+        objectRef: mapCalendarObjectRef(item),
         decoration: compactObject({
           urgencyLabel: item.urgencyLabel,
           companyName: item.companyName,

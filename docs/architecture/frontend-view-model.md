@@ -306,6 +306,7 @@ WAS contract로 끌어오지 않는 이유:
 | 시작 시각 | `items[].startsAt` | required |
 | 종료 시각 | `items[].endsAt` | optional |
 | object anchor | `items[].objectRef` | 공고 상세 이동에 사용 |
+| detail route id | `items[].objectRef.opportunityId` | `objectKind === "opportunity"` 일 때 사용 |
 | urgency label | `items[].decoration.urgencyLabel` | optional |
 | company name | `items[].decoration.companyName` | optional |
 
@@ -363,7 +364,7 @@ frontend에서 계산하는 항목:
 
 ### `GET /api/calendar`
 
-- `objectRef`만으로 detail deep-link가 가능한가
+- `objectRef.opportunityId`만으로 detail deep-link가 가능한가
 - `urgencyLabel` 없이도 일정 UI가 동작하는가
 
 ## Relationship to Other Docs

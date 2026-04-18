@@ -67,7 +67,7 @@ export function createMockReadAuthorityAdapter() {
       const record = opportunityDetailsFixture[opportunityId]
 
       if (!record) {
-        throw createNotFoundError("Opportunity not found.", {
+        throw createNotFoundError("opportunity not found", {
           opportunityId,
         })
       }
@@ -89,6 +89,7 @@ export function createMockReadAuthorityAdapter() {
 
         return true
       })
+      filteredItems.sort((left, right) => Date.parse(left.startsAt) - Date.parse(right.startsAt))
 
       return clone({
         ...calendarFixture,

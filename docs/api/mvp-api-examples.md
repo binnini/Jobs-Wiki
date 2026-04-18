@@ -532,7 +532,8 @@ GET /api/calendar?from=2026-04-18&to=2026-05-31
       "objectRef": {
         "objectId": "job_posting:kakaobank_backend",
         "objectKind": "opportunity",
-        "title": "여수신 시스템 백엔드 엔지니어"
+        "title": "여수신 시스템 백엔드 엔지니어",
+        "opportunityId": "opp_kakaobank_backend"
       },
       "decoration": {
         "urgencyLabel": "D-7",
@@ -547,7 +548,8 @@ GET /api/calendar?from=2026-04-18&to=2026-05-31
       "objectRef": {
         "objectId": "job_posting:toss_core_backend",
         "objectKind": "opportunity",
-        "title": "코어 백엔드 엔지니어 (결제 시스템)"
+        "title": "코어 백엔드 엔지니어 (결제 시스템)",
+        "opportunityId": "opp_toss_core_backend"
       },
       "decoration": {
         "urgencyLabel": "D-13",

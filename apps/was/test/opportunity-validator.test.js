@@ -1,6 +1,9 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { validateOpportunityListQuery } from "../src/validators/opportunity-validator.js"
+import {
+  validateOpportunityId,
+  validateOpportunityListQuery,
+} from "../src/validators/opportunity-validator.js"
 
 function createSearchParams(queryString = "") {
   return new URLSearchParams(queryString)
@@ -42,5 +45,20 @@ test("validateOpportunityListQuery rejects malformed cursors", () => {
     (error) =>
       error.code === "validation_failed" &&
       error.message === "`cursor` must use the `cursor_<number>` format.",
+  )
+})
+
+test("validateOpportunityId trims surrounding whitespace", () => {
+  const result = validateOpportunityId("  opp_backend_platform  ")
+
+  assert.equal(result, "opp_backend_platform")
+})
+
+test("validateOpportunityId rejects blank values", () => {
+  assert.throws(
+    () => validateOpportunityId("   "),
+    (error) =>
+      error.code === "validation_failed" &&
+      error.message === "`opportunityId` path parameter is required.",
   )
 })

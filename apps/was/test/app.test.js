@@ -174,13 +174,48 @@ test("GET /api/opportunities normalizes blank optional string filters", async ()
 test("GET /api/calendar returns filtered calendar items", async () => {
   await withApp(async (app) => {
     const response = await invokeApp(app, {
-      url: "/api/calendar?from=2026-04-25",
+      url: "/api/calendar?from=2026-04-26",
     })
 
     assert.equal(response.status, 200)
     assert.equal(response.body.projection, "calendar")
     assert.equal(response.body.items.length, 1)
     assert.equal(response.body.items[0].calendarItemId, "calendar_backend_deadline")
+    assert.deepEqual(response.body.items[0].objectRef, {
+      objectId: "opportunity:backend_platform",
+      objectKind: "opportunity",
+      title: "Backend Platform Engineer",
+      opportunityId: "opp_backend_platform",
+    })
+  })
+})
+
+test("GET /api/calendar returns time-sorted items that can deep-link to opportunity detail", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      url: "/api/calendar?from=2026-04-18&to=2026-05-31",
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(response.body.items.length, 2)
+    assert.equal(response.body.items[0].calendarItemId, "calendar_product_data_deadline")
+    assert.equal(response.body.items[0].startsAt, "2026-04-25T14:59:59.000Z")
+    assert.equal(response.body.items[0].objectRef.opportunityId, "opp_product_data")
+    assert.equal(response.body.items[0].decoration.companyName, "Fieldline")
+    assert.equal(response.body.items[1].calendarItemId, "calendar_backend_deadline")
+    assert.equal(response.body.items[1].objectRef.opportunityId, "opp_backend_platform")
+  })
+})
+
+test("GET /api/calendar rejects invalid date queries", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      url: "/api/calendar?from=2026-02-30",
+    })
+
+    assert.equal(response.status, 400)
+    assert.equal(response.body.error.code, "validation_failed")
+    assert.equal(response.body.error.message, "`from` must use YYYY-MM-DD format.")
   })
 })
 
@@ -208,6 +243,62 @@ test("GET /api/opportunities/:opportunityId normalizes not found errors", async 
 
     assert.equal(response.status, 404)
     assert.equal(response.body.error.code, "not_found")
+    assert.equal(response.body.error.message, "opportunity not found")
+    assert.deepEqual(response.body.error.details, {
+      opportunityId: "unknown",
+    })
+  })
+})
+
+test("GET /api/opportunities/:opportunityId returns a detail payload that fills header, company, qualification, and analysis blocks", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      url: "/api/opportunities/opp_backend_platform",
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(response.body.projection, "opportunity_detail")
+    assert.equal(response.body.item.surface.title, "Backend Platform Engineer")
+    assert.equal(
+      response.body.item.metadata.closesAt,
+      "2026-05-01T23:59:59+09:00",
+    )
+    assert.deepEqual(response.body.item.company, {
+      companyRef: {
+        objectId: "company:northstar_data",
+        objectKind: "company",
+        title: "Northstar Data",
+      },
+      name: "Northstar Data",
+      summary: "Builds workflow systems for recruiting and market intelligence.",
+      homepageUrl: "https://example.test/northstar-data",
+      mainBusiness: "Hiring operations software",
+    })
+    assert.deepEqual(response.body.item.qualification, {
+      locationText: "Hybrid / Seoul",
+      requirementsText: "Node.js, API design, integration boundaries, observability.",
+      selectionProcessText: "Screening -> technical interview -> final loop",
+    })
+    assert.deepEqual(response.body.item.analysis, {
+      fitScore: 81,
+      strengthsSummary: "Relevant experience with API and runtime scaffolding.",
+      riskSummary: "Needs deeper evidence around large-scale platform migrations.",
+    })
+  })
+})
+
+test("GET /api/opportunities/:opportunityId rejects blank ids", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      url: "/api/opportunities/%20%20",
+    })
+
+    assert.equal(response.status, 400)
+    assert.equal(response.body.error.code, "validation_failed")
+    assert.equal(
+      response.body.error.message,
+      "`opportunityId` path parameter is required.",
+    )
   })
 })
 
