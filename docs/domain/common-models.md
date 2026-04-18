@@ -50,16 +50,16 @@ candidate object kind:
   - calendar, graph, search에서 반복적으로 보이는 source-backed object 후보입니다.
 - `company`
   - 채용 주체 또는 기업 profile 단위입니다.
-  - [companies.md](/home/yebin/projects/Jobs-Wiki/docs/domain/companies.md:1)와 연결됩니다.
+  - [companies.md](./companies.md)와 연결됩니다.
 - `training`
   - 훈련 과정 또는 훈련 기회 단위입니다.
-  - [training.md](/home/yebin/projects/Jobs-Wiki/docs/domain/training.md:1)와 연결됩니다.
+  - [training.md](./training.md)와 연결됩니다.
 - `job`
   - 직업/직무 설명 단위입니다.
-  - [jobs.md](/home/yebin/projects/Jobs-Wiki/docs/domain/jobs.md:1)와 연결됩니다.
+  - [jobs.md](./jobs.md)와 연결됩니다.
 - `department`
   - 전공/학과 설명 단위입니다.
-  - [departments.md](/home/yebin/projects/Jobs-Wiki/docs/domain/departments.md:1)와 연결됩니다.
+  - [departments.md](./departments.md)와 연결됩니다.
 - `activity`
   - 사용자 준비 활동, 지원 기록, 체크포인트 같은 user-scoped object 후보입니다.
   - 현재는 최소 candidate로만 두며 세부 모델은 아직 draft입니다.

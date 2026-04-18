@@ -39,8 +39,8 @@ Draft
 - workspace summary
 - command submission and command status
 
-이 family는 현재 [frontend-was.md](/home/yebin/projects/Jobs-Wiki/docs/api/frontend-was.md:1)의 draft contract와 강하게 연결됩니다.
-MVP 우선 slice는 [workspace-mvp-read-contract.md](/home/yebin/projects/Jobs-Wiki/docs/api/workspace-mvp-read-contract.md:1)에서 `tree`, `document`, `calendar` 기준선으로 따로 정리합니다.
+이 family는 현재 [frontend-was.md](./frontend-was.md)의 draft contract와 강하게 연결됩니다.
+MVP 우선 slice는 [workspace-mvp-read-contract.md](./workspace-mvp-read-contract.md)에서 `tree`, `document`, `calendar` 기준선으로 따로 정리합니다.
 
 주의:
 

@@ -20,9 +20,9 @@ Draft
 ## Current Pack Baseline
 
 2026-04-18 기준 recruiting canonical fact baseline은
-[Recruiting Domain Pack](/Users/yebin/workSpace/Jobs-Wiki/docs/domain/recruiting-domain-pack.md:1)
+[Recruiting Domain Pack](./recruiting-domain-pack.md)
 문서와
-[packages/domain-packs/recruiting/v1.json](/Users/yebin/workSpace/Jobs-Wiki/packages/domain-packs/recruiting/v1.json:1)
+[packages/domain-packs/recruiting/v1.json](../../packages/domain-packs/recruiting/v1.json)
 artifact에 정리되어 있습니다.
 
 현재 v1에서 pack이 승격하는 canonical entity / relation은 아래입니다.
