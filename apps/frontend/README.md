@@ -4,17 +4,69 @@
 
 이 레이어는 직접 WorkNet 같은 외부 API를 호출하지 않고, 기본적으로 backend/WAS가 제공하는 내부 API를 소비하는 것을 전제로 합니다.
 
-현재 컨셉 프로토타입 정리본:
+현재 report-first MVP entry component:
 
-- [src/JobsWikiPrototype.jsx](/Users/yebin/workSpace/Jobs-Wiki/apps/frontend/src/JobsWikiPrototype.jsx:1)
-  - baseline report, opportunity detail, ask workspace, calendar, workspace를 포함한 standalone prototype component
+- [src/JobsWikiPrototype.jsx](src/JobsWikiPrototype.jsx)
+  - onboarding, extraction review, baseline report, opportunity detail, ask, calendar 흐름을 한 컴포넌트 트리로 정리한 현재 MVP shell
 
-실행 방법:
+## Run
 
-1. `cd /Users/yebin/workSpace/Jobs-Wiki/apps/frontend`
-2. `npm install`
-3. `npm run dev`
+저장소 루트에서 WAS를 먼저 실행합니다.
 
-루트에서도 바로 실행할 수 있도록 아래 스크립트를 추가했습니다.
+```bash
+npm run start:was
+```
 
-- `npm run dev:frontend`
+그 다음 frontend dev server를 실행합니다.
+
+```bash
+npm run dev:frontend
+```
+
+또는 `apps/frontend` 안에서 직접 실행할 수 있습니다.
+
+```bash
+npm run dev
+```
+
+기본 dev proxy:
+
+- `/api`
+- `/health`
+
+기본 proxy target:
+
+- `http://127.0.0.1:4310`
+
+다른 WAS 주소를 사용하려면 아래처럼 실행합니다.
+
+```bash
+WAS_PROXY_TARGET=http://127.0.0.1:4310 npm run dev:frontend
+```
+
+preview/build 같이 proxy가 없는 실행에서는 `VITE_WAS_BASE_URL` 을 사용합니다.
+
+```bash
+VITE_WAS_BASE_URL=http://127.0.0.1:4310 npm run preview
+```
+
+현재 MVP route baseline:
+
+- `/onboarding`
+- `/review`
+- `/report`
+- `/opportunities/:opportunityId`
+- `/ask`
+- `/calendar`
+
+## Smoke Verification
+
+```bash
+npm run build
+```
+
+루트에서는 아래 단일 명령으로 WAS test와 frontend build smoke를 함께 실행할 수 있습니다.
+
+```bash
+npm run verify:mvp
+```

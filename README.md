@@ -1,5 +1,57 @@
 # Jobs-Wiki
 
+현재 구현 기준은 report-first MVP입니다. frontend는 WAS만 호출하고, 기본 리포트와 공고 상세, Ask, Calendar 흐름을 우선합니다.
+
+핵심 문서 진입점:
+
+- [docs/README.md](docs/README.md)
+- [docs/product/mvp-requirements-baseline.md](docs/product/mvp-requirements-baseline.md)
+- [docs/api/mvp-api-baseline.md](docs/api/mvp-api-baseline.md)
+- [docs/operations/non-functional-requirements.md](docs/operations/non-functional-requirements.md)
+
+## Current MVP Run
+
+1. WAS 실행
+
+   ```bash
+   npm run start:was
+   ```
+
+   기본 주소는 `http://127.0.0.1:4310` 이고, 기본 데이터 모드는 `WAS_DATA_MODE=mock` 입니다.
+
+2. frontend 실행
+
+   ```bash
+   npm run dev:frontend
+   ```
+
+   Vite dev server는 기본적으로 `/api` 와 `/health` 를 `http://127.0.0.1:4310` 으로 프록시합니다.
+   다른 WAS 주소를 쓰려면 `WAS_PROXY_TARGET=http://host:port npm run dev:frontend` 를 사용합니다.
+
+3. 확인할 MVP route
+
+   - `/onboarding`
+   - `/review`
+   - `/report`
+   - `/opportunities/:opportunityId`
+   - `/ask`
+   - `/calendar`
+
+## Current MVP Verification
+
+- 전체 최소 smoke:
+
+  ```bash
+  npm run verify:mvp
+  ```
+
+- 런타임 확인:
+
+  ```bash
+  curl http://127.0.0.1:4310/health
+  curl http://127.0.0.1:4310/api/workspace/summary
+  ```
+
 ## Directory Layout
 
 ```text
@@ -52,8 +104,8 @@ dev-wiki/       # 개발 중 작업 노트와 실험 기록, gitignored
 
 WorkNet 같은 third-party는 역할별로 분리하는 편이 좋습니다.
 
-- 문서: [docs/third-party/worknet](/home/yebin/projects/Jobs-Wiki/docs/third-party/worknet)
-- 외부 연동 코드: [packages/integrations/worknet](/home/yebin/projects/Jobs-Wiki/packages/integrations/worknet)
-- serving 계층 소비자: [apps/was](/home/yebin/projects/Jobs-Wiki/apps/was)
-- ingestion 계층 소비자: [apps/ingestion](/home/yebin/projects/Jobs-Wiki/apps/ingestion)
-- 실호출 테스트: [tests/worknet](/home/yebin/projects/Jobs-Wiki/tests/worknet)
+- 문서: [docs/third-party/worknet/README.md](docs/third-party/worknet/README.md)
+- 외부 연동 코드: [packages/integrations/worknet/README.md](packages/integrations/worknet/README.md)
+- serving 계층 소비자: [apps/was/README.md](apps/was/README.md)
+- ingestion 계층 소비자: [apps/ingestion/README.md](apps/ingestion/README.md)
+- 실호출 테스트: [tests/worknet/README.md](tests/worknet/README.md)

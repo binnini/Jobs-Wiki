@@ -9,6 +9,7 @@
     "dev:was": "npm --prefix apps/was run dev",
     "start:was": "npm --prefix apps/was run start",
     "test:was": "npm --prefix apps/was run test",
+    "verify:mvp": "npm run test:was && npm run build:frontend",
     "test:domain-pack": "node --test tests/domain-packs/recruiting-pack.test.mjs",
     "test:domain-pack:fixtures": "node --test tests/domain-packs/recruiting-governance-fixtures.test.ts",
     "test:domain-pack:mapper": "node --test tests/domain-packs/recruiting-proposal-mapper.test.ts",

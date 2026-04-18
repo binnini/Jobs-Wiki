@@ -13,13 +13,13 @@
 
 현재 구현을 시작할 때 우선 보면 좋은 문서:
 
-- [was-runtime-layout.md](/Users/yebin/workSpace/Jobs-Wiki/docs/architecture/was-runtime-layout.md:1)
+- [was-runtime-layout.md](../../docs/architecture/was-runtime-layout.md)
   - `apps/was` 폴더 구조와 레이어 책임
-- [was-adapter-contract.md](/Users/yebin/workSpace/Jobs-Wiki/docs/architecture/was-adapter-contract.md:1)
+- [was-adapter-contract.md](../../docs/architecture/was-adapter-contract.md)
   - mock/real adapter가 공유해야 하는 interface
-- [mvp-api-baseline.md](/Users/yebin/workSpace/Jobs-Wiki/docs/api/mvp-api-baseline.md:1)
+- [mvp-api-baseline.md](../../docs/api/mvp-api-baseline.md)
   - 현재 구현 우선 endpoint 기준선
-- [mvp-api-examples.md](/Users/yebin/workSpace/Jobs-Wiki/docs/api/mvp-api-examples.md:1)
+- [mvp-api-examples.md](../../docs/api/mvp-api-examples.md)
   - request/response example payload
 
 ## Current Runtime Status
@@ -59,6 +59,13 @@ npm run start:was
 npm start
 ```
 
+주요 환경 변수:
+
+- `WAS_HOST`
+- `WAS_PORT`
+- `WAS_DATA_MODE=mock|real`
+- `WAS_LOG_LEVEL`
+
 기본 health endpoint:
 
 ```text
@@ -79,4 +86,11 @@ GET /health
 
 ```bash
 npm run test:was
+```
+
+런타임 smoke 예시:
+
+```bash
+curl http://127.0.0.1:4310/health
+curl http://127.0.0.1:4310/api/workspace/summary
 ```
