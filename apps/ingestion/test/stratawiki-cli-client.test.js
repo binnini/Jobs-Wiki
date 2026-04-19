@@ -1,6 +1,6 @@
 import test from "node:test"
 import assert from "node:assert/strict"
-import { chmod, mkdtemp, rm, writeFile } from "node:fs/promises"
+import { chmod, mkdir, mkdtemp, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
@@ -41,6 +41,35 @@ test("validateStratawikiRuntime rejects missing domain pack configuration", asyn
   await rm(tempDir, { recursive: true, force: true })
 })
 
+test("validateStratawikiRuntime does not reject the fixed runtime sibling path", async () => {
+  const tempDir = await mkdtemp(join(tmpdir(), "jobs-wiki-ingestion-test-"))
+  const runtimeRoot = join(tempDir, "stratawiki-runtime")
+  const wrapperPath = join(runtimeRoot, "bin", "stratawiki-jobswiki.sh")
+  const packPath = join(tempDir, "recruiting-pack.json")
+
+  await mkdir(join(runtimeRoot, "bin"), { recursive: true })
+  await createExecutableFile(
+    wrapperPath,
+    "#!/usr/bin/env bash\nexit 0\n",
+  )
+  await writeFile(packPath, "{\"manifest\":{}}", "utf-8")
+
+  await assert.doesNotReject(() =>
+    validateStratawikiRuntime(
+      {
+        stratawikiCliWrapper: wrapperPath,
+        stratawikiDomainPackPathsRaw: packPath,
+        stratawikiDomainPackPaths: [packPath],
+      },
+      {
+        expectedWrapperPath: wrapperPath,
+      },
+    ),
+  )
+
+  await rm(tempDir, { recursive: true, force: true })
+})
+
 test("createStratawikiCliClient uses wrapper with args-file transport", async () => {
   const tempDir = await mkdtemp(join(tmpdir(), "jobs-wiki-ingestion-test-"))
   const wrapperPath = join(tempDir, "stratawiki-jobswiki.sh")
@@ -51,33 +80,56 @@ test("createStratawikiCliClient uses wrapper with args-file transport", async ()
     wrapperPath,
     `#!/usr/bin/env bash
 set -euo pipefail
-if [[ "$1" == "list-tools" ]]; then
+args=("$@")
+cursor=0
+seen_domain_pack_path=""
+seen_active_pack=""
+while [[ "$cursor" -lt "$#" ]]; do
+  current="\${args[$cursor]}"
+  if [[ "$current" == "--domain-pack-path" ]]; then
+    cursor=$((cursor + 1))
+    seen_domain_pack_path="\${args[$cursor]}"
+  elif [[ "$current" == "--activate-domain-pack" ]]; then
+    cursor=$((cursor + 1))
+    seen_active_pack="\${args[$cursor]}"
+  else
+    break
+  fi
+  cursor=$((cursor + 1))
+done
+
+command_name="\${args[$cursor]}"
+if [[ "$command_name" == "list-tools" ]]; then
   echo '[{"name":"validate_domain_proposal_batch"}]'
   exit 0
 fi
-if [[ "$1" == "call" ]]; then
-  tool="$2"
-  shift 2
+if [[ "$command_name" == "call" ]]; then
+  cursor=$((cursor + 1))
+  tool="\${args[$cursor]}"
+  cursor=$((cursor + 1))
   args_json='{}'
-  while [[ "$#" -gt 0 ]]; do
-    case "$1" in
+  while [[ "$cursor" -lt "$#" ]]; do
+    current="\${args[$cursor]}"
+    case "$current" in
       --args-file)
-        args_json="$(cat "$2")"
-        shift 2
+        cursor=$((cursor + 1))
+        args_json="$(cat "\${args[$cursor]}")"
+        cursor=$((cursor + 1))
         ;;
       --args)
-        args_json="$2"
-        shift 2
+        cursor=$((cursor + 1))
+        args_json="\${args[$cursor]}"
+        cursor=$((cursor + 1))
         ;;
       --envelope)
-        shift
+        cursor=$((cursor + 1))
         ;;
       *)
-        shift
+        cursor=$((cursor + 1))
         ;;
     esac
   done
-  printf '{"tool":"%s","args":%s}\\n' "$tool" "$args_json"
+  printf '{"tool":"%s","args":%s,"domainPackPath":"%s","activePack":"%s"}\\n' "$tool" "$args_json" "$seen_domain_pack_path" "$seen_active_pack"
   exit 0
 fi
 echo '{"ok":false}'
@@ -90,6 +142,9 @@ echo '{"ok":false}'
       stratawikiDomainPackPathsRaw: packPath,
       stratawikiDomainPackPaths: [packPath],
       stratawikiActiveDomainPacksRaw: "recruiting=2026-04-18",
+      stratawikiActiveDomainPacks: {
+        recruiting: "2026-04-18",
+      },
       stratawikiConfigured: true,
     },
     {
@@ -108,6 +163,8 @@ echo '{"ok":false}'
 
   assert.equal(response.tool, "validate_domain_proposal_batch")
   assert.equal(response.args.batch.batch_id, "batch-1")
+  assert.equal(response.domainPackPath, packPath)
+  assert.equal(response.activePack, "recruiting=2026-04-18")
 
   const personalResponse = await client.callTool("query_personal_knowledge", {
     question: "How should I apply?",

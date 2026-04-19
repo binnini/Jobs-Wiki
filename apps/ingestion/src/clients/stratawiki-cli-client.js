@@ -1,7 +1,7 @@
 import { constants } from "node:fs"
 import { access, mkdtemp, readFile, rm, writeFile } from "node:fs/promises"
 import { tmpdir } from "node:os"
-import { join, resolve } from "node:path"
+import { join, relative, resolve, sep } from "node:path"
 import { randomUUID } from "node:crypto"
 import { spawn } from "node:child_process"
 
@@ -48,6 +48,33 @@ function parseJsonOutput(rawText, contextLabel) {
       `${contextLabel} returned non-JSON output: ${rawText.slice(0, 200)}`,
     )
   }
+}
+
+function buildGlobalCliArgs(env) {
+  const cliArgs = []
+
+  for (const domainPackPath of env.stratawikiDomainPackPaths ?? []) {
+    cliArgs.push("--domain-pack-path", domainPackPath)
+  }
+
+  for (const [domain, version] of Object.entries(
+    env.stratawikiActiveDomainPacks ?? {},
+  )) {
+    cliArgs.push("--activate-domain-pack", `${domain}=${version}`)
+  }
+
+  return cliArgs
+}
+
+function isInsidePath(parentPath, childPath) {
+  const relativePath = relative(parentPath, childPath)
+  return (
+    relativePath === "" ||
+    (!relativePath.startsWith(`..${sep}`) &&
+      relativePath !== ".." &&
+      !relativePath.startsWith("..") &&
+      !relativePath.startsWith(sep))
+  )
 }
 
 async function spawnAndCapture(command, args, env) {
@@ -103,7 +130,7 @@ export async function validateStratawikiRuntime(
     )
   }
 
-  if (resolvedWrapperPath.startsWith(STRATAWIKI_DEV_CHECKOUT)) {
+  if (isInsidePath(STRATAWIKI_DEV_CHECKOUT, resolvedWrapperPath)) {
     throw new Error(
       `Invalid STRATAWIKI_CLI_WRAPPER: ${resolvedWrapperPath}. Jobs-Wiki must not call the development checkout under ${STRATAWIKI_DEV_CHECKOUT}.`,
     )
@@ -159,7 +186,10 @@ export function createStratawikiCliClient(
       return validateStratawikiRuntime(env, { expectedWrapperPath })
     },
     async listTools() {
-      const result = await execute(["list-tools"])
+      const result = await execute([
+        ...buildGlobalCliArgs(env),
+        "list-tools",
+      ])
 
       if (result.code !== 0) {
         throw new Error(
@@ -182,6 +212,8 @@ export function createStratawikiCliClient(
       let tempDir
 
       try {
+        const cliArgsWithGlobals = buildGlobalCliArgs(env)
+
         if (transport === "inline") {
           cliArgs.push("--args", JSON.stringify(normalizedArgs))
         } else {
@@ -202,7 +234,10 @@ export function createStratawikiCliClient(
           cliArgs.push("--envelope")
         }
 
-        const result = await execute(cliArgs)
+        const result = await execute([
+          ...cliArgsWithGlobals,
+          ...cliArgs,
+        ])
 
         if (result.code !== 0) {
           throw new Error(
