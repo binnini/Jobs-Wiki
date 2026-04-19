@@ -4,10 +4,12 @@ import {
   createStratawikiReadAuthorityAdapter,
 } from "../src/adapters/read-authority/stratawiki-read-authority-adapter.js"
 
-const SNAPSHOT_POINTER = {
+const SNAPSHOT_STATUS = {
   current_snapshot_id: "fact_snap:recruiting:test",
   fact_snapshot_id: "fact_snap:recruiting:test",
   updated_at: "2026-04-19T00:36:15.801Z",
+  published_at: "2026-04-19T00:36:20.000Z",
+  has_pending_outbox: false,
 }
 
 const POSTINGS = [
@@ -115,33 +117,54 @@ const RELATIONS = [
   },
 ]
 
-function createQueryJsonStub() {
+function createQueryJsonStub(overrides = {}) {
+  const snapshotStatus =
+    Object.prototype.hasOwnProperty.call(overrides, "snapshotStatus")
+      ? overrides.snapshotStatus
+      : SNAPSHOT_STATUS
+  const postings =
+    Object.prototype.hasOwnProperty.call(overrides, "postings")
+      ? overrides.postings
+      : POSTINGS
+  const companies =
+    Object.prototype.hasOwnProperty.call(overrides, "companies")
+      ? overrides.companies
+      : COMPANIES
+  const roles =
+    Object.prototype.hasOwnProperty.call(overrides, "roles")
+      ? overrides.roles
+      : ROLES
+  const relations =
+    Object.prototype.hasOwnProperty.call(overrides, "relations")
+      ? overrides.relations
+      : RELATIONS
+
   return async function queryJson({ sql }) {
     if (sql.includes("FROM ops.snapshot_pointer")) {
-      return SNAPSHOT_POINTER
+      return snapshotStatus
     }
 
     if (sql.includes("entity_type = 'job_posting'")) {
-      return POSTINGS
+      return postings
     }
 
     if (sql.includes("entity_type = 'company'")) {
-      return COMPANIES
+      return companies
     }
 
     if (sql.includes("entity_type = 'role'")) {
-      return ROLES
+      return roles
     }
 
     if (sql.includes("FROM fact.relation_envelopes")) {
-      return RELATIONS
+      return relations
     }
 
     throw new Error(`Unexpected SQL in test stub: ${sql}`)
   }
 }
 
-function createAdapter() {
+function createAdapter(overrides = {}) {
   return createStratawikiReadAuthorityAdapter({
     env: {
       readDatabaseUrl: "postgresql://example.test/stratawiki",
@@ -149,7 +172,7 @@ function createAdapter() {
       readDomain: "recruiting",
       readScope: "shared",
     },
-    queryJson: createQueryJsonStub(),
+    queryJson: createQueryJsonStub(overrides),
     now: () => new Date("2026-04-19T00:00:00.000Z"),
   })
 }
@@ -232,4 +255,53 @@ test("real read adapter raises not_found for malformed opportunity ids", async (
       code: "not_found",
     },
   )
+})
+
+test("real read adapter marks sync as pending when the current snapshot still has outbox work", async () => {
+  const adapter = createAdapter({
+    snapshotStatus: {
+      ...SNAPSHOT_STATUS,
+      has_pending_outbox: true,
+    },
+  })
+  const summary = await adapter.getWorkspaceSummary()
+
+  assert.equal(summary.sync.visibility, "pending")
+})
+
+test("real read adapter marks sync as partial when snapshot metadata is present but not yet published", async () => {
+  const adapter = createAdapter({
+    snapshotStatus: {
+      ...SNAPSHOT_STATUS,
+      published_at: undefined,
+    },
+  })
+  const list = await adapter.listOpportunities()
+
+  assert.equal(list.sync.visibility, "partial")
+})
+
+test("real read adapter marks sync as unknown when facts exist without snapshot metadata", async () => {
+  const adapter = createAdapter({
+    snapshotStatus: undefined,
+  })
+  const detail = await adapter.getOpportunityDetail({
+    opportunityId: (await adapter.listOpportunities()).items[0].opportunityId,
+  })
+
+  assert.equal(detail.sync.visibility, "unknown")
+})
+
+test("real read adapter marks sync as stale when nothing is visible yet", async () => {
+  const adapter = createAdapter({
+    snapshotStatus: undefined,
+    postings: [],
+    companies: [],
+    roles: [],
+    relations: [],
+  })
+  const calendar = await adapter.getCalendar()
+
+  assert.equal(calendar.sync.visibility, "stale")
+  assert.equal(calendar.items.length, 0)
 })

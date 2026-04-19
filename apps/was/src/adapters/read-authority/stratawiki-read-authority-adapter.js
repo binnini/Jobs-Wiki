@@ -171,21 +171,40 @@ function getRoleLabel(roleRecord) {
   )
 }
 
-function createProjectionSync(snapshotPointer, fallbackVersion) {
-  if (snapshotPointer?.fact_snapshot_id || snapshotPointer?.current_snapshot_id) {
+function createProjectionSync(snapshotStatus, fallbackVersion) {
+  if (snapshotStatus?.fact_snapshot_id || snapshotStatus?.current_snapshot_id) {
+    const version =
+      snapshotStatus.current_snapshot_id ??
+      snapshotStatus.fact_snapshot_id ??
+      fallbackVersion
+    const visibleAt = snapshotStatus.published_at ?? snapshotStatus.updated_at
+
+    if (snapshotStatus.has_pending_outbox) {
+      return {
+        visibility: "pending",
+        version,
+        visibleAt,
+      }
+    }
+
+    if (!snapshotStatus.published_at) {
+      return {
+        visibility: "partial",
+        version,
+        visibleAt,
+      }
+    }
+
     return {
       visibility: "applied",
-      version:
-        snapshotPointer.current_snapshot_id ??
-        snapshotPointer.fact_snapshot_id ??
-        fallbackVersion,
-      visibleAt: snapshotPointer.updated_at,
+      version,
+      visibleAt,
     }
   }
 
   return fallbackVersion
     ? {
-        visibility: "partial",
+        visibility: "unknown",
         version: fallbackVersion,
       }
     : {
@@ -368,7 +387,7 @@ function compareOpportunityRecords(left, right) {
   return left.title.localeCompare(right.title, "ko")
 }
 
-function buildReadModel({ postings, companies, roles, relations, snapshotPointer, now }) {
+function buildReadModel({ postings, companies, roles, relations, snapshotStatus, now }) {
   const companyByKey = new Map(
     companies.map((companyRecord) => [companyRecord.canonical_key, companyRecord]),
   )
@@ -409,7 +428,7 @@ function buildReadModel({ postings, companies, roles, relations, snapshotPointer
     opportunityItems.map((opportunityItem) => [opportunityItem.opportunityId, opportunityItem]),
   )
   const fallbackVersion = opportunityItems[0]?.factSnapshotId
-  const sync = createProjectionSync(snapshotPointer, fallbackVersion)
+  const sync = createProjectionSync(snapshotStatus, fallbackVersion)
 
   return {
     sync,
@@ -547,9 +566,24 @@ function buildReadQueries({ domain, scope }) {
     snapshotPointer: `
       SELECT row_to_json(t)
       FROM (
-        SELECT current_snapshot_id, fact_snapshot_id, updated_at
-        FROM ops.snapshot_pointer
-        WHERE layer = 'fact' AND domain = ${domainLiteral}
+        SELECT
+          p.current_snapshot_id,
+          p.fact_snapshot_id,
+          p.updated_at,
+          pub.published_at,
+          EXISTS (
+            SELECT 1
+            FROM ops.outbox_event e
+            WHERE e.aggregate_layer = 'fact'
+              AND e.aggregate_id = p.current_snapshot_id
+              AND e.status IN ('pending', 'claimed')
+          ) AS has_pending_outbox
+        FROM ops.snapshot_pointer p
+        LEFT JOIN ops.snapshot_publication pub
+          ON pub.snapshot_id = p.current_snapshot_id
+          AND pub.layer = p.layer
+          AND pub.domain = p.domain
+        WHERE p.layer = 'fact' AND p.domain = ${domainLiteral}
         LIMIT 1
       ) t;
     `,
@@ -604,7 +638,7 @@ async function loadReadModel({ env, queryJson, now }) {
     domain: env.readDomain,
     scope: env.readScope,
   })
-  const [snapshotPointer, postings, companies, roles, relations] = await Promise.all([
+  const [snapshotStatus, postings, companies, roles, relations] = await Promise.all([
     queryJson({
       sql: queries.snapshotPointer,
       connectionString: env.readDatabaseUrl,
@@ -637,7 +671,7 @@ async function loadReadModel({ env, queryJson, now }) {
     companies: companies ?? [],
     roles: roles ?? [],
     relations: relations ?? [],
-    snapshotPointer,
+    snapshotStatus,
     now,
   })
 }
