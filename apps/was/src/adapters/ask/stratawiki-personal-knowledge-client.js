@@ -327,6 +327,7 @@ export function createStratawikiPersonalKnowledgeClient({
       userId,
       question,
       profileVersion,
+      factSnapshot,
       save = false,
     }) {
       const payload = {
@@ -335,6 +336,7 @@ export function createStratawikiPersonalKnowledgeClient({
         user_id: userId,
         question,
         profile_version: profileVersion,
+        ...(factSnapshot ? { fact_snapshot: factSnapshot } : {}),
         model_profile: env.personalQueryModelProfile,
         save: Boolean(save),
       }

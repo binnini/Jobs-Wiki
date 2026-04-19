@@ -439,6 +439,12 @@ export function createStratawikiAskAdapter({
             profileContext: resolvedProfile,
           })
 
+          const currentSnapshotStatus = await personalClient.getSnapshotStatus()
+          const currentFactSnapshot =
+            currentSnapshotStatus?.fact_snapshot ??
+            currentSnapshotStatus?.layers?.fact?.fact_snapshot_id ??
+            null
+
           const personalAnswer = await personalClient.queryPersonalKnowledge({
             tenantId: resolvedProfile.tenantId,
             userId: resolvedProfile.userId,
@@ -447,6 +453,7 @@ export function createStratawikiAskAdapter({
               opportunityContext?.detail,
             ),
             profileVersion: resolvedProfile.profileVersion,
+            factSnapshot: currentFactSnapshot,
             save: false,
           })
 

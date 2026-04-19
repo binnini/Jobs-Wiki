@@ -239,6 +239,11 @@ test("real ask adapter upgrades to personal-aware analysis when profile context 
           },
         }
       },
+      async getSnapshotStatus() {
+        return {
+          fact_snapshot: "fact_snap:recruiting:test",
+        }
+      },
       async getPersonalRecord() {
         return {
           record: {

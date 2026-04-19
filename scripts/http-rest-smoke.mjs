@@ -75,7 +75,7 @@ async function pollJob(client, jobId, { attempts = 20, intervalMs = 500 } = {}) 
     })
     const state = status?.job?.state ?? status?.state
 
-    if (["succeeded", "completed", "failed", "cancelled"].includes(String(state))) {
+    if (["succeeded", "completed", "processed", "failed", "cancelled"].includes(String(state))) {
       return status
     }
 
@@ -99,6 +99,7 @@ async function main() {
   const tenantId = `jobswiki-smoke-${randomUUID().slice(0, 8)}`
   const userId = `profile-${randomUUID().slice(0, 8)}`
   const profileVersion = `profile:${Date.now()}`
+  const interpretationSegment = `jobs-wiki-http-smoke-${randomUUID().slice(0, 8)}`
 
   const health = await client.healthz()
   console.info(`[smoke:http] healthz\n${summarize(health.result)}`)
@@ -153,6 +154,9 @@ async function main() {
       user_id: userId,
       question: "What should I emphasize next for backend recruiting?",
       profile_version: profileVersion,
+      fact_snapshot:
+        snapshot?.fact_snapshot ??
+        snapshot?.layers?.fact?.fact_snapshot_id,
       model_profile: "balanced_default",
       save: false,
     },
@@ -172,7 +176,7 @@ async function main() {
       domain: "recruiting",
       partition: {
         family: "market_trends",
-        segment: "jobs-wiki-http-smoke",
+        segment: interpretationSegment,
       },
       fact_ids: [affectedFactIds[0]],
       fact_snapshot: factSnapshot,
