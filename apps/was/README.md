@@ -24,7 +24,7 @@
 
 ## Current Runtime Status
 
-현재 `apps/was`는 mock-first MVP runtime skeleton을 가집니다.
+현재 `apps/was`는 mock-first MVP runtime skeleton을 가지며, `WAS_DATA_MODE=real`일 때는 StrataWiki canonical read DB를 통해 live projection을 읽을 수 있습니다.
 
 - `src/server.js`
   - HTTP server bootstrap과 graceful shutdown
@@ -65,6 +65,14 @@ npm start
 - `WAS_PORT`
 - `WAS_DATA_MODE=mock|real`
 - `WAS_LOG_LEVEL`
+- `STRATAWIKI_READ_DATABASE_URL`
+  - 기본값: `postgresql://stratawiki:stratawiki@localhost:5432/stratawiki_jobswiki`
+- `STRATAWIKI_READ_PSQL_BIN`
+  - 기본값: `psql`
+- `STRATAWIKI_READ_DOMAIN`
+  - 기본값: `recruiting`
+- `STRATAWIKI_READ_SCOPE`
+  - 기본값: `shared`
 
 기본 health endpoint:
 
@@ -80,7 +88,7 @@ GET /health
 - `GET /api/opportunities/:opportunityId`
 - `GET /api/calendar`
 
-이 route들은 real authority 연결이 아니라 fixture 기반 internal record를 반환합니다.
+기본값은 mock fixture 기반이지만, `WAS_DATA_MODE=real`에서는 위 route들이 StrataWiki fact/relation/snapshot table에서 live data를 읽습니다.
 
 ## Test
 
@@ -93,4 +101,12 @@ npm run test:was
 ```bash
 curl http://127.0.0.1:4310/health
 curl http://127.0.0.1:4310/api/workspace/summary
+```
+
+real read smoke 예시:
+
+```bash
+WAS_DATA_MODE=real \
+STRATAWIKI_READ_DATABASE_URL=postgresql://stratawiki:stratawiki@localhost:5432/stratawiki_jobswiki \
+npm run start:was
 ```

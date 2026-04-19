@@ -79,17 +79,17 @@ function findRoute(routes, method, pathname) {
   return null
 }
 
-function createAdapters(dataMode) {
+function createAdapters(dataMode, env) {
   return {
-    readAuthority: createReadAuthorityAdapter({ mode: dataMode }),
+    readAuthority: createReadAuthorityAdapter({ mode: dataMode, env }),
     askWorkspace: createAskAdapter({ mode: dataMode }),
     commandFacade: createCommandFacadeAdapter({ mode: dataMode }),
   }
 }
 
 export function createApp({ env: providedEnv } = {}) {
-  const env = providedEnv ?? loadEnv()
-  const adapters = createAdapters(env.dataMode)
+  const env = loadEnv(providedEnv)
+  const adapters = createAdapters(env.dataMode, env)
   const logEvent = (payload) => {
     if (env.logLevel === "silent") {
       return
