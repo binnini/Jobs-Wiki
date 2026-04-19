@@ -81,9 +81,11 @@ function findRoute(routes, method, pathname) {
 }
 
 function createAdapters(dataMode, env) {
+  const readAuthority = createReadAuthorityAdapter({ mode: dataMode, env })
+
   return {
-    readAuthority: createReadAuthorityAdapter({ mode: dataMode, env }),
-    askWorkspace: createAskAdapter({ mode: dataMode }),
+    readAuthority,
+    askWorkspace: createAskAdapter({ mode: dataMode, env, readAuthority }),
     commandFacade: createCommandFacadeAdapter({ mode: dataMode, env }),
   }
 }

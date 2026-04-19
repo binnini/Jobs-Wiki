@@ -98,6 +98,8 @@ GET /health
 
 기본값은 mock fixture 기반이지만, `WAS_DATA_MODE=real`에서는 위 route들이 StrataWiki fact/relation/snapshot table에서 live data를 읽습니다.
 
+real ask adapter는 현재 `query_personal_knowledge`를 직접 호출하지 않고, real read authority가 가져온 summary/detail/list evidence를 조합해서 answer/evidence/related opportunities를 구성합니다. `save`는 계속 reserved no-op입니다.
+
 real command facade adapter도 `STRATAWIKI_CLI_WRAPPER`를 통해 thin client 구조를 가지며, `workspace/sync`와 admin trigger endpoint에서 같은 경계를 재사용합니다.
 
 ## Test

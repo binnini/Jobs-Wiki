@@ -183,6 +183,8 @@ type AskWorkspaceAdapter = {
 
 - ask 결과는 read adapter와 달리 단순 read projection이 아닐 수 있습니다.
 - 현재 MVP에서는 별도 `AskWorkspaceAdapter`로 분리하는 편이 service 책임을 단순하게 만듭니다.
+- 현재 real-mode 구현은 `query_personal_knowledge` 저장 경로에 의존하지 않고, read authority가 반환한 live opportunity/summary evidence를 조합해 answer를 만듭니다.
+- `save`는 현재도 reserved no-op로 유지합니다.
 
 ## 3. CommandFacadeAdapter
 

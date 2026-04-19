@@ -532,32 +532,3 @@ test("real adapter mode returns normalized temporary unavailability errors", asy
     },
   )
 })
-
-test("real ask adapter mode returns normalized temporary unavailability errors", async () => {
-  await withConfiguredApp(
-    {
-      serviceName: "jobs-wiki-was-test",
-      host: "127.0.0.1",
-      port: 0,
-      nodeEnv: "test",
-      dataMode: "real",
-      logLevel: "silent",
-    },
-    async (app) => {
-      const response = await invokeApp(app, {
-        method: "POST",
-        url: "/api/workspace/ask",
-        headers: {
-          "content-type": "application/json",
-        },
-        body: {
-          question: "What should I improve first?",
-        },
-      })
-
-      assert.equal(response.status, 503)
-      assert.equal(response.body.error.code, "temporarily_unavailable")
-      assert.equal(response.body.error.details.adapter, "stratawiki_ask_workspace")
-    },
-  )
-})
