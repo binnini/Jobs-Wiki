@@ -226,6 +226,60 @@ type CommandFacadeAdapter = {
 - current MVP read slice에서는 실제 구현보다 skeleton 수준이면 충분합니다.
 - 다만 interface는 지금 문서에서 먼저 고정하는 편이 안전합니다.
 
+### Command Submission Envelope
+
+real adapter가 external MCP facade를 호출할 때는 아래 request envelope를 고정 후보로 둡니다.
+
+```ts
+type CommandSubmissionEnvelope = {
+  requestId: string;
+  command: {
+    name: string;
+    payload: Record<string, unknown>;
+  };
+};
+```
+
+현재 thin client는 아래 tool family를 기본값으로 둡니다.
+
+- submit tool: `knowledge.command.submit`
+- status tool: `knowledge.command.get`
+
+submit response의 최소 기대 shape:
+
+```ts
+type CommandAcceptedResponse = {
+  commandId: string;
+  acceptedAt: string;
+  projectionStates?: Array<{
+    projection: string;
+    visibility: "applied" | "pending" | "partial" | "unknown" | "stale";
+  }>;
+};
+```
+
+status response의 최소 기대 shape:
+
+```ts
+type CommandStatusResponse = {
+  commandId: string;
+  status:
+    | "accepted"
+    | "validating"
+    | "queued"
+    | "running"
+    | "succeeded"
+    | "failed"
+    | "cancelled";
+  acceptedAt?: string;
+  finishedAt?: string;
+  projectionStates?: Array<{
+    projection: string;
+    visibility: "applied" | "pending" | "partial" | "unknown" | "stale";
+  }>;
+};
+```
+
 ## Internal Normalized Records
 
 adapter output은 아래처럼 WAS 내부 normalized record를 기준으로 합니다.
@@ -503,4 +557,3 @@ adapter test는 아래를 우선합니다.
 - `docs/architecture/was-runtime-layout.md`
 - `docs/api/was-external-boundaries.md`
 - `docs/api/mvp-api-baseline.md`
-

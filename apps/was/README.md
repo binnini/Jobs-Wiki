@@ -73,6 +73,12 @@ npm start
   - 기본값: `recruiting`
 - `STRATAWIKI_READ_SCOPE`
   - 기본값: `shared`
+- `STRATAWIKI_CLI_WRAPPER`
+  - 기본 command facade wrapper 경계
+- `STRATAWIKI_COMMAND_SUBMIT_TOOL`
+  - 기본값: `knowledge.command.submit`
+- `STRATAWIKI_COMMAND_STATUS_TOOL`
+  - 기본값: `knowledge.command.get`
 
 기본 health endpoint:
 
@@ -89,6 +95,8 @@ GET /health
 - `GET /api/calendar`
 
 기본값은 mock fixture 기반이지만, `WAS_DATA_MODE=real`에서는 위 route들이 StrataWiki fact/relation/snapshot table에서 live data를 읽습니다.
+
+real command facade adapter도 `STRATAWIKI_CLI_WRAPPER`를 통해 thin client 구조를 가집니다. 현재 route는 아직 노출되지 않았지만, 이후 `workspace/sync`나 admin trigger endpoint에서 같은 경계를 재사용합니다.
 
 ## Test
 

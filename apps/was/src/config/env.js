@@ -47,5 +47,17 @@ export function loadEnv(overrides = {}) {
     readPsqlBin: rawEnv.STRATAWIKI_READ_PSQL_BIN ?? rawEnv.readPsqlBin ?? "psql",
     readDomain: rawEnv.STRATAWIKI_READ_DOMAIN ?? rawEnv.readDomain ?? "recruiting",
     readScope: rawEnv.STRATAWIKI_READ_SCOPE ?? rawEnv.readScope ?? "shared",
+    stratawikiCliWrapper:
+      rawEnv.STRATAWIKI_CLI_WRAPPER ??
+      rawEnv.stratawikiCliWrapper ??
+      "/Users/yebin/workSpace/stratawiki-runtime/bin/stratawiki-jobswiki.sh",
+    commandSubmitTool:
+      rawEnv.STRATAWIKI_COMMAND_SUBMIT_TOOL ??
+      rawEnv.commandSubmitTool ??
+      "knowledge.command.submit",
+    commandStatusTool:
+      rawEnv.STRATAWIKI_COMMAND_STATUS_TOOL ??
+      rawEnv.commandStatusTool ??
+      "knowledge.command.get",
   }
 }

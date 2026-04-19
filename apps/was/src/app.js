@@ -83,7 +83,7 @@ function createAdapters(dataMode, env) {
   return {
     readAuthority: createReadAuthorityAdapter({ mode: dataMode, env }),
     askWorkspace: createAskAdapter({ mode: dataMode }),
-    commandFacade: createCommandFacadeAdapter({ mode: dataMode }),
+    commandFacade: createCommandFacadeAdapter({ mode: dataMode, env }),
   }
 }
 
