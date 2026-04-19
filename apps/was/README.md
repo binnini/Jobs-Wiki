@@ -43,7 +43,8 @@
 - `src/fixtures/`
   - mock adapter가 반환하는 normalized fixture
 
-기본 데이터 모드는 `WAS_DATA_MODE=mock` 입니다.
+루트 저장소의 `npm run dev:was`, `npm run start:was` 는 기본적으로 `WAS_DATA_MODE=real` 로 실행됩니다.
+mock runtime 이 필요하면 `WAS_DATA_MODE=mock` 을 명시적으로 지정하십시오.
 
 ## Run
 
@@ -73,8 +74,17 @@ npm start
   - 기본값: `recruiting`
 - `STRATAWIKI_READ_SCOPE`
   - 기본값: `shared`
+- `STRATAWIKI_INTEGRATION_MODE`
+  - `auto|http|wrapper`
+  - 기본 권장값: `auto`
+- `STRATAWIKI_BASE_URL`
+  - HTTP-first StrataWiki integration base URL
+- `STRATAWIKI_API_TOKEN`
+  - auth-enabled HTTP 환경용 bearer token
+- `STRATAWIKI_HTTP_TIMEOUT_MS`
+  - HTTP request timeout
 - `STRATAWIKI_CLI_WRAPPER`
-  - 기본 command facade wrapper 경계
+  - wrapper rollback path
 - `JOBS_WIKI_PROFILE_CONTEXT_CATALOG_PATH`
   - personal-aware ask 에서 provision 할 profile catalog path
 - `STRATAWIKI_PERSONAL_QUERY_MODEL_PROFILE`
@@ -83,6 +93,7 @@ npm start
   - 기본값: `knowledge.command.submit`
 - `STRATAWIKI_COMMAND_STATUS_TOOL`
   - 기본값: `knowledge.command.get`
+  - 주의: 현재 runtime 이 이 tool 들을 실제로 노출하지 않으면 frontend 의 수동 WorkNet 갱신은 `temporarily_unavailable` 로 실패합니다.
 - `STRATAWIKI_GET_PROFILE_CONTEXT_TOOL`
   - 기본값: `get_profile_context`
 - `STRATAWIKI_UPSERT_PROFILE_CONTEXT_TOOL`
@@ -114,7 +125,19 @@ GET /health
 
 기본값은 mock fixture 기반이지만, `WAS_DATA_MODE=real`에서는 위 route들이 StrataWiki fact/relation/snapshot table에서 live data를 읽습니다.
 
-real ask adapter는 현재 profile context 가 provision 되면 `query_personal_knowledge` 기반 personal-aware answer 를 사용하고, 그렇지 않으면 real read authority가 가져온 summary/detail/list evidence를 조합한 source-first fallback 으로 동작합니다. `save`는 계속 reserved no-op입니다.
+real ask adapter는 현재 HTTP/REST 우선 dual-mode 입니다.
+
+- profile sync: `PUT /api/v1/profile-contexts/{tenant_id}/{user_id}`
+- personal query: `POST /api/v1/personal-queries`
+- interpretation/status reads:
+  - `POST /api/v1/interpretation-builds`
+  - `GET /api/v1/jobs/{job_id}`
+  - `GET /api/v1/snapshot-status`
+  - `GET /api/v1/cache-status/{record_id}`
+  - `GET /api/v1/explanations/{layer}/{record_id}`
+- resource-specific endpoint 가 없는 record/tool 조회만 generic `/api/v1/tool-calls` 또는 wrapper fallback 을 사용합니다.
+
+wrapper 는 rollback path 로 남아 있고, HTTP path 가 unavailable 일 때만 fallback 됩니다. `save`는 계속 reserved no-op입니다.
 
 real command facade adapter도 `STRATAWIKI_CLI_WRAPPER`를 통해 thin client 구조를 가지며, `workspace/sync`와 admin trigger endpoint에서 같은 경계를 재사용합니다.
 
@@ -143,4 +166,10 @@ live integration smoke:
 
 ```bash
 npm run smoke:live
+```
+
+StrataWiki HTTP smoke:
+
+```bash
+npm run smoke:http
 ```

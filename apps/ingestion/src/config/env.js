@@ -37,6 +37,22 @@ function parseInteger(value, fallback) {
   return normalized
 }
 
+function parseIntegrationMode(value, fallback = "auto") {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return fallback
+  }
+
+  const normalized = String(value).trim().toLowerCase()
+
+  if (!["auto", "http", "wrapper"].includes(normalized)) {
+    throw new Error(
+      `Invalid STRATAWIKI_INTEGRATION_MODE: ${value}. Expected auto, http, or wrapper.`,
+    )
+  }
+
+  return normalized
+}
+
 const WORKNET_ENV_ALIASES = {
   employment: ["EMPLOYMENT_INFO", "WORKNET_EMPLOYMENT_AUTH_KEY"],
   nationalTraining: [
@@ -154,6 +170,9 @@ export function loadEnv(overrides = {}) {
   }
   const worknetKeys = loadWorknetKeys(rawEnv)
   const stratawikiCliWrapper = rawEnv.STRATAWIKI_CLI_WRAPPER ?? null
+  const stratawikiIntegrationMode = parseIntegrationMode(
+    rawEnv.STRATAWIKI_INTEGRATION_MODE,
+  )
   const stratawikiDomainPackPathsRaw =
     rawEnv.JOBS_WIKI_STRATAWIKI_DOMAIN_PACK_PATHS ?? ""
   const stratawikiActiveDomainPacksRaw =
@@ -185,6 +204,9 @@ export function loadEnv(overrides = {}) {
     worknetKeyPresence: summarizeKeyPresence(worknetKeys),
     worknetConfigured: Object.values(worknetKeys).some(Boolean),
     stratawikiCliWrapper,
+    stratawikiIntegrationMode,
+    stratawikiApiToken: rawEnv.STRATAWIKI_API_TOKEN ?? null,
+    stratawikiHttpTimeoutMs: parseInteger(rawEnv.STRATAWIKI_HTTP_TIMEOUT_MS, 10000),
     stratawikiDomainPackPathsRaw,
     stratawikiDomainPackPaths: parsePathList(stratawikiDomainPackPathsRaw),
     stratawikiActiveDomainPacksRaw,
@@ -192,7 +214,8 @@ export function loadEnv(overrides = {}) {
     stratawikiRecruitingPackVersion:
       stratawikiActiveDomainPacks.recruiting ?? null,
     stratawikiConfigured: Boolean(
-      stratawikiCliWrapper && parsePathList(stratawikiDomainPackPathsRaw).length > 0,
+      rawEnv.STRATAWIKI_BASE_URL ||
+        (stratawikiCliWrapper && parsePathList(stratawikiDomainPackPathsRaw).length > 0),
     ),
     stratawikiBaseUrl: rawEnv.STRATAWIKI_BASE_URL ?? null,
   }

@@ -1,4 +1,5 @@
 const VALID_DATA_MODES = new Set(["mock", "real"])
+const VALID_INTEGRATION_MODES = new Set(["auto", "http", "wrapper"])
 
 try {
   process.loadEnvFile?.()
@@ -18,6 +19,20 @@ function parsePort(rawPort) {
   return port
 }
 
+function parseInteger(rawValue, fallback) {
+  if (rawValue === undefined || rawValue === null || String(rawValue).trim() === "") {
+    return fallback
+  }
+
+  const normalized = Number.parseInt(String(rawValue).trim(), 10)
+
+  if (!Number.isInteger(normalized) || normalized <= 0) {
+    throw new Error(`Invalid integer value: ${rawValue}`)
+  }
+
+  return normalized
+}
+
 export function loadEnv(overrides = {}) {
   const rawEnv = {
     ...process.env,
@@ -29,6 +44,15 @@ export function loadEnv(overrides = {}) {
   if (!VALID_DATA_MODES.has(dataMode)) {
     throw new Error(
       `Invalid WAS_DATA_MODE: ${dataMode}. Expected one of ${Array.from(VALID_DATA_MODES).join(", ")}`,
+    )
+  }
+
+  const stratawikiIntegrationMode =
+    rawEnv.STRATAWIKI_INTEGRATION_MODE ?? rawEnv.stratawikiIntegrationMode ?? "auto"
+
+  if (!VALID_INTEGRATION_MODES.has(stratawikiIntegrationMode)) {
+    throw new Error(
+      `Invalid STRATAWIKI_INTEGRATION_MODE: ${stratawikiIntegrationMode}. Expected one of ${Array.from(VALID_INTEGRATION_MODES).join(", ")}`,
     )
   }
 
@@ -47,6 +71,15 @@ export function loadEnv(overrides = {}) {
     readPsqlBin: rawEnv.STRATAWIKI_READ_PSQL_BIN ?? rawEnv.readPsqlBin ?? "psql",
     readDomain: rawEnv.STRATAWIKI_READ_DOMAIN ?? rawEnv.readDomain ?? "recruiting",
     readScope: rawEnv.STRATAWIKI_READ_SCOPE ?? rawEnv.readScope ?? "shared",
+    stratawikiBaseUrl:
+      rawEnv.STRATAWIKI_BASE_URL ?? rawEnv.stratawikiBaseUrl ?? null,
+    stratawikiApiToken:
+      rawEnv.STRATAWIKI_API_TOKEN ?? rawEnv.stratawikiApiToken ?? null,
+    stratawikiIntegrationMode,
+    stratawikiHttpTimeoutMs: parseInteger(
+      rawEnv.STRATAWIKI_HTTP_TIMEOUT_MS ?? rawEnv.stratawikiHttpTimeoutMs,
+      10000,
+    ),
     stratawikiCliWrapper:
       rawEnv.STRATAWIKI_CLI_WRAPPER ??
       rawEnv.stratawikiCliWrapper ??

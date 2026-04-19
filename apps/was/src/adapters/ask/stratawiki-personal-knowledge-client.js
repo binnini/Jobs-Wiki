@@ -4,6 +4,12 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { spawn } from "node:child_process"
 import {
+  StratawikiHttpError,
+  createStratawikiHttpClient,
+  shouldUseStratawikiWrapperFallback,
+} from "../../../../../packages/integrations/stratawiki-http/client.js"
+import {
+  createForbiddenError,
   createNotFoundError,
   createTemporarilyUnavailableError,
   createUnknownFailureError,
@@ -90,10 +96,71 @@ function normalizeToolFailure({ toolName, rawFailure }) {
   return createTemporarilyUnavailableError(message, details)
 }
 
-async function callTool(wrapperPath, toolName, payload) {
+function toWasError(error, { toolName, path }) {
+  if (!(error instanceof StratawikiHttpError)) {
+    return error
+  }
+
+  const details = {
+    adapter: "stratawiki_personal_knowledge",
+    toolName,
+    path,
+    requestId: error.requestId,
+    upstreamCode: error.code,
+  }
+
+  if (error.status === 404 || error.code === "not_found") {
+    return createNotFoundError(error.message, details)
+  }
+
+  if (error.status === 422 || error.code === "validation_error") {
+    return createValidationError(error.message, details)
+  }
+
+  if (error.status === 401 || error.status === 403 || error.code === "unauthorized") {
+    return createForbiddenError(error.message, details)
+  }
+
+  if (error.retryable) {
+    return createTemporarilyUnavailableError(error.message, details)
+  }
+
+  return createUnknownFailureError(error.message, details, error)
+}
+
+function resolvePrimaryMode(env) {
+  const configuredMode = String(env.stratawikiIntegrationMode ?? "auto").trim().toLowerCase()
+
+  if (configuredMode === "http" || configuredMode === "wrapper") {
+    return configuredMode
+  }
+
+  return env.stratawikiBaseUrl ? "http" : "wrapper"
+}
+
+function canUseWrapperFallback(env) {
+  return (
+    String(env.stratawikiIntegrationMode ?? "auto").trim().toLowerCase() === "auto" &&
+    Boolean(env.stratawikiCliWrapper)
+  )
+}
+
+function createHttpClient(env) {
+  if (!env.stratawikiBaseUrl) {
+    return null
+  }
+
+  return createStratawikiHttpClient({
+    baseUrl: env.stratawikiBaseUrl,
+    apiToken: env.stratawikiApiToken,
+    timeoutMs: env.stratawikiHttpTimeoutMs,
+  })
+}
+
+async function callWrapperTool(wrapperPath, toolName, payload) {
   if (!wrapperPath) {
     throw createTemporarilyUnavailableError(
-      "STRATAWIKI_CLI_WRAPPER is required for personal-aware ask.",
+      "STRATAWIKI_CLI_WRAPPER is required for wrapper fallback.",
       {
         adapter: "stratawiki_personal_knowledge",
       },
@@ -157,24 +224,100 @@ async function callTool(wrapperPath, toolName, payload) {
   }
 }
 
-export function createStratawikiPersonalKnowledgeClient({ env = {} } = {}) {
+async function withFallback({
+  env,
+  primaryMode,
+  httpRun,
+  wrapperRun,
+  fallbackLabel,
+}) {
+  if (primaryMode === "wrapper") {
+    return await wrapperRun()
+  }
+
+  try {
+    return await httpRun()
+  } catch (error) {
+    if (!canUseWrapperFallback(env) || !shouldUseStratawikiWrapperFallback(error)) {
+      throw toWasError(error, fallbackLabel)
+    }
+
+    return await wrapperRun()
+  }
+}
+
+export function createStratawikiPersonalKnowledgeClient({
+  env = {},
+  httpClient: providedHttpClient,
+} = {}) {
   const wrapperPath = env.stratawikiCliWrapper
+  const httpClient = providedHttpClient ?? createHttpClient(env)
   const domain = env.readDomain ?? "recruiting"
+  const primaryMode = resolvePrimaryMode(env)
+
+  if (primaryMode === "http" && !httpClient) {
+    throw new Error(
+      "HTTP mode requires STRATAWIKI_BASE_URL. Set STRATAWIKI_BASE_URL or switch STRATAWIKI_INTEGRATION_MODE=wrapper.",
+    )
+  }
 
   return {
     async getProfileContext({ tenantId, userId }) {
-      return await callTool(wrapperPath, env.getProfileContextTool, {
-        domain,
-        tenant_id: tenantId,
-        user_id: userId,
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.getProfileContextTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.getProfileContextTool,
+            arguments: {
+              domain,
+              tenant_id: tenantId,
+              user_id: userId,
+            },
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.getProfileContextTool, {
+            domain,
+            tenant_id: tenantId,
+            user_id: userId,
+          })
+        },
       })
     },
 
     async upsertProfileContext({ profileContext }) {
-      return await callTool(wrapperPath, env.upsertProfileContextTool, {
-        profile_context: {
-          domain,
-          ...profileContext,
+      const tenantId = profileContext.tenant_id
+      const userId = profileContext.user_id
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: "upsert_profile_context",
+          path: `/api/v1/profile-contexts/${tenantId}/${userId}`,
+        },
+        httpRun() {
+          return httpClient.upsertProfileContext({
+            tenantId,
+            userId,
+            profileContext: {
+              domain,
+              ...profileContext,
+            },
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.upsertProfileContextTool, {
+            profile_context: {
+              domain,
+              ...profileContext,
+            },
+          })
         },
       })
     },
@@ -186,7 +329,7 @@ export function createStratawikiPersonalKnowledgeClient({ env = {} } = {}) {
       profileVersion,
       save = false,
     }) {
-      return await callTool(wrapperPath, env.personalQueryTool, {
+      const payload = {
         domain,
         tenant_id: tenantId,
         user_id: userId,
@@ -194,29 +337,232 @@ export function createStratawikiPersonalKnowledgeClient({ env = {} } = {}) {
         profile_version: profileVersion,
         model_profile: env.personalQueryModelProfile,
         save: Boolean(save),
+      }
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: "query_personal_knowledge",
+          path: "/api/v1/personal-queries",
+        },
+        httpRun() {
+          return httpClient.queryPersonalKnowledge({
+            payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.personalQueryTool, payload)
+        },
       })
     },
 
     async getPersonalRecord({ tenantId, userId, personalId }) {
-      return await callTool(wrapperPath, env.getPersonalRecordTool, {
-        domain,
-        tenant_id: tenantId,
-        user_id: userId,
-        personal_id: personalId,
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.getPersonalRecordTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.getPersonalRecordTool,
+            arguments: {
+              domain,
+              tenant_id: tenantId,
+              user_id: userId,
+              personal_id: personalId,
+            },
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.getPersonalRecordTool, {
+            domain,
+            tenant_id: tenantId,
+            user_id: userId,
+            personal_id: personalId,
+          })
+        },
       })
     },
 
     async getInterpretationRecord({ interpretationId }) {
-      return await callTool(wrapperPath, env.getInterpretationRecordTool, {
-        domain,
-        interpretation_id: interpretationId,
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.getInterpretationRecordTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.getInterpretationRecordTool,
+            arguments: {
+              domain,
+              interpretation_id: interpretationId,
+            },
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.getInterpretationRecordTool, {
+            domain,
+            interpretation_id: interpretationId,
+          })
+        },
       })
     },
 
     async getFactRecord({ factId }) {
-      return await callTool(wrapperPath, env.getFactRecordTool, {
-        domain,
-        fact_id: factId,
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.getFactRecordTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.getFactRecordTool,
+            arguments: {
+              domain,
+              fact_id: factId,
+            },
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.getFactRecordTool, {
+            domain,
+            fact_id: factId,
+          })
+        },
+      })
+    },
+
+    async getSnapshotStatus({ family, segment } = {}) {
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: "get_snapshot_status",
+          path: "/api/v1/snapshot-status",
+        },
+        httpRun() {
+          return httpClient.getSnapshotStatus({
+            domain,
+            family,
+            segment,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, "get_snapshot_status", {
+            domain,
+            ...(family && segment
+              ? {
+                  partition: {
+                    family,
+                    segment,
+                  },
+                }
+              : {}),
+          })
+        },
+      })
+    },
+
+    async getCacheStatus({ tenantId, userId, recordId }) {
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: "get_cache_status",
+          path: `/api/v1/cache-status/${recordId}`,
+        },
+        httpRun() {
+          return httpClient.getCacheStatus({
+            domain,
+            tenantId,
+            userId,
+            recordId,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, "get_cache_status", {
+            domain,
+            tenant_id: tenantId,
+            user_id: userId,
+            record_id: recordId,
+          })
+        },
+      })
+    },
+
+    async getExplanation({ layer, recordId, tenantId, userId }) {
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: "explain_result",
+          path: `/api/v1/explanations/${layer}/${recordId}`,
+        },
+        httpRun() {
+          return httpClient.getExplanation({
+            domain,
+            layer,
+            recordId,
+            tenantId,
+            userId,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, "explain_result", {
+            domain,
+            layer,
+            result_id: recordId,
+            tenant_id: tenantId,
+            user_id: userId,
+          })
+        },
+      })
+    },
+
+    async buildInterpretationSnapshot({ payload }) {
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: "build_interpretation_snapshot",
+          path: "/api/v1/interpretation-builds",
+        },
+        httpRun() {
+          return httpClient.buildInterpretationSnapshot({
+            payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, "build_interpretation_snapshot", payload)
+        },
+      })
+    },
+
+    async getJobStatus({ jobId }) {
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: "get_job_status",
+          path: `/api/v1/jobs/${jobId}`,
+        },
+        httpRun() {
+          return httpClient.getJobStatus({
+            jobId,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, "get_job_status", {
+            job_id: jobId,
+          })
+        },
       })
     },
   }

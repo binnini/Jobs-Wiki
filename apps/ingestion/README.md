@@ -15,8 +15,8 @@
 ## Current Runtime Status
 
 현재 `apps/ingestion`은 WorkNet recruiting source를 fetch하고, proposal batch로
-정규화한 뒤, StrataWiki runtime wrapper를 통해 validate/ingest까지 수행하는
-runtime baseline을 가집니다.
+정규화한 뒤, StrataWiki HTTP/REST 경로를 **기본 경로**로 사용해 validate/ingest를
+수행합니다. wrapper 경로는 rollback path 로 유지됩니다.
 
 - `src/config/env.js`
   - ingestion 전용 env loading
@@ -29,9 +29,10 @@ runtime baseline을 가집니다.
 - `src/jobs/run-worknet-ingestion.js`
   - WorkNet fetch -> proposal batch -> StrataWiki validate/ingest workflow
 - `src/clients/index.js`
-  - WorkNet provider + StrataWiki CLI client bootstrap
+  - WorkNet provider + StrataWiki dual-mode client bootstrap
 
-현재 baseline은 **WorkNet recruiting dry-run/apply integration path**까지입니다.
+현재 baseline은 **WorkNet recruiting dry-run/apply integration path**와 HTTP-first
+dual-mode write path 까지입니다.
 
 다음 단계로 남아 있는 것:
 
@@ -115,13 +116,23 @@ npm start -- --source worknet --dry-run
 - `WORKNET_WORK_STUDY_AUTH_KEY`
 
 - StrataWiki runtime integration
-  - `STRATAWIKI_CLI_WRAPPER`
-    - Jobs-Wiki가 반드시 호출해야 하는 고정 wrapper
-    - 현재 expected value:
-      `/Users/yebin/workSpace/stratawiki-runtime/bin/stratawiki-jobswiki.sh`
-  - `JOBS_WIKI_STRATAWIKI_DOMAIN_PACK_PATHS`
-    - `:` separated absolute artifact paths
-    - `validate_domain_proposal_batch` / `ingest_domain_proposal_batch`에 필수
+- `STRATAWIKI_CLI_WRAPPER`
+  - wrapper fallback / rollback path
+  - 현재 expected value:
+    `/Users/yebin/workSpace/stratawiki-runtime/bin/stratawiki-jobswiki.sh`
+- `STRATAWIKI_INTEGRATION_MODE`
+  - `auto|http|wrapper`
+  - 기본 권장값: `auto`
+- `STRATAWIKI_BASE_URL`
+  - HTTP mode base URL
+  - 예: `http://127.0.0.1:8080`
+- `STRATAWIKI_API_TOKEN`
+  - auth-enabled shared HTTP 환경용 bearer token
+- `STRATAWIKI_HTTP_TIMEOUT_MS`
+  - HTTP request timeout
+- `JOBS_WIKI_STRATAWIKI_DOMAIN_PACK_PATHS`
+  - wrapper fallback 시 `:` separated absolute artifact paths
+  - `validate_domain_proposal_batch` / `ingest_domain_proposal_batch` CLI rollback path 에 필요
   - `JOBS_WIKI_STRATAWIKI_ACTIVE_DOMAIN_PACKS`
     - optional active pack mapping
     - example: `recruiting=2026-04-18`
@@ -130,9 +141,9 @@ npm start -- --source worknet --dry-run
 
 - 현재 `--dry-run`은 기본값입니다.
 - `--dry-run`은 WorkNet source fetch와 proposal mapping을 수행한 뒤,
-  StrataWiki `validate_domain_proposal_batch`까지만 호출합니다.
+  StrataWiki `POST /api/v1/domain-proposals/validate`까지만 호출합니다.
 - `--apply`는 validation 성공 후
-  `ingest_domain_proposal_batch`까지 호출합니다.
+  `POST /api/v1/domain-proposals/ingest`까지 호출합니다.
 - `--mode scheduled`는 interval 기반 반복 실행 entrypoint 입니다.
 - `--mode backfill`은 page window 를 순차 실행하면서 aggregation summary 를 만듭니다.
 - retry 는 attempt 수와 delay 로 조정할 수 있습니다.
@@ -140,9 +151,27 @@ npm start -- --source worknet --dry-run
 - `INGEST_RUN_SUMMARY_DIR`가 없으면 시스템 temp 아래
   `jobs-wiki-ingestion-runs/`를 기본 저장 위치로 사용합니다.
 - Jobs-Wiki는 StrataWiki DB에 직접 접근하지 않습니다.
-- Jobs-Wiki는 `/Users/yebin/workSpace/stratawiki` 개발 checkout을 직접 호출하지 않습니다.
-- Jobs-Wiki는 `STRATAWIKI_CLI_WRAPPER`만 통해 StrataWiki를 실행합니다.
+- Jobs-Wiki는 HTTP mode 에서 resource-specific REST endpoint 를 우선 사용합니다.
+- wrapper fallback 이 필요할 때도 `/Users/yebin/workSpace/stratawiki` 개발 checkout을 직접 호출하지 않습니다.
+- wrapper fallback 은 `STRATAWIKI_CLI_WRAPPER`만 통해 StrataWiki를 실행합니다.
 - future `query_personal_knowledge` 경로는 `save=false`를 기본값으로 둡니다.
+
+## StrataWiki Modes
+
+### HTTP mode
+
+```bash
+STRATAWIKI_INTEGRATION_MODE=auto \
+STRATAWIKI_BASE_URL=http://127.0.0.1:8080 \
+npm run ingest:worknet
+```
+
+### Wrapper fallback mode
+
+```bash
+STRATAWIKI_INTEGRATION_MODE=wrapper \
+npm run ingest:worknet
+```
 
 ## StrataWiki CLI Examples
 

@@ -14,26 +14,27 @@ status: draft
 - read path / write path / ask path 가 어떻게 분리되는지
 - 아직 남아 있는 결정 사항이 무엇인지
 
-현재 문서는 장기적인 generic MCP backend 설명이 아니라, **지금 코드에 반영된 wrapper-first, read-backed architecture**를 기준으로 합니다.
+현재 문서는 장기적인 generic MCP backend 설명이 아니라, **지금 코드에 반영된 HTTP-first dual-mode, read-backed architecture**를 기준으로 합니다.
 
 ## Current Runtime Contract
 
-현재 Jobs-Wiki 는 StrataWiki 를 아래 두 방식으로 사용합니다.
+현재 Jobs-Wiki 는 StrataWiki 를 아래 세 방식으로 사용합니다.
 
 ### 1. Write / command path
 
-Jobs-Wiki ingestion 과 WAS command facade 는 StrataWiki 를 **고정 CLI wrapper** 로만 호출합니다.
+Jobs-Wiki ingestion 과 WAS personal / interpretation integration 은 **HTTP/REST 를 기본 경계**로 사용하고, wrapper 는 rollback path 로 유지합니다.
 
-- wrapper: `STRATAWIKI_CLI_WRAPPER`
-- 현재 기본 wrapper:
-  - `/Users/yebin/workSpace/stratawiki-runtime/bin/stratawiki-jobswiki.sh`
+- HTTP base URL: `STRATAWIKI_BASE_URL`
+- bearer token: `STRATAWIKI_API_TOKEN`
+- wrapper fallback: `STRATAWIKI_CLI_WRAPPER`
 
 중요한 원칙:
 
 - Jobs-Wiki 는 StrataWiki DB 에 직접 write 하지 않습니다.
 - Jobs-Wiki 는 `/Users/yebin/workSpace/stratawiki` 개발 checkout 을 직접 호출하지 않습니다.
 - Jobs-Wiki 는 `python -m wiki_mcp.cli` 를 직접 호출하지 않습니다.
-- Jobs-Wiki 는 wrapper 를 통해서만 StrataWiki tool surface 를 사용합니다.
+- Jobs-Wiki 는 resource-specific HTTP endpoint 가 있으면 그 경로를 우선 사용합니다.
+- Jobs-Wiki 는 wrapper 를 즉시 제거하지 않고 rollback path 로만 유지합니다.
 
 ### 2. Read path
 
@@ -54,7 +55,8 @@ Jobs-Wiki WAS real mode 는 StrataWiki canonical read DB 를 읽어서 사용자
 frontend
   -> Jobs-Wiki WAS
        -> StrataWiki read DB (projection assembly)
-       -> StrataWiki CLI wrapper (command / provisioning / personal query)
+       -> StrataWiki HTTP/REST (proposal / profile / personal / interpretation / status)
+       -> StrataWiki CLI wrapper (rollback path)
 ```
 
 ## What Is Implemented Today
@@ -67,17 +69,17 @@ frontend
 WorkNet source
   -> Jobs-Wiki ingestion
   -> DomainProposalBatch
-  -> validate_domain_proposal_batch
-  -> ingest_domain_proposal_batch
+  -> POST /api/v1/domain-proposals/validate
+  -> POST /api/v1/domain-proposals/ingest
   -> StrataWiki fact snapshot
 ```
 
-이 경로는 local smoke 로 검증되었습니다.
+이 경로는 local smoke 로 검증되었고, 현재는 HTTP validate/ingest 를 우선 사용합니다.
 
-사용하는 StrataWiki tool:
+사용하는 StrataWiki HTTP endpoint:
 
-- `validate_domain_proposal_batch`
-- `ingest_domain_proposal_batch`
+- `POST /api/v1/domain-proposals/validate`
+- `POST /api/v1/domain-proposals/ingest`
 
 사용하지 않는 경로:
 
@@ -104,10 +106,12 @@ WorkNet source
    - summary / detail / list evidence 를 조합한 fallback
 2. **personal-aware path**
    - profile context 가 provision 되면
-   - `query_personal_knowledge`
-   - `get_personal_record`
-   - `get_interpretation_record`
-   - `get_fact_record`
+   - `PUT /api/v1/profile-contexts/{tenant_id}/{user_id}`
+   - `POST /api/v1/personal-queries`
+   - `GET /api/v1/snapshot-status`
+   - `GET /api/v1/cache-status/{record_id}`
+   - `GET /api/v1/explanations/{layer}/{record_id}`
+   - resource-specific endpoint 가 없는 record/tool 조회만 generic `/api/v1/tool-calls` 또는 wrapper fallback
    를 조합해 answer / evidence / related objects 를 구성
 
 즉 현재 Ask 는 "항상 mock" 이 아니라,
@@ -156,10 +160,18 @@ WorkNet source
 
 ### Jobs-Wiki owned env
 
+- `STRATAWIKI_INTEGRATION_MODE`
+  - `auto|http|wrapper`
+- `STRATAWIKI_BASE_URL`
+  - HTTP-first base URL
+- `STRATAWIKI_API_TOKEN`
+  - auth-enabled shared HTTP env bearer token
+- `STRATAWIKI_HTTP_TIMEOUT_MS`
+  - HTTP timeout
 - `STRATAWIKI_CLI_WRAPPER`
-  - StrataWiki tool surface 를 호출하는 유일한 실행 경계
+  - wrapper rollback path
 - `JOBS_WIKI_STRATAWIKI_DOMAIN_PACK_PATHS`
-  - canonical proposal write 를 위한 domain pack artifact path
+  - wrapper rollback path 에서 canonical proposal write 를 위한 domain pack artifact path
 - `JOBS_WIKI_STRATAWIKI_ACTIVE_DOMAIN_PACKS`
   - optional active pack mapping
 - `STRATAWIKI_READ_DATABASE_URL`
@@ -178,17 +190,19 @@ Jobs-Wiki 가 wrapper subprocess 를 실행하더라도, 위 값들은 **StrataW
 
 ## Current Tool Expectations
 
-현재 Jobs-Wiki 가 사용하는 StrataWiki tool surface:
+현재 Jobs-Wiki 가 사용하는 StrataWiki integration surface:
 
-- `validate_domain_proposal_batch`
-- `ingest_domain_proposal_batch`
-- `get_snapshot_status`
-- `get_profile_context`
-- `upsert_profile_context`
-- `query_personal_knowledge`
-- `get_personal_record`
-- `get_interpretation_record`
-- `get_fact_record`
+- `POST /api/v1/domain-proposals/validate`
+- `POST /api/v1/domain-proposals/ingest`
+- `PUT /api/v1/profile-contexts/{tenant_id}/{user_id}`
+- `POST /api/v1/personal-queries`
+- `POST /api/v1/interpretation-builds`
+- `GET /api/v1/jobs/{job_id}`
+- `GET /api/v1/snapshot-status`
+- `GET /api/v1/cache-status/{record_id}`
+- `GET /api/v1/explanations/{layer}/{record_id}`
+- resource-specific endpoint 가 없는 경우에만 generic `/api/v1/tool-calls`
+- wrapper rollback path
 
 추가로 command facade 경계는 Jobs-Wiki WAS 안에 존재하지만, 현재 live integration 의 핵심 가치는 ingestion + read + ask 에 있습니다.
 
@@ -230,6 +244,25 @@ npm run smoke:live
 - WAS real summary / list / detail / ask / sync
 - StrataWiki DB count sanity check
 
+추가 HTTP smoke:
+
+```bash
+npm run smoke:http
+```
+
+이 smoke 는 다음을 확인합니다.
+
+- `GET /healthz`
+- `GET /readyz`
+- `POST /api/v1/domain-proposals/validate`
+- `POST /api/v1/domain-proposals/ingest`
+- `GET /api/v1/snapshot-status`
+- `PUT /api/v1/profile-contexts/{tenant_id}/{user_id}`
+- `POST /api/v1/personal-queries`
+- `POST /api/v1/interpretation-builds`
+- `GET /api/v1/jobs/{job_id}`
+- optional cache/explanation reads
+
 ## Still Open
 
 아직 미결정 또는 후속 구현이 필요한 항목:
@@ -243,7 +276,7 @@ npm run smoke:live
 
 현재 구현을 설계할 때 가장 중요한 기준은 아래입니다.
 
-- **write 는 wrapper**
+- **write 는 HTTP 우선, wrapper 는 rollback**
 - **read 는 canonical DB**
 - **frontend 는 WAS only**
 - **personal-aware ask 는 profile context 가 있을 때만**

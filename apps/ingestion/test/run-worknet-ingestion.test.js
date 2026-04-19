@@ -76,8 +76,8 @@ test("runWorknetIngestion validates proposal batches in dry-run mode", async () 
       stratawiki: {
         wrapperPath: "/tmp/fake-wrapper",
         async assertWriteRuntimeConfig() {},
-        async callTool(name, args) {
-          calls.push({ name, args })
+        async validateDomainProposalBatch({ batch }) {
+          calls.push({ name: "validate", batch })
           return {
             ok: true,
             dry_run: true,
@@ -110,7 +110,8 @@ test("runWorknetIngestion validates proposal batches in dry-run mode", async () 
   })
 
   assert.equal(calls.length, 1)
-  assert.equal(calls[0].name, "validate_domain_proposal_batch")
+  assert.equal(calls[0].name, "validate")
+  assert.equal(calls[0].batch.domain, "recruiting")
   assert.equal(summary.status, "validated")
   assert.equal(summary.stages[0].status, "completed")
   assert.equal(summary.stages[2].status, "validated")
@@ -151,18 +152,18 @@ test("runWorknetIngestion ingests validated proposal batches in apply mode", asy
       stratawiki: {
         wrapperPath: "/tmp/fake-wrapper",
         async assertWriteRuntimeConfig() {},
-        async callTool(name) {
-          calls.push(name)
-          if (name === "validate_domain_proposal_batch") {
-            return {
-              ok: true,
-              dry_run: true,
-              fact_decisions: [{ action: "create" }],
-              relation_decisions: [],
-              rejections: [],
-            }
+        async validateDomainProposalBatch() {
+          calls.push("validate")
+          return {
+            ok: true,
+            dry_run: true,
+            fact_decisions: [{ action: "create" }],
+            relation_decisions: [],
+            rejections: [],
           }
-
+        },
+        async ingestDomainProposalBatch() {
+          calls.push("ingest")
           return {
             ok: true,
             committed: true,
@@ -192,10 +193,7 @@ test("runWorknetIngestion ingests validated proposal batches in apply mode", asy
     },
   })
 
-  assert.deepEqual(calls, [
-    "validate_domain_proposal_batch",
-    "ingest_domain_proposal_batch",
-  ])
+  assert.deepEqual(calls, ["validate", "ingest"])
   assert.equal(summary.status, "ingested")
   assert.equal(summary.summary.ingestedBatches, 1)
   assert.equal(summary.batches[0].ingest.committed, true)

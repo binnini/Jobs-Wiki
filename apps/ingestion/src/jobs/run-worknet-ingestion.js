@@ -104,10 +104,11 @@ export async function runWorknetIngestion({
     totalFactProposals += batchPayload.batch.facts.length
     totalRelationProposals += batchPayload.batch.relations.length
 
-    const validation = await clients.stratawiki.callTool(
-      "validate_domain_proposal_batch",
-      batchPayload,
-    )
+    const validation = await clients.stratawiki.validateDomainProposalBatch({
+      batch: batchPayload.batch,
+      requestId: `jobs-wiki-validate-${batchId}`,
+      idempotencyKey: `jobs-wiki-validate:${batchId}`,
+    })
 
     if (!validation?.ok) {
       throw new Error(
@@ -119,10 +120,11 @@ export async function runWorknetIngestion({
 
     let ingest = null
     if (!dryRun) {
-      ingest = await clients.stratawiki.callTool(
-        "ingest_domain_proposal_batch",
-        batchPayload,
-      )
+      ingest = await clients.stratawiki.ingestDomainProposalBatch({
+        batch: batchPayload.batch,
+        requestId: `jobs-wiki-ingest-${batchId}`,
+        idempotencyKey: `jobs-wiki-ingest:${batchId}`,
+      })
 
       if (!ingest?.ok) {
         throw new Error(
