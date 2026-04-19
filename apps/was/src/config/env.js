@@ -51,6 +51,38 @@ export function loadEnv(overrides = {}) {
       rawEnv.STRATAWIKI_CLI_WRAPPER ??
       rawEnv.stratawikiCliWrapper ??
       "/Users/yebin/workSpace/stratawiki-runtime/bin/stratawiki-jobswiki.sh",
+    profileContextCatalogPath:
+      rawEnv.JOBS_WIKI_PROFILE_CONTEXT_CATALOG_PATH ??
+      rawEnv.profileContextCatalogPath ??
+      null,
+    personalQueryModelProfile:
+      rawEnv.STRATAWIKI_PERSONAL_QUERY_MODEL_PROFILE ??
+      rawEnv.personalQueryModelProfile ??
+      "balanced_default",
+    getProfileContextTool:
+      rawEnv.STRATAWIKI_GET_PROFILE_CONTEXT_TOOL ??
+      rawEnv.getProfileContextTool ??
+      "get_profile_context",
+    upsertProfileContextTool:
+      rawEnv.STRATAWIKI_UPSERT_PROFILE_CONTEXT_TOOL ??
+      rawEnv.upsertProfileContextTool ??
+      "upsert_profile_context",
+    personalQueryTool:
+      rawEnv.STRATAWIKI_PERSONAL_QUERY_TOOL ??
+      rawEnv.personalQueryTool ??
+      "query_personal_knowledge",
+    getPersonalRecordTool:
+      rawEnv.STRATAWIKI_GET_PERSONAL_RECORD_TOOL ??
+      rawEnv.getPersonalRecordTool ??
+      "get_personal_record",
+    getInterpretationRecordTool:
+      rawEnv.STRATAWIKI_GET_INTERPRETATION_RECORD_TOOL ??
+      rawEnv.getInterpretationRecordTool ??
+      "get_interpretation_record",
+    getFactRecordTool:
+      rawEnv.STRATAWIKI_GET_FACT_RECORD_TOOL ??
+      rawEnv.getFactRecordTool ??
+      "get_fact_record",
     commandSubmitTool:
       rawEnv.STRATAWIKI_COMMAND_SUBMIT_TOOL ??
       rawEnv.commandSubmitTool ??

@@ -45,6 +45,12 @@
   npm run verify:mvp
   ```
 
+- live integration smoke:
+
+  ```bash
+  npm run smoke:live
+  ```
+
 - 런타임 확인:
 
   ```bash
@@ -94,6 +100,7 @@ dev-wiki/       # 개발 중 작업 노트와 실험 기록, gitignored
 - Ingestion은 WAS와 분리된 별도 계층으로 다룹니다.
 - WAS는 ingestion을 직접 수행하지 않습니다.
 - WAS가 할 수 있는 것은 필요 시 ingestion job을 좁은 경계로 요청하는 것뿐입니다.
+- StrataWiki canonical write 는 고정 wrapper 경계를 통해서만 수행합니다.
 
 ## Docs Policy
 

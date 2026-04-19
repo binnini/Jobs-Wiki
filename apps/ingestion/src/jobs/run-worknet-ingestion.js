@@ -44,6 +44,9 @@ export async function runWorknetIngestion({
   sourceId,
   runId,
   clients,
+  fetchPage = env.worknetFetchPage,
+  fetchSize = env.worknetFetchSize,
+  attempt = 1,
 }) {
   if (!clients?.stratawiki || !clients?.worknetRecruiting) {
     throw new Error(
@@ -63,14 +66,15 @@ export async function runWorknetIngestion({
     runId,
     sourceId,
     dryRun,
-    fetchPage: env.worknetFetchPage,
-    fetchSize: env.worknetFetchSize,
+    fetchPage,
+    fetchSize,
+    attempt,
   })
 
   const sourcePage = await clients.worknetRecruiting.listRecruitingSources({
     authKey: env.worknetKeys.employment,
-    page: env.worknetFetchPage,
-    size: env.worknetFetchSize,
+    page: fetchPage,
+    size: fetchSize,
     sortBy: "posted_at",
     sortDirection: "DESC",
   })
@@ -147,6 +151,11 @@ export async function runWorknetIngestion({
     sourceId,
     mode: dryRun ? "dry_run" : "apply",
     status: dryRun ? "validated" : "ingested",
+    fetchWindow: {
+      page: fetchPage,
+      size: fetchSize,
+      attempt,
+    },
     capabilities: {
       fetch: true,
       map: true,

@@ -33,11 +33,10 @@ runtime baseline을 가집니다.
 
 현재 baseline은 **WorkNet recruiting dry-run/apply integration path**까지입니다.
 
-아직 구현하지 않은 것:
+다음 단계로 남아 있는 것:
 
-- scheduling / retry / backfill orchestration
-- profile-context provisioning
 - long-lived MCP daemon transport
+- profile context explicit refresh UX
 
 ## Run
 
@@ -51,6 +50,18 @@ npm run ingest:worknet
 
 ```bash
 npm run ingest:worknet:apply
+```
+
+주기 실행:
+
+```bash
+npm run ingest:worknet:schedule
+```
+
+backfill:
+
+```bash
+npm run ingest:worknet:backfill
 ```
 
 `apps/ingestion` 안에서 직접 실행하려면:
@@ -71,6 +82,12 @@ npm start -- --source worknet --dry-run
 - `WORKNET_SOURCE_ID`
 - `WORKNET_FETCH_PAGE`
 - `WORKNET_FETCH_SIZE`
+- `INGEST_MAX_ATTEMPTS`
+- `INGEST_RETRY_DELAY_MS`
+- `INGEST_SCHEDULE_INTERVAL_MS`
+- `INGEST_SCHEDULE_CYCLES`
+- `WORKNET_BACKFILL_START_PAGE`
+- `WORKNET_BACKFILL_PAGES`
 - WorkNet auth keys
   - `EMPLOYMENT_INFO` -> `employment`
   - `NATIONAL_TRAINING` -> `nationalTraining`
@@ -116,6 +133,9 @@ npm start -- --source worknet --dry-run
   StrataWiki `validate_domain_proposal_batch`까지만 호출합니다.
 - `--apply`는 validation 성공 후
   `ingest_domain_proposal_batch`까지 호출합니다.
+- `--mode scheduled`는 interval 기반 반복 실행 entrypoint 입니다.
+- `--mode backfill`은 page window 를 순차 실행하면서 aggregation summary 를 만듭니다.
+- retry 는 attempt 수와 delay 로 조정할 수 있습니다.
 - 각 실행 결과는 JSON summary 파일로 저장됩니다.
 - `INGEST_RUN_SUMMARY_DIR`가 없으면 시스템 temp 아래
   `jobs-wiki-ingestion-runs/`를 기본 저장 위치로 사용합니다.

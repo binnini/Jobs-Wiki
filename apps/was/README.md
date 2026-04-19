@@ -75,10 +75,26 @@ npm start
   - 기본값: `shared`
 - `STRATAWIKI_CLI_WRAPPER`
   - 기본 command facade wrapper 경계
+- `JOBS_WIKI_PROFILE_CONTEXT_CATALOG_PATH`
+  - personal-aware ask 에서 provision 할 profile catalog path
+- `STRATAWIKI_PERSONAL_QUERY_MODEL_PROFILE`
+  - 기본값: `balanced_default`
 - `STRATAWIKI_COMMAND_SUBMIT_TOOL`
   - 기본값: `knowledge.command.submit`
 - `STRATAWIKI_COMMAND_STATUS_TOOL`
   - 기본값: `knowledge.command.get`
+- `STRATAWIKI_GET_PROFILE_CONTEXT_TOOL`
+  - 기본값: `get_profile_context`
+- `STRATAWIKI_UPSERT_PROFILE_CONTEXT_TOOL`
+  - 기본값: `upsert_profile_context`
+- `STRATAWIKI_PERSONAL_QUERY_TOOL`
+  - 기본값: `query_personal_knowledge`
+- `STRATAWIKI_GET_PERSONAL_RECORD_TOOL`
+  - 기본값: `get_personal_record`
+- `STRATAWIKI_GET_INTERPRETATION_RECORD_TOOL`
+  - 기본값: `get_interpretation_record`
+- `STRATAWIKI_GET_FACT_RECORD_TOOL`
+  - 기본값: `get_fact_record`
 
 기본 health endpoint:
 
@@ -98,7 +114,7 @@ GET /health
 
 기본값은 mock fixture 기반이지만, `WAS_DATA_MODE=real`에서는 위 route들이 StrataWiki fact/relation/snapshot table에서 live data를 읽습니다.
 
-real ask adapter는 현재 `query_personal_knowledge`를 직접 호출하지 않고, real read authority가 가져온 summary/detail/list evidence를 조합해서 answer/evidence/related opportunities를 구성합니다. `save`는 계속 reserved no-op입니다.
+real ask adapter는 현재 profile context 가 provision 되면 `query_personal_knowledge` 기반 personal-aware answer 를 사용하고, 그렇지 않으면 real read authority가 가져온 summary/detail/list evidence를 조합한 source-first fallback 으로 동작합니다. `save`는 계속 reserved no-op입니다.
 
 real command facade adapter도 `STRATAWIKI_CLI_WRAPPER`를 통해 thin client 구조를 가지며, `workspace/sync`와 admin trigger endpoint에서 같은 경계를 재사용합니다.
 
@@ -121,4 +137,10 @@ real read smoke 예시:
 WAS_DATA_MODE=real \
 STRATAWIKI_READ_DATABASE_URL=postgresql://stratawiki:stratawiki@localhost:5432/stratawiki_jobswiki \
 npm run start:was
+```
+
+live integration smoke:
+
+```bash
+npm run smoke:live
 ```

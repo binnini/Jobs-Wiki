@@ -36,7 +36,9 @@ import {
   askWorkspace,
   getCalendar,
   getOpportunityDetail,
+  getWorkspaceSync,
   getWorkspaceSummary,
+  triggerWorknetIngestion,
   WasClientError,
 } from "./was-client";
 
@@ -102,6 +104,47 @@ const SYNC_VISIBILITY_META = {
     noticeClassName: "border-amber-200 bg-amber-50 text-amber-900",
   },
 };
+
+const COMMAND_STATUS_META = {
+  accepted: {
+    label: "접수됨",
+    className: "border-sky-200 bg-sky-50 text-sky-700",
+  },
+  validating: {
+    label: "검증 중",
+    className: "border-sky-200 bg-sky-50 text-sky-700",
+  },
+  queued: {
+    label: "대기 중",
+    className: "border-sky-200 bg-sky-50 text-sky-700",
+  },
+  running: {
+    label: "실행 중",
+    className: "border-sky-200 bg-sky-50 text-sky-700",
+  },
+  succeeded: {
+    label: "완료",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  },
+  failed: {
+    label: "실패",
+    className: "border-rose-200 bg-rose-50 text-rose-700",
+  },
+  cancelled: {
+    label: "취소됨",
+    className: "border-slate-200 bg-slate-100 text-slate-700",
+  },
+};
+
+const SYNC_PROJECTION_LABELS = {
+  workspace_summary: "기본 리포트",
+  opportunity_list: "추천 공고",
+  opportunity_detail: "공고 상세",
+  calendar: "지원 일정",
+  ask: "심층 분석",
+};
+
+const DEFAULT_INGESTION_SOURCE_ID = "worknet.recruiting";
 
 function formatKoreanDate(value, options = {}) {
   if (!value) {
@@ -343,6 +386,29 @@ function getSyncMeta(sync) {
   }
 
   return SYNC_VISIBILITY_META[sync.visibility] ?? null;
+}
+
+function getCommandStatusMeta(status) {
+  if (!status) {
+    return null;
+  }
+
+  return COMMAND_STATUS_META[status] ?? null;
+}
+
+function isTerminalCommandStatus(status) {
+  return status === "succeeded" || status === "failed" || status === "cancelled";
+}
+
+function formatProjectionLabel(projection) {
+  return SYNC_PROJECTION_LABELS[projection] ?? projection ?? "알 수 없는 projection";
+}
+
+function mapWorkspaceSyncResponse(response) {
+  return {
+    command: response?.command ?? null,
+    projections: Array.isArray(response?.projections) ? response.projections : [],
+  };
 }
 
 function normalizeOpportunityContext(job) {
@@ -860,8 +926,9 @@ const RetryPanel = ({
 
 const SyncNotice = ({ sync, refreshError }) => {
   const syncMeta = getSyncMeta(sync);
+  const showRetryGuidance = Boolean(syncMeta?.noticeTitle || refreshError);
 
-  if (!syncMeta?.noticeTitle && !refreshError) {
+  if (!showRetryGuidance) {
     return null;
   }
 
@@ -881,6 +948,131 @@ const SyncNotice = ({ sync, refreshError }) => {
           className="border-amber-200 bg-amber-50 text-amber-900"
         />
       ) : null}
+      <div className="text-xs font-medium leading-relaxed text-slate-500">
+        좌측 <span className="font-bold text-slate-700">Workspace Sync</span>{" "}
+        패널에서 다시 확인하거나 WorkNet 수동 갱신을 요청할 수 있습니다.
+      </div>
+    </div>
+  );
+};
+
+const WorkspaceSyncPanel = ({
+  syncState,
+  syncError,
+  isLoading,
+  isRefreshing,
+  isTriggering,
+  onRefresh,
+  onTrigger,
+}) => {
+  const projections = syncState?.projections ?? [];
+  const command = syncState?.command ?? null;
+  const commandMeta = getCommandStatusMeta(command?.status);
+  const refreshRecommendedCount = projections.filter(
+    (projection) => projection.refreshRecommended,
+  ).length;
+
+  return (
+    <div className="mt-6 rounded-sm border border-slate-800 bg-slate-950/60 p-4 shadow-sm">
+      <div className="mb-3 flex items-start justify-between gap-3">
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+            Workspace Sync
+          </div>
+          <div className="mt-1 text-sm font-bold text-white">
+            동기화 및 수동 갱신
+          </div>
+        </div>
+        {commandMeta ? (
+          <span
+            className={`rounded-sm border px-2 py-0.5 text-[11px] font-bold ${commandMeta.className}`}
+          >
+            {commandMeta.label}
+          </span>
+        ) : null}
+      </div>
+
+      {syncError ? (
+        <div className="mb-3 rounded-sm border border-amber-300/30 bg-amber-400/10 px-3 py-2 text-xs font-medium leading-relaxed text-amber-100">
+          {syncError.message}
+        </div>
+      ) : null}
+
+      {command?.commandId ? (
+        <div className="mb-3 rounded-sm border border-slate-800 bg-slate-900/80 px-3 py-2 text-[11px] font-medium text-slate-300">
+          command: {command.commandId}
+        </div>
+      ) : null}
+
+      {isLoading ? (
+        <div className="space-y-2">
+          <div className="h-3 animate-pulse rounded bg-slate-800" />
+          <div className="h-3 w-5/6 animate-pulse rounded bg-slate-800" />
+          <div className="h-3 w-4/6 animate-pulse rounded bg-slate-800" />
+        </div>
+      ) : projections.length ? (
+        <div className="space-y-2">
+          {projections.map((projection) => {
+            const syncMeta = getSyncMeta(projection);
+            return (
+              <div
+                key={projection.projection}
+                className="rounded-sm border border-slate-800 bg-slate-900/80 px-3 py-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-bold text-slate-100">
+                    {formatProjectionLabel(projection.projection)}
+                  </span>
+                  {syncMeta?.badgeLabel ? (
+                    <span
+                      className={`rounded-sm border px-2 py-0.5 text-[11px] font-bold ${syncMeta.badgeClassName}`}
+                    >
+                      {syncMeta.badgeLabel}
+                    </span>
+                  ) : null}
+                </div>
+                {projection.lastVisibleAt ? (
+                  <div className="mt-1 text-[11px] font-medium text-slate-400">
+                    {formatKoreanDateTime(projection.lastVisibleAt)}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-sm border border-slate-800 bg-slate-900/80 px-3 py-2 text-xs font-medium text-slate-400">
+          표시 가능한 동기화 정보가 아직 없습니다.
+        </div>
+      )}
+
+      {refreshRecommendedCount > 0 ? (
+        <div className="mt-3 rounded-sm border border-amber-300/30 bg-amber-400/10 px-3 py-2 text-xs font-medium leading-relaxed text-amber-100">
+          일부 projection은 새로고침을 권장합니다.
+        </div>
+      ) : null}
+
+      <div className="mt-4 grid grid-cols-1 gap-2">
+        <button
+          onClick={onRefresh}
+          disabled={isRefreshing}
+          className="flex items-center justify-center rounded-sm border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-bold text-slate-100 transition-colors hover:bg-slate-800 disabled:opacity-50"
+        >
+          <RefreshCw
+            size={14}
+            className={`mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+          />
+          sync 다시 확인
+        </button>
+        <button
+          onClick={onTrigger}
+          disabled={isTriggering}
+          className="flex items-center justify-center rounded-sm border border-indigo-400/30 bg-indigo-500/10 px-3 py-2 text-xs font-bold text-indigo-100 transition-colors hover:bg-indigo-500/20 disabled:opacity-50"
+        >
+          <Zap size={14} className="mr-2" />
+          {isTriggering ? "WorkNet 갱신 요청 중..." : "WorkNet 수동 갱신"}
+        </button>
+      </div>
     </div>
   );
 };
@@ -2824,8 +3016,103 @@ export default function JobsWikiPrototype() {
   const [shellProfileSnapshot, setShellProfileSnapshot] = useState(() =>
     normalizeProfileSnapshot(),
   );
+  const [workspaceSyncState, setWorkspaceSyncState] = useState(() =>
+    mapWorkspaceSyncResponse(null),
+  );
+  const [workspaceSyncError, setWorkspaceSyncError] = useState(null);
+  const [isLoadingWorkspaceSync, setIsLoadingWorkspaceSync] = useState(true);
+  const [isRefreshingWorkspaceSync, setIsRefreshingWorkspaceSync] = useState(false);
+  const [isTriggeringWorkspaceSync, setIsTriggeringWorkspaceSync] = useState(false);
+  const [activeWorkspaceCommandId, setActiveWorkspaceCommandId] = useState(null);
+  const syncRequestIdRef = useRef(0);
   const currentView = currentRoute.view;
   const displayProfileSnapshot = normalizeProfileSnapshot(shellProfileSnapshot);
+
+  const loadWorkspaceSync = async ({
+    commandId = activeWorkspaceCommandId,
+    preserveData = false,
+  } = {}) => {
+    const requestId = syncRequestIdRef.current + 1;
+    syncRequestIdRef.current = requestId;
+
+    if (preserveData) {
+      setIsRefreshingWorkspaceSync(true);
+      setWorkspaceSyncError(null);
+    } else {
+      setIsLoadingWorkspaceSync(true);
+      setWorkspaceSyncError(null);
+    }
+
+    try {
+      const response = await getWorkspaceSync(
+        commandId ? { commandId } : undefined,
+      );
+
+      if (requestId !== syncRequestIdRef.current) {
+        return;
+      }
+
+      setWorkspaceSyncState(mapWorkspaceSyncResponse(response));
+      setWorkspaceSyncError(null);
+    } catch (requestError) {
+      if (requestId !== syncRequestIdRef.current) {
+        return;
+      }
+
+      const normalizedError =
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "workspace sync 상태를 불러오지 못했습니다.",
+            });
+
+      setWorkspaceSyncError(normalizedError);
+    } finally {
+      if (requestId === syncRequestIdRef.current) {
+        setIsLoadingWorkspaceSync(false);
+        setIsRefreshingWorkspaceSync(false);
+      }
+    }
+  };
+
+  const handleTriggerWorkspaceIngestion = async () => {
+    setIsTriggeringWorkspaceSync(true);
+    setWorkspaceSyncError(null);
+
+    try {
+      const response = await triggerWorknetIngestion(DEFAULT_INGESTION_SOURCE_ID);
+      const commandId = response.commandId ?? null;
+
+      setWorkspaceSyncState((current) =>
+        mapWorkspaceSyncResponse({
+          ...current,
+          command: commandId
+            ? {
+                commandId,
+                status: "accepted",
+              }
+            : current.command,
+        }),
+      );
+      setActiveWorkspaceCommandId(commandId);
+
+      await loadWorkspaceSync({
+        commandId,
+        preserveData: true,
+      });
+    } catch (requestError) {
+      const normalizedError =
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "WorkNet 수동 갱신 요청에 실패했습니다.",
+            });
+
+      setWorkspaceSyncError(normalizedError);
+    } finally {
+      setIsTriggeringWorkspaceSync(false);
+    }
+  };
 
   useEffect(() => {
     const handlePopState = () => {
@@ -2857,6 +3144,66 @@ export default function JobsWikiPrototype() {
       isSubscribed = false;
     };
   }, []);
+
+  useEffect(() => {
+    loadWorkspaceSync();
+
+    return () => {
+      syncRequestIdRef.current += 1;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!activeWorkspaceCommandId) {
+      return undefined;
+    }
+
+    let isCancelled = false;
+
+    const poll = async () => {
+      try {
+        const response = await getWorkspaceSync({
+          commandId: activeWorkspaceCommandId,
+        });
+
+        if (isCancelled) {
+          return;
+        }
+
+        const normalized = mapWorkspaceSyncResponse(response);
+        setWorkspaceSyncState(normalized);
+        setWorkspaceSyncError(null);
+
+        if (isTerminalCommandStatus(normalized.command?.status)) {
+          setActiveWorkspaceCommandId(null);
+          const readSideResponse = await getWorkspaceSync();
+
+          if (!isCancelled) {
+            setWorkspaceSyncState(mapWorkspaceSyncResponse(readSideResponse));
+          }
+        }
+      } catch (requestError) {
+        if (!isCancelled) {
+          const normalizedError =
+            requestError instanceof WasClientError
+              ? requestError
+              : new WasClientError({
+                  message: "command 상태를 갱신하지 못했습니다.",
+                });
+
+          setWorkspaceSyncError(normalizedError);
+        }
+      }
+    };
+
+    poll();
+    const intervalId = window.setInterval(poll, 4000);
+
+    return () => {
+      isCancelled = true;
+      window.clearInterval(intervalId);
+    };
+  }, [activeWorkspaceCommandId]);
 
   useEffect(() => {
     if (currentView === "ask") {
@@ -3047,6 +3394,16 @@ export default function JobsWikiPrototype() {
               지원 일정 관리
             </span>
           </button>
+
+          <WorkspaceSyncPanel
+            syncState={workspaceSyncState}
+            syncError={workspaceSyncError}
+            isLoading={isLoadingWorkspaceSync}
+            isRefreshing={isRefreshingWorkspaceSync}
+            isTriggering={isTriggeringWorkspaceSync}
+            onRefresh={() => loadWorkspaceSync({ preserveData: true })}
+            onTrigger={handleTriggerWorkspaceIngestion}
+          />
         </nav>
 
         <div className="border-t border-slate-800/50 bg-slate-900/50 p-5">

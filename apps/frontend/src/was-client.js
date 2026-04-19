@@ -35,7 +35,24 @@ async function readJson(response) {
   return response.json()
 }
 
-async function request(path, { method = "GET", body } = {}) {
+function buildDemoUserContextHeaders(headers = {}) {
+  const workspaceId =
+    import.meta.env.VITE_JOBS_WIKI_WORKSPACE_ID ??
+    import.meta.env.VITE_WORKSPACE_ID ??
+    "workspace_demo"
+  const profileId =
+    import.meta.env.VITE_JOBS_WIKI_PROFILE_ID ??
+    import.meta.env.VITE_PROFILE_ID ??
+    "profile_demo_backend"
+
+  return {
+    ...headers,
+    ...(workspaceId ? { "x-workspace-id": workspaceId } : {}),
+    ...(profileId ? { "x-profile-id": profileId } : {}),
+  }
+}
+
+async function request(path, { method = "GET", body, headers } = {}) {
   const response = await fetch(
     joinUrl(import.meta.env.VITE_WAS_BASE_URL, path),
     {
@@ -43,6 +60,7 @@ async function request(path, { method = "GET", body } = {}) {
       headers: {
         Accept: "application/json",
         ...(body ? { "Content-Type": "application/json" } : {}),
+        ...(headers ?? {}),
       },
       body: body ? JSON.stringify(body) : undefined,
     },
@@ -69,9 +87,26 @@ export function getWorkspaceSummary() {
   return request("/api/workspace/summary")
 }
 
-export function askWorkspace({ question, opportunityId, save } = {}) {
+export function getWorkspaceSync({ commandId } = {}) {
+  const searchParams = new URLSearchParams()
+
+  if (commandId) {
+    searchParams.set("commandId", commandId)
+  }
+
+  const search = searchParams.toString()
+  return request(`/api/workspace/sync${search ? `?${search}` : ""}`)
+}
+
+export function askWorkspace({
+  question,
+  opportunityId,
+  save,
+  userContextHeaders,
+} = {}) {
   return request("/api/workspace/ask", {
     method: "POST",
+    headers: buildDemoUserContextHeaders(userContextHeaders),
     body: {
       question,
       ...(opportunityId ? { opportunityId } : {}),
@@ -96,6 +131,12 @@ export function getCalendar(query = {}) {
   const search = searchParams.toString()
 
   return request(`/api/calendar${search ? `?${search}` : ""}`)
+}
+
+export function triggerWorknetIngestion(sourceId = "worknet.recruiting") {
+  return request(`/api/admin/ingestions/worknet/${encodeURIComponent(sourceId)}`, {
+    method: "POST",
+  })
 }
 
 export { WasClientError }

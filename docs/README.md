@@ -65,6 +65,12 @@ curl http://127.0.0.1:4310/health
 curl http://127.0.0.1:4310/api/workspace/summary
 ```
 
+live integration smoke:
+
+```bash
+npm run smoke:live
+```
+
 ## Supporting MVP Docs
 
 현재 웹 서비스 구현 논의를 이어갈 때 참고할 문서:

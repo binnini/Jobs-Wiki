@@ -8,6 +8,8 @@ import {
   persistRunSummary,
 } from "../lib/run-summary-store.js"
 import { runWorknetIngestion } from "./run-worknet-ingestion.js"
+import { runScheduledIngestion } from "./run-scheduled-ingestion.js"
+import { runWorknetBackfill } from "./run-worknet-backfill.js"
 
 async function main() {
   let env
@@ -15,6 +17,7 @@ async function main() {
   let runId
   let source
   let dryRun
+  let mode
 
   try {
     const cliOptions = readCliOptions()
@@ -26,6 +29,7 @@ async function main() {
 
     env = loadEnv()
     source = cliOptions.source ?? env.defaultSource
+    mode = cliOptions.mode ?? "manual"
 
     if (source !== "worknet") {
       throw new Error(
@@ -45,6 +49,7 @@ async function main() {
     logger.info("ingestion.manual_run.started", {
       runId,
       source,
+      mode,
       dryRun,
       nodeEnv: env.nodeEnv,
       worknetConfigured: env.worknetConfigured,
@@ -54,14 +59,40 @@ async function main() {
     let summary
 
     if (source === "worknet") {
-      summary = await runWorknetIngestion({
+      const sharedOptions = {
         env,
         logger,
         dryRun,
         sourceId: env.worknetSourceId,
         runId,
         clients,
-      })
+      }
+
+      if (mode === "scheduled") {
+        summary = await runScheduledIngestion({
+          ...sharedOptions,
+          cycles: cliOptions.cycles ?? env.ingestScheduleCycles,
+          intervalMs: env.ingestScheduleIntervalMs,
+          maxAttempts: cliOptions.retryAttempts ?? env.ingestMaxAttempts,
+          retryDelayMs: cliOptions.retryDelayMs ?? env.ingestRetryDelayMs,
+        })
+      } else if (mode === "backfill") {
+        summary = await runWorknetBackfill({
+          ...sharedOptions,
+          startPage: cliOptions.backfillStartPage ?? env.worknetBackfillStartPage,
+          pages: cliOptions.backfillPages ?? env.worknetBackfillPages,
+          fetchSize: cliOptions.size ?? env.worknetFetchSize,
+          maxAttempts: cliOptions.retryAttempts ?? env.ingestMaxAttempts,
+          retryDelayMs: cliOptions.retryDelayMs ?? env.ingestRetryDelayMs,
+        })
+      } else {
+        summary = await runWorknetIngestion({
+          ...sharedOptions,
+          fetchPage: cliOptions.page ?? env.worknetFetchPage,
+          fetchSize: cliOptions.size ?? env.worknetFetchSize,
+          attempt: 1,
+        })
+      }
     }
 
     const persistedSummary = await persistRunSummary(summary, {
@@ -72,6 +103,7 @@ async function main() {
     logger.info("ingestion.manual_run.completed", {
       runId,
       source,
+      mode,
       dryRun,
       status: summary.status,
       persistedSummaryPath: summary.persistedSummaryPath,
@@ -86,6 +118,7 @@ async function main() {
         const failureSummary = buildFailureRunSummary({
           runId,
           source,
+          mode,
           dryRun,
           env,
           error,
@@ -99,6 +132,7 @@ async function main() {
           logger.error("ingestion.manual_run.summary_persist_failed", {
             runId,
             source,
+            mode,
             message: persistError.message,
           })
         }
@@ -112,6 +146,7 @@ async function main() {
         service: env?.serviceName ?? "jobs-wiki-ingestion",
         runId,
         source,
+        mode,
         persistedSummaryPath,
         message: error.message,
       }),

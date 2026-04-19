@@ -44,6 +44,7 @@ export async function persistRunSummary(summary, { directory } = {}) {
 export function buildFailureRunSummary({
   runId,
   source,
+  mode,
   dryRun,
   env,
   error,
@@ -51,7 +52,14 @@ export function buildFailureRunSummary({
   return {
     runId,
     source,
-    mode: dryRun ? "dry_run" : "apply",
+    mode:
+      mode && mode !== "manual"
+        ? dryRun
+          ? `${mode}_dry_run`
+          : `${mode}_apply`
+        : dryRun
+          ? "dry_run"
+          : "apply",
     status: "failed",
     error: {
       name: error?.name ?? "Error",

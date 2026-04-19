@@ -185,3 +185,111 @@ test("real ask adapter builds an opportunity-scoped answer from live detail evid
   assert.equal(result.relatedOpportunities[0].opportunityId, "opp_job_posting_159423")
   assert.equal(result.relatedDocuments.length, 1)
 })
+
+test("real ask adapter upgrades to personal-aware analysis when profile context is available", async () => {
+  const adapter = createStratawikiAskAdapter({
+    readAuthority: createReadAuthorityStub(),
+    profileContextCatalog: {
+      defaultProfileId: "profile_demo_backend",
+      profiles: {
+        profile_demo_backend: {
+          workspaceId: "workspace_demo",
+          userId: "profile_demo_backend",
+          profileVersion: "profile:v1",
+          displayName: "김지훈",
+          goals: ["금융 도메인 백엔드 전환"],
+          preferences: {
+            targetRole: "Backend Engineer",
+          },
+          attributes: {
+            skills: ["Node.js", "REST API"],
+          },
+        },
+      },
+    },
+    personalKnowledgeClient: {
+      async getProfileContext() {
+        throw Object.assign(new Error("not found"), {
+          code: "not_found",
+        })
+      },
+      async upsertProfileContext({ profileContext }) {
+        return {
+          profile_context: {
+            domain: "recruiting",
+            ...profileContext,
+          },
+        }
+      },
+      async queryPersonalKnowledge() {
+        return {
+          status: "ok",
+          answer_markdown:
+            "## Personalized focus\n지원자님의 Node.js API 최적화 경험을 금융 도메인 운영 안정성 관점으로 재서술하는 것이 좋습니다.",
+          personal_records_used: ["personal:1"],
+          interpretation_records_used: ["interp:published:1"],
+          fact_records_used: ["fact:job:1"],
+          provenance: {
+            fact_snapshot: "fact_snap:recruiting:test",
+            interpretation_snapshot: "interp_snap:recruiting:test",
+            profile_version: "profile:v1",
+            model_profile: "balanced_default",
+            provider: "deterministic",
+            model: "test",
+          },
+        }
+      },
+      async getPersonalRecord() {
+        return {
+          record: {
+            id: "personal:1",
+            title: "나의 백엔드 경험 요약",
+            summary: "Node.js API 최적화 경험과 컨테이너 배포 경험이 있음",
+            profile_version: "profile:v1",
+          },
+        }
+      },
+      async getInterpretationRecord() {
+        return {
+          record: {
+            id: "interp:published:1",
+            title: "금융 백엔드 해석",
+            summary: "금융 도메인에서는 안정성과 추적 가능성이 중요함",
+            provenance: {
+              interpretation_snapshot_id: "interp_snap:recruiting:test",
+            },
+          },
+        }
+      },
+      async getFactRecord() {
+        return {
+          record: {
+            id: "fact:job:1",
+            attributes: {
+              title: "Backend Engineer",
+              summary: "Production AI systems experience preferred.",
+            },
+            fact_snapshot_id: "fact_snap:recruiting:test",
+          },
+        }
+      },
+    },
+    now: () => new Date("2026-04-19T02:00:00.000Z"),
+  })
+
+  const result = await adapter.askWorkspace({
+    userContext: {
+      workspaceId: "workspace_demo",
+      profileId: "profile_demo_backend",
+    },
+    question: "내 강점을 어떤 식으로 강조해야 하나요?",
+  })
+
+  assert.equal(result.answer.answerId, "ans_20260419020000")
+  assert.equal(result.answer.markdown.includes("Personalized focus"), true)
+  assert.equal(result.evidence.length, 3)
+  assert.equal(result.evidence[0].kind, "personal")
+  assert.equal(result.evidence[1].kind, "interpretation")
+  assert.equal(result.evidence[2].kind, "fact")
+  assert.equal(result.relatedDocuments.length, 3)
+})
