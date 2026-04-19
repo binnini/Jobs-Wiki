@@ -7,6 +7,7 @@ import { createNotFoundError } from "./http/errors.js"
 import { handleError } from "./http/error-middleware.js"
 import { createRequestContext } from "./http/request.js"
 import { sendJson } from "./http/response.js"
+import { createAdminRoutes } from "./routes/admin-routes.js"
 import { createCalendarRoutes } from "./routes/calendar-routes.js"
 import { createOpportunityRoutes } from "./routes/opportunity-routes.js"
 import { createWorkspaceRoutes } from "./routes/workspace-routes.js"
@@ -102,6 +103,7 @@ export function createApp({ env: providedEnv } = {}) {
     ...createWorkspaceRoutes({ adapters }),
     ...createOpportunityRoutes({ adapters }),
     ...createCalendarRoutes({ adapters }),
+    ...createAdminRoutes({ adapters }),
   ]
 
   return async function app(req, res) {

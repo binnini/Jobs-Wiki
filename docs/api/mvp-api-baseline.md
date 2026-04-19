@@ -50,7 +50,7 @@ status: draft
 
 ## Endpoint Set
 
-이번 MVP 구현 기준선 endpoint는 아래 다섯 개로 둡니다.
+이번 MVP 구현 기준선 endpoint는 아래 다섯 개의 사용자-facing projection route를 중심으로 둡니다.
 
 1. `GET /api/workspace/summary`
 2. `POST /api/workspace/ask`
@@ -58,11 +58,14 @@ status: draft
 4. `GET /api/opportunities/{opportunityId}`
 5. `GET /api/calendar`
 
+운영/동기화 보조 endpoint는 별도로 아래를 둡니다.
+
+- `GET /api/workspace/sync`
+- `POST /api/admin/ingestions/worknet/{sourceId}`
+
 이번 단계에서 문서로는 남겨두되 구현 우선순위에서 뒤로 미루는 endpoint:
 
 - `GET /api/documents/{documentId}`
-- `GET /api/workspace/sync`
-- `POST /api/admin/ingestions/worknet/{sourceId}`
 
 ## Shared Rules
 

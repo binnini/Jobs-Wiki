@@ -219,6 +219,93 @@ test("GET /api/calendar rejects invalid date queries", async () => {
   })
 })
 
+test("GET /api/workspace/sync returns current read-side projection visibility in mock mode", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      url: "/api/workspace/sync",
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(response.body.projections, [
+      {
+        projection: "workspace_summary",
+        visibility: "applied",
+        lastKnownVersion: "mock-v1",
+        lastVisibleAt: "2026-04-18T09:00:00.000Z",
+      },
+      {
+        projection: "opportunity_list",
+        visibility: "applied",
+        lastKnownVersion: "mock-v1",
+        lastVisibleAt: "2026-04-18T09:00:00.000Z",
+      },
+      {
+        projection: "calendar",
+        visibility: "applied",
+        lastKnownVersion: "mock-v1",
+        lastVisibleAt: "2026-04-18T09:00:00.000Z",
+      },
+    ])
+  })
+})
+
+test("GET /api/workspace/sync returns command visibility when commandId is provided", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      url: "/api/workspace/sync?commandId=mock-command-worknet.recruiting",
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(response.body.command, {
+      commandId: "mock-command-worknet.recruiting",
+      status: "accepted",
+    })
+    assert.deepEqual(response.body.projections, [
+      {
+        projection: "workspace_summary",
+        visibility: "pending",
+      },
+    ])
+  })
+})
+
+test("POST /api/admin/ingestions/worknet/:sourceId returns an accepted command envelope", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      method: "POST",
+      url: "/api/admin/ingestions/worknet/worknet.recruiting",
+    })
+
+    assert.equal(response.status, 202)
+    assert.deepEqual(response.body, {
+      commandId: "mock-command-worknet.recruiting",
+      acceptedAt: "2026-04-18T09:00:00.000Z",
+    })
+  })
+})
+
+test("real command facade mode returns normalized temporary unavailability errors for command status", async () => {
+  await withConfiguredApp(
+    {
+      serviceName: "jobs-wiki-was-test",
+      host: "127.0.0.1",
+      port: 0,
+      nodeEnv: "test",
+      dataMode: "real",
+      logLevel: "silent",
+    },
+    async (app) => {
+      const response = await invokeApp(app, {
+        url: "/api/workspace/sync?commandId=cmd_001",
+      })
+
+      assert.equal(response.status, 503)
+      assert.equal(response.body.error.code, "temporarily_unavailable")
+      assert.equal(response.body.error.details.adapter, "stratawiki_command_facade")
+    },
+  )
+})
+
 test("POST /api/workspace/ask returns a generic workspace answer without opportunity context", async () => {
   await withApp(async (app) => {
     const response = await invokeApp(app, {

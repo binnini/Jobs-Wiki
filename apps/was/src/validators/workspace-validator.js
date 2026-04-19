@@ -38,3 +38,11 @@ export function validateAskWorkspaceRequest(value) {
     save: value.save,
   }
 }
+
+export function validateWorkspaceSyncQuery(searchParams) {
+  const commandId = searchParams.get("commandId")?.trim() || undefined
+
+  return {
+    commandId,
+  }
+}

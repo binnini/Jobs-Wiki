@@ -93,10 +93,12 @@ GET /health
 - `GET /api/opportunities`
 - `GET /api/opportunities/:opportunityId`
 - `GET /api/calendar`
+- `GET /api/workspace/sync`
+- `POST /api/admin/ingestions/worknet/:sourceId`
 
 기본값은 mock fixture 기반이지만, `WAS_DATA_MODE=real`에서는 위 route들이 StrataWiki fact/relation/snapshot table에서 live data를 읽습니다.
 
-real command facade adapter도 `STRATAWIKI_CLI_WRAPPER`를 통해 thin client 구조를 가집니다. 현재 route는 아직 노출되지 않았지만, 이후 `workspace/sync`나 admin trigger endpoint에서 같은 경계를 재사용합니다.
+real command facade adapter도 `STRATAWIKI_CLI_WRAPPER`를 통해 thin client 구조를 가지며, `workspace/sync`와 admin trigger endpoint에서 같은 경계를 재사용합니다.
 
 ## Test
 
