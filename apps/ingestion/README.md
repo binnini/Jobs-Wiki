@@ -32,6 +32,8 @@
   - normalized payload -> recruiting proposal batch mapping stage와 fact/relation summary baseline
 - `src/jobs/run-worknet-ingestion.js`
   - fetch/map stage를 재사용해 proposal batch validate/ingest workflow 실행
+- `src/clients/stratawiki-write-client.js`
+  - StrataWiki HTTP-first dual-mode write client와 normalized write failure envelope
 - `src/clients/index.js`
   - WorkNet provider + StrataWiki dual-mode client bootstrap
 
@@ -152,6 +154,7 @@ npm start -- --source worknet --dry-run
 - `--mode backfill`은 page window 를 순차 실행하면서 aggregation summary 를 만듭니다.
 - retry 는 attempt 수와 delay 로 조정할 수 있습니다.
 - 각 실행 결과는 JSON summary 파일로 저장됩니다.
+- 실패 summary는 `error.code`, `error.retryable`, `error.transport`, `error.operation`을 함께 남깁니다.
 - `INGEST_RUN_SUMMARY_DIR`가 없으면 시스템 temp 아래
   `jobs-wiki-ingestion-runs/`를 기본 저장 위치로 사용합니다.
 - Jobs-Wiki는 StrataWiki DB에 직접 접근하지 않습니다.
