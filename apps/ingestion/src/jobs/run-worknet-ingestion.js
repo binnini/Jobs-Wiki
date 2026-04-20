@@ -1,14 +1,5 @@
-import { createHash } from "node:crypto"
-import { createStratawikiRecruitingProposalBatch } from "../mappers/stratawiki-domain-proposal-batch.js"
 import { fetchWorknetSourcePayloads } from "./fetch-worknet-source-payloads.js"
-
-function hashValue(value) {
-  return createHash("sha256").update(String(value)).digest("hex").slice(0, 12)
-}
-
-function createBatchId({ runId, sourceId }) {
-  return `jobs-wiki-${runId}-${hashValue(sourceId)}`
-}
+import { mapWorknetPayloadsToProposalBatches } from "./map-worknet-payloads-to-proposal-batches.js"
 
 function summarizeValidation(validationResult) {
   return {
@@ -75,28 +66,17 @@ export async function runWorknetIngestion({
     attempt,
   })
   await clients.stratawiki.assertWriteRuntimeConfig()
+  const mappingResult = mapWorknetPayloadsToProposalBatches({
+    env,
+    logger,
+    runId,
+    fetchResult,
+  })
 
-  const sourceRefs = fetchResult.sourceRefs
-  const batchReports = []
-  let totalFactProposals = 0
-  let totalRelationProposals = 0
-
-  for (const { sourceRef, payload } of fetchResult.sourcePayloads) {
-    const batchId = createBatchId({
-      runId,
-      sourceId: sourceRef.sourceId,
-    })
-    const batchPayload = createStratawikiRecruitingProposalBatch(payload, {
-      batchId,
-      packVersion:
-        env.stratawikiRecruitingPackVersion ?? undefined,
-    })
-
-    totalFactProposals += batchPayload.batch.facts.length
-    totalRelationProposals += batchPayload.batch.relations.length
-
+  for (const proposalBatch of mappingResult.proposalBatches) {
+    const { sourceRef, batchId, batch } = proposalBatch
     const validation = await clients.stratawiki.validateDomainProposalBatch({
-      batch: batchPayload.batch,
+      batch,
       requestId: `jobs-wiki-validate-${batchId}`,
       idempotencyKey: `jobs-wiki-validate:${batchId}`,
     })
@@ -112,7 +92,7 @@ export async function runWorknetIngestion({
     let ingest = null
     if (!dryRun) {
       ingest = await clients.stratawiki.ingestDomainProposalBatch({
-        batch: batchPayload.batch,
+        batch,
         requestId: `jobs-wiki-ingest-${batchId}`,
         idempotencyKey: `jobs-wiki-ingest:${batchId}`,
       })
@@ -126,17 +106,25 @@ export async function runWorknetIngestion({
       }
     }
 
-    batchReports.push({
-      sourceId: sourceRef.sourceId,
-      batchId,
-      title: sourceRef.title,
-      companyName: sourceRef.companyName,
-      factProposalCount: batchPayload.batch.facts.length,
-      relationProposalCount: batchPayload.batch.relations.length,
-      validation: summarizeValidation(validation),
-      ingest: ingest ? summarizeIngest(ingest) : null,
-    })
+    const batchReport = mappingResult.batchReports.find(
+      (report) => report.batchId === batchId,
+    )
+
+    batchReport.validation = summarizeValidation(validation)
+    batchReport.ingest = ingest ? summarizeIngest(ingest) : null
   }
+
+  const sourceRefs = fetchResult.sourceRefs
+  const batchReports = mappingResult.batchReports.map((report) => ({
+    sourceId: report.sourceId,
+    batchId: report.batchId,
+    title: report.title,
+    companyName: report.companyName,
+    factProposalCount: report.factProposalCount,
+    relationProposalCount: report.relationProposalCount,
+    validation: report.validation,
+    ingest: report.ingest,
+  }))
 
   return {
     runId,
@@ -168,9 +156,9 @@ export async function runWorknetIngestion({
       {
         name: "map_proposals",
         status: "completed",
-        batches: batchReports.length,
-        facts: totalFactProposals,
-        relations: totalRelationProposals,
+        batches: mappingResult.summary.mappedBatches,
+        facts: mappingResult.summary.factProposalCount,
+        relations: mappingResult.summary.relationProposalCount,
       },
       {
         name: "write_authority",
@@ -186,8 +174,8 @@ export async function runWorknetIngestion({
       failedSources: fetchResult.summary.failedSources,
       validatedBatches: batchReports.length,
       ingestedBatches: dryRun ? 0 : batchReports.length,
-      factProposalCount: totalFactProposals,
-      relationProposalCount: totalRelationProposals,
+      factProposalCount: mappingResult.summary.factProposalCount,
+      relationProposalCount: mappingResult.summary.relationProposalCount,
     },
     sources: fetchResult.sourceReports,
     batches: batchReports,
