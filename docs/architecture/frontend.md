@@ -9,23 +9,26 @@ Draft
 - 사용자 입력과 화면 상태 관리
 - WAS 공개 API 호출
 - workspace projection을 사용자 경험에 맞게 표시
-- 장기적으로 개인 지식 공간을 PKM형 워크스페이스로 확장할 수 있는 frontend 기반을 제공
+- 개인 지식 공간을 PKM형 워크스페이스로 경험하게 만드는 frontend 기반 제공
 
 ## Current MVP Baseline
 
-현재 구현 기준선은 장기 PKM explorer보다 `report-first` MVP에 둡니다.
+현재 구현 기준선은 `workspace-first` MVP에 둡니다.
 
 현재 우선 화면:
 
 - `Onboarding`
 - `Extraction Review`
+- `Workspace Shell`
+- `Document Detail`
 - `Baseline Report`
 - `Opportunity Detail`
 - `Ask Workspace`
 - `Calendar`
 
-즉, `tree`, `document`, `graph`, `search`는 장기 방향 문서로 유지하되,
-현재 첫 구현 slice의 필수 frontend 범위로 보지 않습니다.
+즉, `workspace`, `document`, `report`, `opportunity`, `ask`, `calendar`는
+현재 첫 구현 slice의 핵심 frontend 범위로 봅니다.
+다만 `graph`와 `search`는 후속 확장으로 둡니다.
 
 ## Current MVP Routes
 
@@ -33,15 +36,18 @@ Draft
 
 - `/onboarding`
 - `/review`
+- `/workspace`
+- `/documents/:documentId`
 - `/report`
 - `/opportunities/:opportunityId`
 - `/ask`
 - `/calendar`
 
-`Ask`는 별도 화면이지만, 선택 공고 컨텍스트는 optional query로 받습니다.
+`Ask`는 별도 화면이지만, 선택 공고/문서 컨텍스트는 optional query로 받습니다.
 
 - `/ask`
 - `/ask?opportunityId=opp_toss_core_backend`
+- `/ask?documentId=doc_strategy_note_1`
 
 자세한 기준은 아래 문서를 따릅니다.
 
@@ -49,22 +55,34 @@ Draft
 
 ## Workspace Views
 
+- workspace shell
+  - 현재 보고 있는 projection과 active context를 묶는 메인 shell
+  - `shared`, `personal/raw`, `personal/wiki`를 명시적으로 구분해야 함
 - 파일 탐색 뷰
-  - `tree` projection을 사용해 사용자 문서와 navigation 구조를 탐색합니다.
+  - `tree` 계열 navigation을 사용해 사용자 문서와 knowledge object 구조를 탐색
 - 문서 뷰
-  - `document` projection을 사용해 markdown 또는 구조화 콘텐츠를 읽고, 수정/질의 요청 진입점을 제공합니다.
+  - `document` projection을 사용해 markdown 또는 구조화 콘텐츠를 읽고, Ask 진입점을 제공
+- report 뷰
+  - `workspace_summary` projection을 사용해 추천 공고, action queue, market brief를 제공
+- opportunity 뷰
+  - `opportunity` projection을 사용해 recruiting vertical detail을 제공
 - 캘린더 뷰
-  - `calendar` projection을 사용해 공고 마감일, 교육 일정, 사용자 준비 일정을 시간축으로 보여줍니다.
+  - `calendar` projection을 사용해 공고 마감일과 시간축 기반 action context 제공
 - 그래프 뷰
-  - `graph` projection을 사용해 문서, 공고, 역량, 훈련 등 knowledge object 관계를 시각적으로 탐색합니다.
+  - 후속 확장 projection
 - 검색/요약 뷰
-  - `search`, `workspace_summary` projection을 사용해 탐색과 현재 상태 요약을 제공합니다.
+  - 후속 확장 projection
 
 ## UX Direction
 
 - frontend는 단순 검색 화면이 아니라 개인 취업 워크스페이스를 제공해야 합니다.
-- 사용자는 tree, document, graph, calendar, search 사이를 이동하며 같은 knowledge space를 다른 방식으로 탐색할 수 있어야 합니다.
-- 문서는 단순 파일이 아니라 링크, metadata, relation을 가진 knowledge object처럼 보이도록 구성합니다.
+- workspace shell은 report 한 장이 아니라 여러 projection을 묶는 메인 UX여야 합니다.
+- 사용자는 document, report, opportunity, calendar, ask 사이를 이동하며 같은 knowledge space를 다른 방식으로 탐색할 수 있어야 합니다.
+- 사용자는 현재 보고 있는 문서가 `shared`, `personal/raw`, `personal/wiki` 중 어디에 속하는지 항상 이해할 수 있어야 합니다.
+- `shared`는 interpretation layer의 문서형 read-only view로 보여야 합니다.
+- `personal/raw`는 사용자 원문 작업 공간으로 보여야 합니다.
+- `personal/wiki`는 LLM이 재가공한 personal knowledge 공간으로 보여야 합니다.
+- 문서는 단순 파일이 아니라 링크, metadata, relation을 가진 knowledge object처럼 보여야 합니다.
 - projection-only structure를 canonical object처럼 오해하게 만드는 UX는 피합니다.
 
 ## Data Access Rule
@@ -77,8 +95,8 @@ Draft
 
 - frontend는 canonical storage shape를 직접 알 필요가 없습니다.
 - frontend는 projection family를 기준으로 화면 상태를 구성합니다.
-- tree, document, graph, calendar, search, workspace summary는 동일한 knowledge space의 읽기 projection으로 취급합니다.
-- graph node/edge, search hit, summary card 같은 구조는 projection wrapper이며 canonical object/relation ref를 가리킬 수 있습니다.
+- workspace, document, opportunity, calendar, search, workspace summary는 동일한 knowledge space의 읽기 projection으로 취급합니다.
+- summary card, navigation item, related object block은 projection wrapper이며 canonical object/relation ref를 가리킬 수 있습니다.
 
 ## Edit and Sync Rule
 
@@ -86,6 +104,10 @@ Draft
 - frontend는 수정 요청을 WAS로 전달하고, WAS는 이를 external MCP facade로 위임합니다.
 - frontend는 command success와 read visibility를 같은 의미로 취급하지 않습니다.
 - frontend는 위임 결과를 projection-local sync state와 refresh hint를 통해 다시 조회 가능한 읽기 모델에 반영받는 흐름을 전제로 합니다.
+- create/update/delete는 `personal/*`에만 허용됩니다.
+- `shared/*`에는 편집 액션을 제공하지 않아야 합니다.
+- shared 문서에서 실행한 요약/재작성/link action의 결과는 personal layer에만 저장되어야 합니다.
+- personal layer의 편집이나 LLM 재가공 결과는 상위 `Fact`나 `Interpretation` layer를 직접 수정하거나 갱신해서는 안 됩니다.
 
 ### Default Sync Behavior
 
@@ -106,38 +128,10 @@ Draft
 - frontend는 relation provenance가 중요한 화면, 특히 graph/document detail에서 explicit relation과 derived relation을 구분해 보여줄 수 있어야 합니다.
 - frontmatter-like field는 문서 안에 존재한다는 이유만으로 document surface로 단정하지 않습니다.
 
-### Current Draft Direction
-
-- `tag`는 현재 draft 방향에서 우선 metadata/filter label처럼 다룹니다.
-- `calendar` 화면은 별도 calendar object 저장 모델보다 temporal projection을 우선 전제로 합니다.
-- 문서 화면은 우선 `title`, `body`, selected metadata 중심으로 유지하고, document-surface presentational field는 좁게 해석합니다.
-
-현재 frontend 기준선:
-
-- `tag`
-  - tag chip, filter, search facet, metadata decoration 중심으로 노출합니다.
-  - tag detail page나 tag lifecycle UX는 현재 전제하지 않습니다.
-- `calendar event`
-  - calendar item은 canonical event detail보다 source object로 deep-link되는 projection item으로 설명합니다.
-  - 사용자가 event 자체를 편집하는 UX보다, 관련 object 또는 metadata 수정 UX를 우선합니다.
-- document-surface field
-  - 문서 화면의 authored surface는 `title`, `bodyMarkdown`, 제한적 summary 중심으로 유지합니다.
-  - `tags`, `status`, `dueAt`는 별도 metadata block 또는 side panel 성격으로 다루는 편이 맞습니다.
-
-장기 확장 검토 조건:
-
-- `tag`
-  - tag별 detail 탐색, hierarchy, merge, alias 같은 taxonomy UX가 제품 핵심으로 커질 때
-- `calendar event`
-  - reminder, recurrence, 참석 상태, event-specific edit flow가 필요해질 때
-- document-surface field
-  - subtitle, cover, icon 같은 presentational field가 여러 화면에서 반복적으로 요구될 때
-
 ## Open Questions
 
-- 캐시 전략
+- cache 전략
 - 인증 방식
-- 그래프 렌더링과 대규모 노드 탐색의 성능 한계
-- 장기적으로 `tag` taxonomy UX를 별도 object family로 승격할 필요가 생기는지
+- tree/document IA를 어떻게 가볍게 시작할지
+- 장기적으로 tag taxonomy UX를 별도 object family로 승격할지
 - 장기적으로 user-authored schedule object가 필요한지
-- 제한적 summary 외 document-surface field 확장이 실제로 반복 요구되는지

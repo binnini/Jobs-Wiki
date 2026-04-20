@@ -6,19 +6,13 @@ status: draft
 
 ## Purpose
 
-이 문서는 Jobs-Wiki 웹 서비스의 첫 구현에 사용할 `WAS` 계약을 좁게 고정합니다.
+이 문서는 Jobs-Wiki 웹 서비스의 첫 구현에 사용할 `WAS` 계약을
+workspace-first MVP 기준으로 좁게 고정합니다.
 
-기존 문서들이 `candidate direction`을 넓게 설명했다면,
-이 문서는 실제로 `apps/was` 라우터와 adapter를 만들기 위한 첫 buildable slice를 정리하는 것이 목적입니다.
+목표는 아래 두 가지를 동시에 만족하는 것입니다.
 
-이 문서는 아래를 다룹니다.
-
-- 첫 구현 화면에 필요한 최소 endpoint set
-- request / response envelope 방향
-- sync / error / ref vocabulary
-- `StrataWiki` dependency를 WAS가 어떻게 절단할지
-
-이 문서는 장기 전체 API catalog를 확정하지 않습니다.
+- PKM knowledge workspace를 메인 UX로 삼는다
+- 현재 이미 구현된 recruiting vertical slice를 버리지 않는다
 
 ## Scope
 
@@ -33,7 +27,6 @@ status: draft
 
 이번 문서가 의도적으로 뒤로 미루는 것:
 
-- full tree explorer
 - full graph explorer
 - broad public resource API
 - generic workspace command family 전체
@@ -43,16 +36,19 @@ status: draft
 현재 기준 첫 구현 slice는 아래처럼 둡니다.
 
 - read-first MVP
-- recruiting domain 중심
-- WorkNet -> recruiting -> StrataWiki 흐름을 실제 사용자 화면까지 연결
+- workspace-first product goal
+- recruiting domain 중심 vertical
+- WorkNet -> recruiting -> StrataWiki 흐름을 workspace 안의 object/projection으로 연결
 
 즉, 이번 MVP의 핵심 목적은 아래입니다.
 
-- 사용자가 질문을 던질 수 있다
-- answer와 evidence를 읽을 수 있다
-- related opportunity를 탐색할 수 있다
+- 사용자가 workspace shell에 진입할 수 있다
+- answer와 evidence를 workspace context 안에서 읽을 수 있다
+- related opportunity와 related document를 탐색할 수 있다
 - opportunity detail과 document detail을 열 수 있다
-- 마감 일정(calendar)을 확인할 수 있다
+- 마감 일정(calendar)을 workspace projection으로 확인할 수 있다
+- personal layer에서 문서를 생성, 수정, 삭제할 수 있다
+- raw 문서를 LLM으로 재가공해 personal wiki를 만들 수 있다
 
 ## Dependency Rule
 
@@ -64,10 +60,9 @@ status: draft
 
 ## Endpoint Set
 
-이번 MVP에서 우선 구현할 endpoint 후보는 아래와 같습니다.
-
 ### Read Endpoints
 
+- `GET /api/workspace`
 - `GET /api/workspace/summary`
 - `POST /api/workspace/ask`
 - `GET /api/opportunities`
@@ -76,27 +71,18 @@ status: draft
 - `GET /api/calendar`
 - `GET /api/workspace/sync`
 
+### Personal Authoring Endpoints
+
+- `POST /api/documents`
+- `PATCH /api/documents/{documentId}`
+- `DELETE /api/documents/{documentId}`
+- `POST /api/documents/{documentId}/summarize`
+- `POST /api/documents/{documentId}/rewrite`
+- `POST /api/documents/{documentId}/link`
+
 ### Optional Early Command Endpoint
 
 - `POST /api/admin/ingestions/worknet/{sourceId}`
-
-이 endpoint는 일반 사용자 command family가 아니라,
-운영/개발 단계에서 source ingest를 수동 트리거하는 좁은 경계로 취급합니다.
-
-## Why This Set
-
-- `POST /api/workspace/ask`
-  - 현재 `StrataWiki`의 가장 강한 기능을 가장 직접적으로 드러냅니다.
-- `GET /api/opportunities`, `GET /api/opportunities/{opportunityId}`
-  - jobs product의 기본 탐색 surface입니다.
-- `GET /api/documents/{documentId}`
-  - evidence deep-link와 shared detail shell에 필요합니다.
-- `GET /api/calendar`
-  - recruiting domain의 temporal value를 가장 빨리 보여줍니다.
-- `GET /api/workspace/summary`
-  - 홈 화면과 refresh anchor로 유용합니다.
-- `GET /api/workspace/sync`
-  - eventual consistency를 정직하게 드러내는 최소 관측 surface입니다.
 
 ## Shared Vocabulary
 
@@ -110,10 +96,17 @@ type KnowledgeObjectRef = {
 };
 ```
 
+현재 규칙:
+
+- `workspace`는 최소한 `shared`, `personal/raw`, `personal/wiki`를 구분할 수 있어야 합니다.
+- `shared`는 read-only입니다.
+- `personal`만 writable입니다.
+
 ### Projection Sync State
 
 ```ts
 type ProjectionName =
+  | "workspace"
   | "workspace_summary"
   | "ask"
   | "opportunity_list"
@@ -129,6 +122,11 @@ type ProjectionSyncState = {
   refreshRecommended?: boolean;
 };
 ```
+
+현재 규칙:
+
+- answer나 rewrite는 shared를 참고할 수 있지만, 결과 저장은 personal layer에만 허용됩니다.
+- personal 작업은 상위 Fact/Interpretation layer로 역전파되지 않습니다.
 
 ### Error Shape
 
@@ -149,65 +147,69 @@ type WasErrorResponse = {
 };
 ```
 
-### Response Envelope Rule
-
-MVP에서는 모든 endpoint에 동일한 envelope를 강제하지 않습니다.
-대신 아래 원칙을 맞추는 편이 좋습니다.
-
-- top-level payload는 화면 단위 semantic 이름을 가집니다.
-- projection freshness는 top-level `sync`로 설명합니다.
-- canonical object identity는 full object 대신 `ref`를 우선 사용합니다.
-- decoration field는 object field와 분리합니다.
-
 ## Endpoint Contracts
 
-### 1. `GET /api/workspace/summary`
+### 1. `GET /api/workspace`
 
 역할:
 
-- 첫 화면 진입용 aggregate
-- 마지막 질문, 마감 임박 opportunity, 최근 document, sync summary 제공
+- workspace shell first load
+- 주요 navigation / active context 제공
 
-후보 shape:
+```ts
+type WorkspaceShellResponse = {
+  projection: "workspace";
+  sync?: ProjectionSyncState;
+  navigation: {
+    sections: Array<{
+      sectionId: string;
+      label: string;
+      items: KnowledgeObjectRef[];
+    }>;
+  };
+  activeProjection?: {
+    projection: "report" | "document" | "opportunity" | "calendar" | "ask";
+    objectRef?: KnowledgeObjectRef;
+  };
+};
+```
+
+### 2. `GET /api/workspace/summary`
+
+역할:
+
+- report projection aggregate
 
 ```ts
 type WorkspaceSummaryResponse = {
   projection: "workspace_summary";
   sync?: ProjectionSyncState;
   blocks: {
-    recentAnswers?: Array<{
-      answerId: string;
-      title: string;
-      createdAt: string;
-      documentRef?: KnowledgeObjectRef;
-    }>;
-    closingSoon?: OpportunityListItem[];
-    recentDocuments?: Array<{
-      documentRef: KnowledgeObjectRef;
-      updatedAt?: string;
-    }>;
+    report?: {
+      profileSnapshot?: Record<string, unknown>;
+      recommendedOpportunities?: OpportunityListItem[];
+      actionQueue?: Array<Record<string, unknown>>;
+      marketBrief?: Record<string, unknown>;
+      skillsGap?: Record<string, unknown>;
+    };
   };
 };
 ```
 
-### 2. `POST /api/workspace/ask`
+### 3. `POST /api/workspace/ask`
 
 역할:
 
 - question -> personalized answer -> evidence navigation
 
-request shape:
-
 ```ts
 type AskWorkspaceRequest = {
   question: string;
+  documentId?: string;
+  opportunityId?: string;
   save?: boolean;
 };
-```
 
-response shape:
-
-```ts
 type AskWorkspaceResponse = {
   projection: "ask";
   sync?: ProjectionSyncState;
@@ -221,8 +223,9 @@ type AskWorkspaceResponse = {
     documentRef: KnowledgeObjectRef;
     role?: "personal" | "interpretation" | "fact";
   }>;
+  relatedOpportunities?: OpportunityListItem[];
   provenance: {
-    factSnapshot: string;
+    factSnapshot?: string;
     interpretationSnapshot?: string;
     profileVersion?: string;
     modelProfile?: string;
@@ -230,21 +233,12 @@ type AskWorkspaceResponse = {
 };
 ```
 
-### 3. `GET /api/opportunities`
+### 4. `GET /api/opportunities`
 
 역할:
 
 - recruiting opportunity list
-- home, search-like navigation, ask evidence landing에서 공통 사용
-
-query 후보:
-
-- `cursor`
-- `limit`
-- `status`
-- `closingWithinDays`
-
-response shape:
+- workspace navigation과 ask evidence landing에서 공통 사용
 
 ```ts
 type OpportunityListResponse = {
@@ -255,14 +249,11 @@ type OpportunityListResponse = {
 };
 ```
 
-### 4. `GET /api/opportunities/{opportunityId}`
+### 5. `GET /api/opportunities/{opportunityId}`
 
 역할:
 
 - 단일 opportunity 상세
-- company / role / evidence / related documents를 포함하는 공통 detail shell
-
-response shape:
 
 ```ts
 type OpportunityDetailResponse = {
@@ -272,29 +263,56 @@ type OpportunityDetailResponse = {
 };
 ```
 
-### 5. `GET /api/documents/{documentId}`
+### 6. `GET /api/documents/{documentId}`
 
 역할:
 
-- evidence에서 deep-link되는 shared document detail
+- evidence에서 deep-link되는 shared or personal document detail
 
-response shape:
+현재 방향:
 
-- 기존 `workspace-mvp-read-contract.md`의 `document` projection을 재사용
-- 단, MVP에서는 `relations`보다 `surface`, `metadata.source`, `summary`를 우선 구현
+- `document` projection을 재사용
+- MVP에서는 relation full graph보다 `surface`, `summary`, `relatedObjects`를 우선 구현
+- shared 문서는 read-only
+- personal 문서는 writable
 
-### 6. `GET /api/calendar`
+### 6.5 `POST /api/documents`
+
+- personal/raw 또는 personal/wiki 문서 생성
+- PDF 업로드 또는 markdown create 진입점
+
+### 6.6 `PATCH /api/documents/{documentId}`
+
+- personal 문서 수정
+- shared 문서는 수정 불가
+
+### 6.7 `DELETE /api/documents/{documentId}`
+
+- personal 문서 삭제
+- shared 문서는 삭제 불가
+
+### 6.8 `POST /api/documents/{documentId}/summarize`
+
+- personal/raw를 personal/wiki 요약 문서로 생성
+
+### 6.9 `POST /api/documents/{documentId}/rewrite`
+
+- 문서를 재작성해 personal/wiki artifact 생성
+
+### 6.10 `POST /api/documents/{documentId}/link`
+
+- 문서 관계, related object, link suggestion 생성 또는 부착
+
+공통 규칙:
+
+- 결과는 항상 personal layer에 기록
+- shared와 상위 layer는 직접 수정하지 않음
+
+### 7. `GET /api/calendar`
 
 역할:
 
 - opportunity closing/opening timeline 노출
-
-query 후보:
-
-- `from`
-- `to`
-
-response shape:
 
 ```ts
 type CalendarResponse = {
@@ -315,14 +333,12 @@ type CalendarResponse = {
 };
 ```
 
-### 7. `GET /api/workspace/sync`
+### 8. `GET /api/workspace/sync`
 
 역할:
 
 - 화면 전체 sync status 관측
 - polling anchor 또는 top-level stale indicator
-
-response shape:
 
 ```ts
 type WorkspaceSyncResponse = {
@@ -331,8 +347,6 @@ type WorkspaceSyncResponse = {
 ```
 
 ## StrataWiki Mapping Direction
-
-WAS는 `StrataWiki`를 아래 두 adapter로 바라보는 방향이 가장 자연스럽습니다.
 
 ### Read Authority
 
@@ -351,29 +365,32 @@ MVP 최소 concern:
 - optional ingest trigger
 - 이후 command status / refresh hint 확장
 
-현재 MVP에서는 full editing command family보다, read integration이 먼저입니다.
-
 ## Implementation Order
 
-실제 구현은 아래 순서가 가장 안전합니다.
+현재 구현 자산을 최대한 살리려면 아래 순서가 안전합니다.
 
-1. `POST /api/workspace/ask`
-2. `GET /api/opportunities/{opportunityId}`
-3. `GET /api/opportunities`
-4. `GET /api/calendar`
-5. `GET /api/workspace/summary`
-6. `GET /api/documents/{documentId}`
-7. `GET /api/workspace/sync`
+1. `GET /api/workspace/summary`
+2. `POST /api/workspace/ask`
+3. `GET /api/opportunities/{opportunityId}`
+4. `GET /api/opportunities`
+5. `GET /api/calendar`
+6. `GET /api/workspace`
+7. `GET /api/documents/{documentId}`
+8. `GET /api/workspace/sync`
+9. `POST /api/documents`
+10. `PATCH /api/documents/{documentId}`
+11. `DELETE /api/documents/{documentId}`
+12. `POST /api/documents/{documentId}/summarize`
+13. `POST /api/documents/{documentId}/rewrite`
+14. `POST /api/documents/{documentId}/link`
 
 이 순서가 좋은 이유:
 
-- ask flow가 StrataWiki value를 가장 직접적으로 보여줌
-- opportunity detail이 jobs product의 핵심 detail surface임
-- list/calendar/summary는 그 위에 자연스럽게 쌓임
+- 현재 구현 자산은 summary/opportunity/ask/calendar에 이미 집중되어 있습니다.
+- workspace shell과 generic document detail은 그 자산을 감싸는 다음 단계로 올리는 편이 안전합니다.
+- personal authoring과 wiki generation은 그 다음에 붙는 새로운 MVP 기능입니다.
 
 ## Out of Scope
-
-이번 MVP contract에서 확정하지 않는 것:
 
 - final public API versioning
 - graph endpoint
@@ -384,11 +401,6 @@ MVP 최소 concern:
 
 ## Decision Summary
 
-현재 기준 첫 WAS 구현은 `generic workspace API 전체`가 아니라,
-`ask + opportunity + document + calendar + summary + sync`의 좁은 제품 slice로 시작하는 편이 맞습니다.
-
-이렇게 해야:
-
-- 현재 `StrataWiki` 강점과 잘 맞고
-- WorkNet recruiting vertical을 실제 사용자 가치로 빨리 연결할 수 있으며
-- 이후 tree/graph/search를 더 안정적으로 붙일 수 있습니다.
+현재 기준 첫 WAS 구현은 `workspace-first 목표`를 유지하되,
+실제 구현은 `summary + ask + opportunity + calendar + sync` 슬라이스에서 시작하고
+그 위에 `workspace`와 `document detail`을 덧붙이는 편이 맞습니다.

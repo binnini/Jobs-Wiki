@@ -6,66 +6,91 @@ status: draft
 
 ## Purpose
 
-이 문서는 현재 Jobs-Wiki 웹 구현에서 바로 사용할 API 기준선을 한 장으로 고정합니다.
+이 문서는 Jobs-Wiki 웹 구현에서 사용할 현재 MVP API 기준선을
+workspace-first 제품 방향에 맞춰 다시 고정합니다.
 
-기존 문서들이 다음 내용을 각각 넓게 설명하고 있다면,
-이 문서는 현재 wireframe과 prototype을 실제 코드로 옮길 때 참고할 최소 범위를 좁게 정리합니다.
+이 문서는 두 가지를 동시에 명확히 합니다.
 
-- 어떤 화면을 먼저 API로 붙일지
-- 어떤 endpoint를 이번 slice에 포함할지
-- 어떤 field를 지금 단계에서 required로 볼지
-- 무엇을 이번 단계에서 의도적으로 미룰지
+- `Target MVP`
+  - PKM knowledge workspace를 메인 UX로 두는 제품 목표
+- `Current Implemented Slice`
+  - 현재 이미 동작 중인 report/opportunity/ask/calendar 중심 API 자산
+
+즉, 이 문서는 "현재 구현된 것을 버리지 않고 workspace 안으로 재배치한다"는 관점의 기준선입니다.
 
 ## Scope
 
 이 baseline은 아래 화면 흐름을 우선 지원합니다.
 
-- `기본 리포트`
+- `Workspace Shell`
+- `Document / Object Detail`
+- `Baseline Report`
 - `Ask Workspace`
 - `Opportunity Detail`
 - `Calendar`
 
 이번 문서가 의도적으로 뒤로 미루는 것:
 
-- full workspace tree explorer
 - graph projection
-- generic command family
+- advanced search
+- broad command family
 - ingestion 운영 API 전체
 - auth/session 세부
 
 ## Current Product Decision
 
-현재 첫 구현의 홈은 `workspace summary` 일반형보다, `기본 리포트형 홈`으로 둡니다.
+현재 MVP의 메인 홈은 `report`가 아니라 `workspace shell`입니다.
 
-즉, 이번 MVP에서는 아래 원칙을 사용합니다.
+현재 원칙:
 
-- 첫 API-backed 홈 화면은 `기본 리포트`입니다.
-- `추천 공고`가 메인 블록입니다.
-- `Ask`는 리포트를 확장하는 follow-up surface입니다.
-- `Opportunity Detail`은 지원 판단용 detail shell입니다.
-- `Calendar`는 마감 일정 확인용 read surface입니다.
-- `Opportunity Detail`에는 안정적인 read 분석 데이터가 포함될 수 있습니다.
-  - 예: 적합도 점수, 강점 요약, 리스크 요약
-- 생성형 면접 시나리오나 확장 분석은 별도 detail endpoint보다 `Ask` 진입으로 우선 처리합니다.
+- 첫 API-backed 홈 화면은 `workspace shell`입니다.
+- `report`는 workspace 안의 핵심 projection 중 하나입니다.
+- `document`와 `opportunity`는 workspace 안의 주요 object/detail surface입니다.
+- `Ask`는 workspace context를 증폭하는 analysis surface입니다.
+- `Calendar`는 workspace projection 중 하나입니다.
+- `shared`는 interpretation layer의 문서형 read-only view입니다.
+- `personal`은 writable workspace이며 `raw`와 `wiki`로 구분됩니다.
+
+현재 구현 메모:
+
+- 이미 구현된 read slice는 `workspace_summary + opportunity + ask + calendar`에 더 가깝습니다.
+- 이 문서는 그 자산을 workspace-first MVP의 내부 projection으로 재배치합니다.
 
 ## Endpoint Set
 
-이번 MVP 구현 기준선 endpoint는 아래 다섯 개의 사용자-facing projection route를 중심으로 둡니다.
+이번 MVP 목표 기준선 endpoint는 아래 projection route를 중심으로 둡니다.
 
-1. `GET /api/workspace/summary`
-2. `POST /api/workspace/ask`
-3. `GET /api/opportunities`
-4. `GET /api/opportunities/{opportunityId}`
-5. `GET /api/calendar`
+1. `GET /api/workspace`
+2. `GET /api/documents/{documentId}`
+3. `POST /api/documents`
+4. `PATCH /api/documents/{documentId}`
+5. `DELETE /api/documents/{documentId}`
+6. `GET /api/workspace/summary`
+7. `POST /api/workspace/ask`
+8. `POST /api/documents/{documentId}/summarize`
+9. `POST /api/documents/{documentId}/rewrite`
+10. `POST /api/documents/{documentId}/link`
+11. `GET /api/opportunities`
+12. `GET /api/opportunities/{opportunityId}`
+13. `GET /api/calendar`
 
-운영/동기화 보조 endpoint는 별도로 아래를 둡니다.
+운영/동기화 보조 endpoint:
 
 - `GET /api/workspace/sync`
 - `POST /api/admin/ingestions/worknet/{sourceId}`
 
-이번 단계에서 문서로는 남겨두되 구현 우선순위에서 뒤로 미루는 endpoint:
+현재 구현된 endpoint slice:
 
-- `GET /api/documents/{documentId}`
+- `GET /api/workspace/summary`
+- `POST /api/workspace/ask`
+- `GET /api/opportunities`
+- `GET /api/opportunities/{opportunityId}`
+- `GET /api/calendar`
+- `GET /api/workspace/sync`
+- `POST /api/admin/ingestions/worknet/{sourceId}`
+
+즉 `GET /api/workspace`, `GET /api/documents/{documentId}`, personal CRUD,
+wiki generation endpoint는 새 workspace-first MVP 기준에서 추가로 맞춰가야 할 target endpoint입니다.
 
 ## Shared Rules
 
@@ -77,7 +102,7 @@ status: draft
 
 ### 2. Projection Language
 
-- frontend-facing language는 `opportunity`, `summary`, `calendar`, `ask` projection을 사용합니다.
+- frontend-facing language는 `workspace`, `document`, `opportunity`, `summary`, `calendar`, `ask` projection을 사용합니다.
 - canonical entity 이름은 API 내부 구현 근거로만 사용합니다.
 - 사용자 화면에서는 `job_posting`보다 `opportunity` 언어를 우선합니다.
 
@@ -85,19 +110,11 @@ status: draft
 
 현재 단계에서는 top-level `sync`를 optional field로 유지합니다.
 
-유력 vocabulary:
-
-- `applied`
-- `pending`
-- `partial`
-- `unknown`
-- `stale`
-
-유력 최소 shape:
-
 ```ts
 type ProjectionSyncState = {
   projection:
+    | "workspace"
+    | "document"
     | "workspace_summary"
     | "ask"
     | "opportunity_list"
@@ -112,8 +129,6 @@ type ProjectionSyncState = {
 
 ### 4. Ref Rule
 
-object identity anchor는 object ref를 우선 사용합니다.
-
 ```ts
 type KnowledgeObjectRef = {
   objectId: string;
@@ -124,14 +139,120 @@ type KnowledgeObjectRef = {
 
 ## Fixed Shapes
 
-### 1. `GET /api/workspace/summary`
+### 1. `GET /api/workspace`
 
 역할:
 
-- 기본 리포트 첫 화면 aggregate
-- 개인 요약, 추천 공고, 시장 브리핑, 액션 큐를 한 번에 제공
+- workspace shell first load
+- navigation과 active context 제공
 
-현재 구현 기준 shape:
+target shape:
+
+```ts
+type WorkspaceShellResponse = {
+  projection: "workspace";
+  sync?: ProjectionSyncState;
+  navigation: {
+    sections: Array<{
+      sectionId: string;
+      label: string;
+      items: Array<{
+        objectRef: KnowledgeObjectRef;
+        kind: "document" | "opportunity" | "report" | "calendar";
+        layer: "shared" | "personal_raw" | "personal_wiki";
+        active?: boolean;
+      }>;
+    }>;
+  };
+  activeProjection?: {
+    projection: "report" | "document" | "opportunity" | "calendar" | "ask";
+    objectRef?: KnowledgeObjectRef;
+  };
+};
+```
+
+메모:
+
+- 현재 구현에서는 `/api/workspace/summary`가 workspace shell의 일부 역할을 대신합니다.
+- `shared`는 read-only입니다.
+- `personal_raw`, `personal_wiki`는 writable personal directory입니다.
+
+### 2. `GET /api/documents/{documentId}`
+
+역할:
+
+- generic document or knowledge object detail
+
+target shape:
+
+```ts
+type DocumentDetailResponse = {
+  projection: "document";
+  sync?: ProjectionSyncState;
+  item: {
+    documentRef: KnowledgeObjectRef;
+    layer: "shared" | "personal_raw" | "personal_wiki";
+    writable: boolean;
+    surface: {
+      title: string;
+      bodyMarkdown?: string;
+      summary?: string;
+    };
+    metadata?: {
+      source?: string;
+      updatedAt?: string;
+      tags?: string[];
+    };
+    relatedObjects?: KnowledgeObjectRef[];
+  };
+};
+```
+
+메모:
+
+- 현재 구현은 generic document detail보다 opportunity detail에 더 가깝습니다.
+- `shared` 문서는 항상 `writable: false`여야 합니다.
+- `personal_raw`, `personal_wiki`는 `writable: true`일 수 있습니다.
+
+### 3. `POST /api/documents`
+
+역할:
+
+- personal layer 문서 생성
+- markdown 문서 생성 또는 PDF 업로드 entry
+
+현재 규칙:
+
+- target layer는 `personal_raw` 또는 `personal_wiki`만 허용합니다.
+- `shared`로의 직접 생성은 허용하지 않습니다.
+
+### 4. `PATCH /api/documents/{documentId}`
+
+역할:
+
+- personal layer 문서 수정
+
+현재 규칙:
+
+- `shared` 문서 수정은 허용하지 않습니다.
+- personal 변경은 상위 layer로 자동 전파되지 않습니다.
+
+### 5. `DELETE /api/documents/{documentId}`
+
+역할:
+
+- personal layer 문서 삭제
+
+현재 규칙:
+
+- `shared` 문서 삭제는 허용하지 않습니다.
+
+### 6. `GET /api/workspace/summary`
+
+역할:
+
+- report projection aggregate
+- personal snapshot, recommended opportunities, market signals, action queue 제공
 
 ```ts
 type WorkspaceSummaryResponse = {
@@ -167,21 +288,19 @@ type WorkspaceSummaryResponse = {
 };
 ```
 
-메모:
-
-- 기존 `workspace_summary` candidate보다 현재 baseline report 화면 요구사항에 맞춰 더 직접적인 block을 우선합니다.
-
-### 2. `POST /api/workspace/ask`
+### 7. `POST /api/workspace/ask`
 
 역할:
 
-- 질문 -> structured answer -> evidence -> related opportunities
+- question -> structured answer -> evidence -> related opportunities / documents
+- workspace-connected analysis
 
 request:
 
 ```ts
 type AskWorkspaceRequest = {
   question: string;
+  documentId?: string;
   opportunityId?: string;
   save?: boolean;
 };
@@ -208,31 +327,38 @@ type AskWorkspaceResponse = {
 };
 ```
 
-현재 baseline 규칙:
+현재 규칙:
 
 - `opportunityId`가 있으면 해당 공고 중심 질문으로 처리합니다.
-- 없으면 전체 profile/workspace context 기반 질문으로 처리합니다.
-- Ask 화면은 최소한 `answer`, `evidence`, `relatedOpportunities`를 보여줄 수 있어야 합니다.
+- `documentId`가 있으면 해당 문서 중심 질문으로 처리합니다.
+- 둘 다 없으면 전체 profile/workspace context 기반 질문으로 처리합니다.
 - `save`는 현재 MVP에서 reserved field로 둡니다.
-  - backend는 무시하거나 no-op로 처리할 수 있습니다.
-  - persisted answer read contract는 이번 slice 범위 밖입니다.
+- `shared`를 참조한 결과도 기록은 personal에만 남겨야 합니다.
 
-### 3. `GET /api/opportunities`
+### 8. `POST /api/documents/{documentId}/summarize`
+
+- personal/raw 또는 personal 문서를 요약해 personal/wiki artifact 생성
+
+### 9. `POST /api/documents/{documentId}/rewrite`
+
+- 문서를 재작성해 personal/wiki artifact 생성
+
+### 10. `POST /api/documents/{documentId}/link`
+
+- 문서 관계, related object, link suggestion 생성 또는 부착
+
+공통 규칙:
+
+- 이 세 action의 결과는 항상 personal layer에 기록됩니다.
+- 이 action은 상위 Fact/Interpretation layer를 직접 수정하지 않습니다.
+
+### 11. `GET /api/opportunities`
 
 역할:
 
 - 추천 공고 리스트
 - Ask 결과 내 연관 공고 비교
-- 별도 opportunity list 화면의 기반
-
-query:
-
-- `cursor`
-- `limit`
-- `status`
-- `closingWithinDays`
-
-response:
+- workspace 안의 opportunity navigation
 
 ```ts
 type OpportunityListResponse = {
@@ -243,14 +369,12 @@ type OpportunityListResponse = {
 };
 ```
 
-### 4. `GET /api/opportunities/{opportunityId}`
+### 12. `GET /api/opportunities/{opportunityId}`
 
 역할:
 
 - 단일 공고 상세
 - 회사 맥락, 직무 요약, 자격 요건, evidence anchor 제공
-
-response:
 
 ```ts
 type OpportunityDetailResponse = {
@@ -260,19 +384,12 @@ type OpportunityDetailResponse = {
 };
 ```
 
-### 5. `GET /api/calendar`
+### 13. `GET /api/calendar`
 
 역할:
 
 - 공고 마감 일정 확인
 - list/grid calendar 양쪽에서 공통 사용
-
-query:
-
-- `from`
-- `to`
-
-response:
 
 ```ts
 type CalendarResponse = {
@@ -295,15 +412,9 @@ type CalendarResponse = {
 };
 ```
 
-메모:
-
-- `objectRef.objectKind === "opportunity"` 인 calendar item은
-  `objectRef.opportunityId`를 함께 제공하는 것을 현재 MVP 기준선으로 둡니다.
-- 목적은 calendar item만으로 opportunity detail route를 바로 여는 것입니다.
-
 ## Opportunity Projection Baseline
 
-현재 구현에서 사용하는 `opportunity` 최소 shape는 아래처럼 둡니다.
+현재 구현에서 사용하는 `opportunity` 최소 shape는 유지합니다.
 
 ```ts
 type OpportunityRef = {
@@ -406,12 +517,22 @@ type OpportunityEvidenceItem = {
 
 ## Screen Mapping
 
-현재 화면과 endpoint 매핑은 아래처럼 고정합니다.
-
+- `Workspace Shell`
+  - `GET /api/workspace`
+- `Document Detail`
+  - `GET /api/documents/{documentId}`
+- `Personal Document Create/Update/Delete`
+  - `POST /api/documents`
+  - `PATCH /api/documents/{documentId}`
+  - `DELETE /api/documents/{documentId}`
 - `기본 리포트`
   - `GET /api/workspace/summary`
 - `Ask Workspace`
   - `POST /api/workspace/ask`
+- `Personal Wiki Generation`
+  - `POST /api/documents/{documentId}/summarize`
+  - `POST /api/documents/{documentId}/rewrite`
+  - `POST /api/documents/{documentId}/link`
 - `추천 공고 / 연관 공고`
   - `GET /api/opportunities`
 - `Opportunity Detail`
@@ -421,46 +542,53 @@ type OpportunityEvidenceItem = {
 
 현재 frontend route baseline 참고:
 
+- `/workspace`
+- `/documents/:documentId`
 - `/report`
 - `/opportunities/:opportunityId`
 - `/ask?opportunityId=...`
+- `/ask?documentId=...`
 - `/calendar`
 
 ## Implementation Order
 
-현재 구현 순서는 아래가 가장 안전합니다.
+현재 구현 자산을 최대한 살리려면 아래 순서가 안전합니다.
 
 1. `GET /api/workspace/summary`
 2. `GET /api/opportunities`
 3. `GET /api/opportunities/{opportunityId}`
 4. `POST /api/workspace/ask`
 5. `GET /api/calendar`
+6. `GET /api/workspace`
+7. `GET /api/documents/{documentId}`
+8. `POST /api/documents`
+9. `PATCH /api/documents/{documentId}`
+10. `DELETE /api/documents/{documentId}`
+11. `POST /api/documents/{documentId}/summarize`
+12. `POST /api/documents/{documentId}/rewrite`
+13. `POST /api/documents/{documentId}/link`
 
 이 순서를 쓰는 이유:
 
-- 현재 wireframe과 prototype의 메인 홈이 `기본 리포트`이기 때문입니다.
-- report -> detail -> ask -> calendar 흐름을 가장 빨리 검증할 수 있습니다.
+- 현재 구현 자산이 report/opportunity/ask/calendar에 집중되어 있기 때문입니다.
+- workspace-first MVP로 가더라도 기존 구현을 shell과 projection으로 재배치하는 편이 안전합니다.
+- personal authoring과 wiki generation은 새로 추가된 MVP 기능이므로, 기존 read slice를 감싼 뒤 붙이는 편이 안전합니다.
 
 ## Out of Scope for This Slice
 
-이번 구현 slice에서 고정하지 않는 것:
-
 - final public versioning
-- graph/tree/search endpoint
-- full document detail flow
-- command status endpoint
-- ingest trigger 운영 flow
+- graph endpoint
+- advanced search endpoint
 - broad public resource API family
+- full command family
 
 ## Relationship to Other Docs
 
-이 문서는 기존 문서를 대체하지 않습니다.
-대신 아래 문서에서 현재 구현에 필요한 것만 좁게 고정합니다.
-
+- `docs/product/llm-requirements-baseline.md`
+- `docs/product/mvp-requirements-baseline.md`
 - `docs/api/was-mvp-contract.md`
 - `docs/api/opportunity-projection.md`
 - `docs/api/workspace-mvp-read-contract.md`
-- `docs/product/baseline-report-wireframe.md`
 
-현재 구현을 시작할 때는 이 문서를 먼저 보고,
-세부 field rationale이나 장기 방향이 필요할 때만 상위 문서로 돌아가는 것을 권장합니다.
+현재 구현을 진행할 때는 이 문서를 먼저 보고,
+workspace-first MVP 목표와 current implemented slice를 함께 해석하는 것을 권장합니다.

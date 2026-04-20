@@ -23,14 +23,36 @@
 
 ## Current MVP Start Here
 
-현재 구현 기준은 report-first MVP 입니다. 아래 세 문서를 먼저 보고, 오래된 PKM/workspace 방향 문서와 충돌하면 이 기준선을 우선합니다.
+현재 기준선은 `PKM workspace-first MVP` 입니다. 아래 문서들을 먼저 보고, 오래된 report-first 또는 generic PKM 방향 문서와 충돌하면 이 기준선을 우선합니다.
 
+현재 레이어/디렉터리 해석:
+
+- `shared/`
+  - interpretation layer가 문서 형태로 렌더된 read-only view
+- `personal/raw/`
+  - 사용자가 직접 작성하거나 업로드한 원문
+- `personal/wiki/`
+  - LLM이 raw 문서를 재가공한 personal artifact
+
+핵심 경계:
+
+- 사용자는 `personal/*`에서만 create/update/delete를 수행합니다.
+- `shared/*`는 읽기 전용입니다.
+- personal layer의 작업은 `Fact`, `Interpretation`, `shared`로 자동 전파되지 않습니다.
+
+- `product/llm-requirements-baseline.md`
+  - 사용자-facing LLM 역할, grounding, personalization, authority boundary를 고정하는 기준선 문서
 - `product/mvp-requirements-baseline.md`
-  - 현재 MVP 범위, route baseline, must/should/won't를 고정하는 기준선 문서
+  - 현재 MVP 범위, workspace-first route baseline, must/should/won't를 고정하는 기준선 문서
 - `api/mvp-api-baseline.md`
-  - 현재 MVP endpoint set과 response shape를 고정하는 구현 기준 문서
+  - 현재 구현된 MVP endpoint set과 response shape를 고정하는 구현 기준 문서
 - `operations/non-functional-requirements.md`
   - 현재 MVP의 timeout, degradation, error normalization, cache 기준선 문서
+
+주의:
+
+- `product/llm-requirements-baseline.md`와 `product/mvp-requirements-baseline.md`는 현재 제품 목표 기준선입니다.
+- `api/mvp-api-baseline.md`는 target MVP contract와 현재 구현된 endpoint slice를 함께 설명하는 문서입니다.
 
 현재 slice에서 secondary/background 로 취급할 문서 예시:
 
@@ -83,10 +105,14 @@ npm run smoke:live
   - 화면별 loading, empty, error, stale, no-selection 상태를 정리한 UI 상태 명세 문서
 - `product/mvp-requirements-baseline.md`
   - 현재 MVP에서 반드시 구현할 것과 이번 slice에서 미룰 것을 한 장으로 고정한 요구사항 기준선 문서
+- `product/llm-requirements-baseline.md`
+  - extraction, Ask, interpretation, personal artifact 방향을 묶은 LLM 요구사항 기준선 문서
+- `product/requirements-realignment-matrix.md`
+  - LLM 요구사항과 workspace-first MVP 기준으로 기존 요구사항을 재배치한 표 문서
 - `architecture/frontend-view-model.md`
   - API response field가 실제 UI block에 어떻게 매핑되는지 정리한 frontend 구현 기준 문서
 - `architecture/frontend-routing-baseline.md`
-  - report-first MVP 기준의 현재 frontend route set과 Ask query context 규칙을 정리한 문서
+  - workspace-first MVP 기준의 현재 frontend route set과 Ask query context 규칙을 정리한 문서
 - `architecture/was-runtime-layout.md`
   - apps/was의 route, service, mapper, adapter, fixture 구조를 구현 직전 수준으로 정리한 문서
 - `architecture/was-adapter-contract.md`
