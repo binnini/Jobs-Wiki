@@ -21,31 +21,37 @@ status: draft
 
 현재 MVP 우선 범위:
 
+- workspace shell read
 - workspace summary read
+- shared/personal document detail read
+- personal document CRUD
+- personal wiki generation
 - opportunity list/detail read
 - calendar read
 - ask analysis
 
 현재 문서가 뒤로 미루는 것:
 
-- graph/tree/document full adapter
+- graph/tree full adapter
 - full command family implementation
 - auth-aware multi-tenant session contract
 
 ## Adapter Families
 
-현재 WAS는 아래 네 family를 가집니다.
+현재 WAS는 아래 다섯 family를 가집니다.
 
 1. `ReadAuthorityAdapter`
-2. `AskWorkspaceAdapter`
-3. `CommandFacadeAdapter`
-4. adapter factory
+2. `PersonalDocumentAdapter`
+3. `AskWorkspaceAdapter`
+4. `CommandFacadeAdapter`
+5. adapter factory
 
 현재 MVP에서 실제 구현 우선순위는 아래입니다.
 
 1. `ReadAuthorityAdapter`
-2. `AskWorkspaceAdapter`
-3. `CommandFacadeAdapter` skeleton
+2. `PersonalDocumentAdapter`
+3. `AskWorkspaceAdapter`
+4. `CommandFacadeAdapter` skeleton
 
 ## Shared Rules
 
@@ -93,6 +99,8 @@ type AdapterFailure = {
 
 ```ts
 type UserContext = {
+  tenantId?: string;
+  userId?: string;
   workspaceId?: string;
   profileId?: string;
 };
@@ -122,7 +130,9 @@ type CalendarQuery = {
 
 ### Responsibility
 
+- workspace shell read
 - summary read
+- shared document read
 - opportunity list/detail read
 - calendar read
 
@@ -130,9 +140,18 @@ type CalendarQuery = {
 
 ```ts
 type ReadAuthorityAdapter = {
+  getWorkspace(input: {
+    userContext?: UserContext;
+  }): Promise<WorkspaceShellRecord>;
+
   getWorkspaceSummary(input: {
     userContext?: UserContext;
   }): Promise<WorkspaceSummaryRecord>;
+
+  getSharedDocument(input: {
+    userContext?: UserContext;
+    documentId: string;
+  }): Promise<DocumentRecord>;
 
   listOpportunities(input: {
     userContext?: UserContext;
@@ -159,12 +178,98 @@ type ReadAuthorityAdapter = {
 - `getWorkspaceSummary`는 summary에 필요한 조합이 read authority에서 직접 가능하면 aggregate로 받아도 됩니다.
 - 불가능하면 adapter가 내부적으로 여러 provider call을 조합해도 됩니다.
 - 이 선택은 adapter 내부 책임이지 route/service 책임이 아닙니다.
+- shared 문서는 이 adapter에서만 읽습니다.
+- shared는 항상 read-only로 정규화되어야 합니다.
 
-## 2. AskWorkspaceAdapter
+## 2. PersonalDocumentAdapter
 
 ### Responsibility
 
-- 질문과 optional opportunity context를 받아 answer/evidence/related opportunities를 생성
+- personal/raw, personal/wiki document read
+- personal document create/update/delete
+- asset registration
+- raw-to-wiki generation
+- link/anchor refresh
+
+### Interface
+
+```ts
+type PersonalDocumentAdapter = {
+  listPersonalDocuments(input: {
+    userContext: UserContext;
+    subspace?: "raw" | "wiki";
+    kind?: string;
+    status?: "active" | "deleted" | "stale";
+  }): Promise<DocumentRecord[]>;
+
+  getPersonalDocument(input: {
+    userContext: UserContext;
+    documentId: string;
+  }): Promise<DocumentRecord>;
+
+  createPersonalDocument(input: {
+    userContext: UserContext;
+    subspace: "raw" | "wiki";
+    kind: string;
+    title: string;
+    bodyMarkdown?: string;
+    assetRefs?: string[];
+  }): Promise<DocumentRecord>;
+
+  updatePersonalDocument(input: {
+    userContext: UserContext;
+    documentId: string;
+    title?: string;
+    bodyMarkdown?: string;
+    assetRefs?: string[];
+  }): Promise<DocumentRecord>;
+
+  deletePersonalDocument(input: {
+    userContext: UserContext;
+    documentId: string;
+  }): Promise<{
+    documentId: string;
+    deletedAt: string;
+  }>;
+
+  registerPersonalAsset(input: {
+    userContext: UserContext;
+    mediaType: string;
+    filename: string;
+    storageRef: string;
+  }): Promise<{
+    assetId: string;
+    filename: string;
+    mediaType: string;
+  }>;
+
+  generatePersonalWikiDocument(input: {
+    userContext: UserContext;
+    sourceDocumentId: string;
+    mode: "summarize" | "rewrite" | "wiki";
+    profileVersion?: string;
+  }): Promise<DocumentRecord>;
+
+  linkPersonalDocument(input: {
+    userContext: UserContext;
+    documentId: string;
+    mode?: "suggest" | "apply";
+  }): Promise<DocumentRecord>;
+};
+```
+
+### Notes
+
+- 이 adapter는 writable Personal surface만 담당합니다.
+- shared 문서를 직접 수정하지 않습니다.
+- shared 기반 generation도 결과 저장은 Personal 문서로만 반환해야 합니다.
+- PDF는 first-wave에서 binary upload 자체보다 `asset registration` 기준으로 보는 편이 안전합니다.
+
+## 3. AskWorkspaceAdapter
+
+### Responsibility
+
+- 질문과 optional document/opportunity context를 받아 answer/evidence/related objects를 생성
 
 ### Interface
 
@@ -173,6 +278,7 @@ type AskWorkspaceAdapter = {
   askWorkspace(input: {
     userContext?: UserContext;
     question: string;
+    documentId?: string;
     opportunityId?: string;
     save?: boolean;
   }): Promise<AskWorkspaceRecord>;
@@ -186,7 +292,7 @@ type AskWorkspaceAdapter = {
 - 현재 real-mode 구현은 `query_personal_knowledge` 저장 경로에 의존하지 않고, read authority가 반환한 live opportunity/summary evidence를 조합해 answer를 만듭니다.
 - `save`는 현재도 reserved no-op로 유지합니다.
 
-## 3. CommandFacadeAdapter
+## 4. CommandFacadeAdapter
 
 ### Responsibility
 
@@ -285,6 +391,28 @@ type CommandStatusResponse = {
 ## Internal Normalized Records
 
 adapter output은 아래처럼 WAS 내부 normalized record를 기준으로 합니다.
+
+## WorkspaceShellRecord
+
+```ts
+type WorkspaceShellRecord = {
+  sections: Array<{
+    sectionId: string;
+    label: string;
+    items: Array<{
+      objectId: string;
+      objectKind: "document" | "opportunity" | "report" | "calendar";
+      title?: string;
+      layer: "shared" | "personal_raw" | "personal_wiki";
+      active?: boolean;
+    }>;
+  }>;
+  activeProjection?: {
+    projection: "report" | "document" | "opportunity" | "calendar" | "ask";
+    objectId?: string;
+  };
+};
+```
 
 ## WorkspaceSummaryRecord
 
@@ -410,6 +538,35 @@ type AskWorkspaceRecord = {
 };
 ```
 
+## DocumentRecord
+
+```ts
+type DocumentRecord = {
+  documentId: string;
+  objectId: string;
+  layer: "shared" | "personal_raw" | "personal_wiki";
+  writable: boolean;
+  kind?: string;
+  title: string;
+  bodyMarkdown?: string;
+  summary?: string;
+  source?: string;
+  updatedAt?: string;
+  tags?: string[];
+  assetRefs?: string[];
+  relatedObjects?: Array<{
+    objectId: string;
+    objectKind: string;
+    title?: string;
+  }>;
+  sync?: {
+    visibility: "applied" | "pending" | "partial" | "unknown" | "stale";
+    version?: string;
+    visibleAt?: string;
+  };
+};
+```
+
 ## CalendarRecord
 
 ```ts
@@ -460,6 +617,7 @@ type RelatedDocumentRecord = {
 ```ts
 type WasAdapterBundle = {
   readAuthority: ReadAuthorityAdapter;
+  personalDocuments: PersonalDocumentAdapter;
   askWorkspace: AskWorkspaceAdapter;
   commandFacade: CommandFacadeAdapter;
 };

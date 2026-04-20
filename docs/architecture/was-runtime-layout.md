@@ -22,6 +22,14 @@ status: draft
 현재 MVP 우선 endpoint를 기준으로 합니다.
 
 - `GET /api/workspace/summary`
+- `GET /api/workspace`
+- `GET /api/documents/{documentId}`
+- `POST /api/documents`
+- `PATCH /api/documents/{documentId}`
+- `DELETE /api/documents/{documentId}`
+- `POST /api/documents/{documentId}/summarize`
+- `POST /api/documents/{documentId}/rewrite`
+- `POST /api/documents/{documentId}/link`
 - `POST /api/workspace/ask`
 - `GET /api/opportunities`
 - `GET /api/opportunities/{opportunityId}`
@@ -32,7 +40,7 @@ status: draft
 - auth/session runtime
 - command status full family
 - ingest orchestration runtime
-- graph/tree/document full read runtime
+- graph/tree full read runtime
 
 ## Layout Principles
 
@@ -75,14 +83,24 @@ apps/was/
       response.js
     routes/
       workspace-routes.js
+      document-routes.js
       opportunity-routes.js
       calendar-routes.js
     validators/
       workspace-validator.js
+      document-validator.js
       opportunity-validator.js
       calendar-validator.js
     services/
+      get-workspace-service.js
       get-workspace-summary-service.js
+      get-document-detail-service.js
+      create-document-service.js
+      update-document-service.js
+      delete-document-service.js
+      summarize-document-service.js
+      rewrite-document-service.js
+      link-document-service.js
       ask-workspace-service.js
       list-opportunities-service.js
       get-opportunity-detail-service.js
@@ -98,6 +116,10 @@ apps/was/
         create-read-authority-adapter.js
         mock-read-authority-adapter.js
         stratawiki-read-authority-adapter.js
+      personal-documents/
+        create-personal-document-adapter.js
+        mock-personal-document-adapter.js
+        stratawiki-personal-document-adapter.js
       ask/
         create-ask-adapter.js
         mock-ask-adapter.js
@@ -114,6 +136,8 @@ apps/was/
       ask.js
       calendar.js
     fixtures/
+      workspace.fixture.js
+      documents.fixture.js
       workspace-summary.fixture.js
       opportunities.fixture.js
       ask.fixture.js
@@ -164,8 +188,17 @@ apps/was/
 현재 family 기준:
 
 - `workspace-routes.js`
+  - `/api/workspace`
   - `/api/workspace/summary`
   - `/api/workspace/ask`
+- `document-routes.js`
+  - `/api/documents/:documentId`
+  - `POST /api/documents`
+  - `PATCH /api/documents/:documentId`
+  - `DELETE /api/documents/:documentId`
+  - `POST /api/documents/:documentId/summarize`
+  - `POST /api/documents/:documentId/rewrite`
+  - `POST /api/documents/:documentId/link`
 - `opportunity-routes.js`
   - `/api/opportunities`
   - `/api/opportunities/:opportunityId`
@@ -183,7 +216,12 @@ apps/was/
 현재 MVP 기준:
 
 - `workspace-validator`
+  - workspace shell query
   - ask request body
+- `document-validator`
+  - `documentId`
+  - create/update/delete body
+  - summarize/rewrite/link action body
 - `opportunity-validator`
   - `opportunityId`, list query
 - `calendar-validator`
@@ -204,10 +242,16 @@ apps/was/
 
 예시:
 
+- `get-workspace-service`
+  - shared/personal directory navigation 조합
 - `get-workspace-summary-service`
   - profile snapshot + recommended opportunities + market brief 조합
+- `get-document-detail-service`
+  - shared read-only detail 또는 personal writable detail 반환
+- `summarize-document-service`
+  - shared 또는 raw source를 바탕으로 personal/wiki artifact 생성
 - `ask-workspace-service`
-  - question + optional opportunity context 처리
+  - question + optional document/opportunity context 처리
 - `get-opportunity-detail-service`
   - opportunity + company + qualification + evidence 조합
 
@@ -238,7 +282,9 @@ apps/was/
 현재 구분:
 
 - `read-authority`
-  - summary, opportunity, calendar read
+  - workspace shell, summary, shared document, opportunity, calendar read
+- `personal-documents`
+  - personal raw/wiki read-write와 generation
 - `ask`
   - ask analysis result 생성
 - `command-facade`
@@ -248,6 +294,7 @@ apps/was/
 
 - route에서 adapter를 직접 사용하지 않습니다.
 - adapter interface는 mock과 real 구현이 동일해야 합니다.
+- shared read와 personal write는 서로 다른 adapter family로 유지하는 편이 안전합니다.
 
 ## 8. `domain/*`
 
@@ -432,4 +479,3 @@ adapter 호출 단위 latency는 남기는 편이 좋습니다.
 - `docs/api/was-mvp-contract.md`
 - `docs/api/mvp-api-baseline.md`
 - `docs/architecture/was-adapter-contract.md`
-
