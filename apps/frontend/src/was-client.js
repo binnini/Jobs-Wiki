@@ -91,6 +91,10 @@ export function getWorkspace() {
   return request("/api/workspace")
 }
 
+export function getDocumentDetail(documentId) {
+  return request(`/api/documents/${encodeURIComponent(documentId)}`)
+}
+
 export function getWorkspaceSync({ commandId } = {}) {
   const searchParams = new URLSearchParams()
 

@@ -23,7 +23,16 @@ test("mapWorkspace keeps layered navigation items and active projection", () => 
       {
         sectionId: "personal_raw",
         label: "personal/raw",
-        items: [],
+        items: [
+          {
+            objectId: "personal_raw:personal:resume-v3",
+            objectKind: "document",
+            title: "이력서_v3 작업본",
+            kind: "document",
+            layer: "personal_raw",
+            path: "/documents/personal_raw%3Apersonal%3Aresume-v3",
+          },
+        ],
       },
     ],
     activeProjection: {

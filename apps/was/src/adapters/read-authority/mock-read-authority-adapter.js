@@ -1,5 +1,6 @@
 import { createNotFoundError } from "../../http/errors.js"
 import { calendarFixture } from "../../fixtures/calendar.fixture.js"
+import { documentDetailsFixture } from "../../fixtures/document-detail.fixture.js"
 import {
   opportunityDetailsFixture,
   opportunityListFixture,
@@ -31,6 +32,18 @@ export function createMockReadAuthorityAdapter() {
 
     async getWorkspaceSummary() {
       return clone(workspaceSummaryFixture)
+    },
+
+    async getDocumentDetail({ documentId }) {
+      const record = documentDetailsFixture[documentId]
+
+      if (!record) {
+        throw createNotFoundError("document not found", {
+          documentId,
+        })
+      }
+
+      return clone(record)
     },
 
     async listOpportunities({ query } = {}) {

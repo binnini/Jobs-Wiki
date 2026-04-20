@@ -22,6 +22,14 @@ export const workspaceFixture = {
           path: "/calendar",
         },
         {
+          objectId: "shared:interp:market-trend-jp-backend",
+          objectKind: "document",
+          title: "일본 백엔드 채용 트렌드",
+          kind: "document",
+          layer: "shared",
+          path: "/documents/shared%3Ainterp%3Amarket-trend-jp-backend",
+        },
+        {
           objectId: "opportunity:backend_platform",
           objectKind: "opportunity",
           title: "Backend Platform Engineer",
@@ -42,12 +50,30 @@ export const workspaceFixture = {
     {
       sectionId: "personal_raw",
       label: "personal/raw",
-      items: [],
+      items: [
+        {
+          objectId: "personal_raw:personal:resume-v3",
+          objectKind: "document",
+          title: "이력서_v3 작업본",
+          kind: "document",
+          layer: "personal_raw",
+          path: "/documents/personal_raw%3Apersonal%3Aresume-v3",
+        },
+      ],
     },
     {
       sectionId: "personal_wiki",
       label: "personal/wiki",
-      items: [],
+      items: [
+        {
+          objectId: "personal_wiki:personal:backend-application-strategy",
+          objectKind: "document",
+          title: "Backend 지원 전략 노트",
+          kind: "document",
+          layer: "personal_wiki",
+          path: "/documents/personal_wiki%3Apersonal%3Abackend-application-strategy",
+        },
+      ],
     },
   ],
   activeProjection: {

@@ -140,6 +140,16 @@ test("GET /api/workspace returns layered shell navigation with active projection
         },
         {
           objectRef: {
+            objectId: "shared:interp:market-trend-jp-backend",
+            objectKind: "document",
+            title: "일본 백엔드 채용 트렌드",
+          },
+          kind: "document",
+          layer: "shared",
+          path: "/documents/shared%3Ainterp%3Amarket-trend-jp-backend",
+        },
+        {
+          objectRef: {
             objectId: "opportunity:backend_platform",
             objectKind: "opportunity",
             title: "Backend Platform Engineer",
@@ -163,7 +173,34 @@ test("GET /api/workspace returns layered shell navigation with active projection
     assert.deepEqual(response.body.navigation.sections[1], {
       sectionId: "personal_raw",
       label: "personal/raw",
-      items: [],
+      items: [
+        {
+          objectRef: {
+            objectId: "personal_raw:personal:resume-v3",
+            objectKind: "document",
+            title: "이력서_v3 작업본",
+          },
+          kind: "document",
+          layer: "personal_raw",
+          path: "/documents/personal_raw%3Apersonal%3Aresume-v3",
+        },
+      ],
+    })
+    assert.deepEqual(response.body.navigation.sections[2], {
+      sectionId: "personal_wiki",
+      label: "personal/wiki",
+      items: [
+        {
+          objectRef: {
+            objectId: "personal_wiki:personal:backend-application-strategy",
+            objectKind: "document",
+            title: "Backend 지원 전략 노트",
+          },
+          kind: "document",
+          layer: "personal_wiki",
+          path: "/documents/personal_wiki%3Apersonal%3Abackend-application-strategy",
+        },
+      ],
     })
     assert.deepEqual(response.body.activeProjection, {
       projection: "report",
@@ -173,6 +210,28 @@ test("GET /api/workspace returns layered shell navigation with active projection
         title: "기본 리포트",
       },
     })
+  })
+})
+
+test("GET /api/documents/:documentId returns shared and personal document projections", async () => {
+  await withApp(async (app) => {
+    const sharedResponse = await invokeApp(app, {
+      url: "/api/documents/shared%3Ainterp%3Amarket-trend-jp-backend",
+    })
+    const personalResponse = await invokeApp(app, {
+      url: "/api/documents/personal_raw%3Apersonal%3Aresume-v3",
+    })
+
+    assert.equal(sharedResponse.status, 200)
+    assert.equal(sharedResponse.body.projection, "document")
+    assert.equal(sharedResponse.body.item.layer, "shared")
+    assert.equal(sharedResponse.body.item.writable, false)
+    assert.equal(sharedResponse.body.item.surface.title, "일본 백엔드 채용 트렌드")
+
+    assert.equal(personalResponse.status, 200)
+    assert.equal(personalResponse.body.item.layer, "personal_raw")
+    assert.equal(personalResponse.body.item.writable, true)
+    assert.equal(personalResponse.body.item.metadata.source.provider, "upload")
   })
 })
 

@@ -35,6 +35,7 @@ import {
 import {
   askWorkspace,
   getCalendar,
+  getDocumentDetail,
   getOpportunityDetail,
   getWorkspace,
   getWorkspaceSync,
@@ -169,6 +170,12 @@ const WORKSPACE_KIND_LABELS = {
   ask: "분석",
 };
 
+const DOCUMENT_LAYER_LABELS = {
+  shared: "shared",
+  personal_raw: "personal/raw",
+  personal_wiki: "personal/wiki",
+};
+
 const DEFAULT_INGESTION_SOURCE_ID = "worknet.recruiting";
 
 function formatKoreanDate(value, options = {}) {
@@ -248,29 +255,40 @@ function readAppRoute(location = window.location) {
   const searchParams = new URLSearchParams(location.search);
 
   if (normalizedPathname === "/" || normalizedPathname === "/onboarding") {
-    return { view: "onboarding", opportunityId: null };
+    return { view: "onboarding", opportunityId: null, documentId: null };
   }
 
   if (normalizedPathname === "/review") {
-    return { view: "extraction", opportunityId: null };
+    return { view: "extraction", opportunityId: null, documentId: null };
   }
 
   if (
     normalizedPathname === "/workspace" ||
     normalizedPathname === "/report"
   ) {
-    return { view: "workspace", opportunityId: null };
+    return { view: "workspace", opportunityId: null, documentId: null };
   }
 
   if (normalizedPathname === "/ask") {
     return {
       view: "ask",
       opportunityId: trimOptionalQueryParam(searchParams.get("opportunityId")),
+      documentId: null,
     };
   }
 
   if (normalizedPathname === "/calendar") {
-    return { view: "calendar", opportunityId: null };
+    return { view: "calendar", opportunityId: null, documentId: null };
+  }
+
+  const documentMatch = normalizedPathname.match(/^\/documents\/([^/]+)$/);
+
+  if (documentMatch) {
+    return {
+      view: "document",
+      opportunityId: null,
+      documentId: decodeURIComponent(documentMatch[1]),
+    };
   }
 
   const opportunityMatch = normalizedPathname.match(
@@ -281,13 +299,14 @@ function readAppRoute(location = window.location) {
     return {
       view: "detail",
       opportunityId: decodeURIComponent(opportunityMatch[1]),
+      documentId: null,
     };
   }
 
-  return { view: "onboarding", opportunityId: null };
+  return { view: "onboarding", opportunityId: null, documentId: null };
 }
 
-function buildAppPath(view, opportunityId = null) {
+function buildAppPath(view, opportunityId = null, documentId = null) {
   switch (view) {
     case "onboarding":
       return "/onboarding";
@@ -299,6 +318,10 @@ function buildAppPath(view, opportunityId = null) {
     case "detail":
       return opportunityId
         ? `/opportunities/${encodeURIComponent(opportunityId)}`
+        : "/workspace";
+    case "document":
+      return documentId
+        ? `/documents/${encodeURIComponent(documentId)}`
         : "/workspace";
     case "ask": {
       const searchParams = new URLSearchParams();
@@ -322,7 +345,11 @@ function writeAppRoute(route, { replace = false } = {}) {
     return;
   }
 
-  const nextUrl = buildAppPath(route.view, route.opportunityId);
+  const nextUrl = buildAppPath(
+    route.view,
+    route.opportunityId,
+    route.documentId,
+  );
   const currentUrl = `${window.location.pathname}${window.location.search}`;
 
   if (currentUrl === nextUrl) {
@@ -490,6 +517,7 @@ function getWorkspaceItemKindLabel(kind) {
 function buildWorkspaceActiveContext({
   currentView,
   currentPath,
+  currentDocumentId,
   activeOpportunityContext,
   workspaceNavigation,
 }) {
@@ -521,6 +549,22 @@ function buildWorkspaceActiveContext({
         ? `${activeOpportunityContext.company} 공고 상세를 읽는 중입니다.`
         : "선택한 공고의 상세 projection을 보고 있습니다.",
       layer: activeNavigationItem?.layer ?? "shared",
+    };
+  }
+
+  if (currentView === "document") {
+    return {
+      kind: "document",
+      projectionLabel: "문서 상세",
+      title:
+        activeNavigationItem?.title ??
+        currentDocumentId ??
+        "선택한 문서",
+      description:
+        activeNavigationItem?.layer === "shared"
+          ? "shared 문서를 읽는 중이며 직접 수정은 열리지 않습니다."
+          : "personal 문서를 읽는 중이며 이 레이어에서 편집 affordance가 열립니다.",
+      layer: activeNavigationItem?.layer ?? null,
     };
   }
 
@@ -599,6 +643,64 @@ function normalizeOpportunityContext(job) {
     sourceUrl: job.sourceUrl ?? job.metadata?.source?.sourceUrl ?? null,
     employmentType:
       job.employmentType ?? job.metadata?.employmentType ?? null,
+  };
+}
+
+function normalizeDocumentContext(document) {
+  if (!document) {
+    return null;
+  }
+
+  const documentId =
+    document.documentId ??
+    document.id ??
+    document.objectRef?.objectId ??
+    null;
+
+  if (!documentId) {
+    return null;
+  }
+
+  return {
+    documentId,
+    title:
+      document.title ??
+      document.documentRef?.title ??
+      document.objectRef?.title ??
+      "문서",
+    layer: document.layer ?? null,
+    writable: document.writable ?? false,
+  };
+}
+
+function formatDocumentLayerLabel(layer) {
+  return DOCUMENT_LAYER_LABELS[layer] ?? layer ?? "document";
+}
+
+function getDocumentLayerBadgeClassName(layer) {
+  if (layer === "shared") {
+    return "border-slate-200 bg-slate-100 text-slate-700";
+  }
+
+  if (layer === "personal_wiki") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+
+  return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
+function mapDocumentResponse(response) {
+  const item = response?.item ?? {};
+
+  return {
+    documentId: item.documentRef?.objectId ?? null,
+    title: item.documentRef?.title ?? item.surface?.title ?? "문서",
+    layer: item.layer ?? "shared",
+    writable: Boolean(item.writable),
+    bodyMarkdown: item.surface?.bodyMarkdown ?? "",
+    summary: item.surface?.summary ?? null,
+    metadata: item.metadata ?? null,
+    relatedObjects: Array.isArray(item.relatedObjects) ? item.relatedObjects : [],
   };
 }
 
@@ -2279,6 +2381,312 @@ const OpportunityDetailView = ({
   );
 };
 
+const DocumentDetailView = ({
+  documentId,
+  onBack,
+  onOpenAsk,
+}) => {
+  const [documentResponse, setDocumentResponse] = useState(null);
+  const [error, setError] = useState(null);
+  const [refreshError, setRefreshError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const requestIdRef = useRef(0);
+
+  const loadDocument = async ({ preserveData = false } = {}) => {
+    if (!documentId) {
+      setIsLoading(false);
+      return;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    if (preserveData) {
+      setIsRefreshing(true);
+      setRefreshError(null);
+    } else {
+      setIsLoading(true);
+      setError(null);
+    }
+
+    try {
+      const response = await getDocumentDetail(documentId);
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      setDocumentResponse(response);
+      setError(null);
+      setRefreshError(null);
+    } catch (requestError) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      const normalizedError =
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "문서 상세를 불러오지 못했습니다.",
+            });
+
+      if (preserveData) {
+        setRefreshError(normalizedError);
+      } else {
+        setError(normalizedError);
+      }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    setDocumentResponse(null);
+    setError(null);
+    setRefreshError(null);
+    setIsLoading(true);
+    setIsRefreshing(false);
+
+    if (!documentId) {
+      setIsLoading(false);
+      return undefined;
+    }
+
+    loadDocument();
+
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [documentId]);
+
+  if (!documentId) {
+    return (
+      <RetryPanel
+        title="선택된 문서가 없습니다"
+        message="워크스페이스에서 문서를 선택한 뒤 상세 화면으로 이동해 주세요."
+        onRetry={onBack}
+        retryLabel="워크스페이스로 돌아가기"
+      />
+    );
+  }
+
+  if (isLoading && !documentResponse) {
+    return <DetailLoadingView />;
+  }
+
+  if (error?.code === "not_found" && !documentResponse) {
+    return (
+      <RetryPanel
+        title="문서를 찾을 수 없습니다"
+        message="선택한 documentId에 해당하는 문서가 더 이상 없거나 접근할 수 없습니다."
+        onRetry={onBack}
+        retryLabel="워크스페이스로 돌아가기"
+      />
+    );
+  }
+
+  if (error && !documentResponse) {
+    return (
+      <RetryPanel
+        title="문서 상세를 불러오지 못했습니다"
+        message={error.message}
+        onRetry={() => loadDocument()}
+        secondaryAction={
+          <button
+            onClick={onBack}
+            className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm"
+          >
+            워크스페이스로 돌아가기
+          </button>
+        }
+      />
+    );
+  }
+
+  const detail = mapDocumentResponse(documentResponse);
+  const syncMeta = getSyncMeta(documentResponse.sync);
+  const updatedAt = formatKoreanDateTime(detail.metadata?.updatedAt);
+  const tags = detail.metadata?.tags ?? [];
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-12 animate-in slide-in-from-right-4 duration-500">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+        <button
+          onClick={onBack}
+          className="flex items-center text-sm font-bold text-slate-600 transition-colors hover:text-slate-900"
+        >
+          <ArrowLeft size={16} className="mr-2" />
+          워크스페이스로 돌아가기
+        </button>
+        <div className="flex items-center gap-3">
+          {syncMeta?.badgeLabel ? (
+            <div
+              className={`rounded-sm border px-3 py-1.5 text-xs font-bold shadow-sm ${syncMeta.badgeClassName}`}
+            >
+              {syncMeta.badgeLabel}
+            </div>
+          ) : null}
+          <button
+            onClick={() => loadDocument({ preserveData: Boolean(documentResponse) })}
+            disabled={isRefreshing}
+            className="flex items-center rounded-sm border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RefreshCw
+              size={16}
+              className={`mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+            />
+            새로고침
+          </button>
+          <div className="text-xs font-bold text-slate-400">
+            문서 ID: {documentId}
+          </div>
+        </div>
+      </div>
+
+      <SyncNotice sync={documentResponse.sync} refreshError={refreshError} />
+
+      <header className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <span
+                className={`rounded-sm border px-3 py-1 text-xs font-bold shadow-sm ${getDocumentLayerBadgeClassName(detail.layer)}`}
+              >
+                {formatDocumentLayerLabel(detail.layer)}
+              </span>
+              <span
+                className={`rounded-sm border px-3 py-1 text-xs font-bold shadow-sm ${
+                  detail.writable
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : "border-slate-200 bg-slate-100 text-slate-600"
+                }`}
+              >
+                {detail.writable ? "writable" : "read-only"}
+              </span>
+            </div>
+            <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-slate-900">
+              {detail.title}
+            </h1>
+            {detail.summary ? (
+              <p className="mt-5 max-w-3xl text-base font-medium leading-relaxed text-slate-600">
+                {detail.summary}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex shrink-0 flex-wrap gap-3">
+            {detail.writable ? (
+              <>
+                <button className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50">
+                  편집
+                </button>
+                <button className="rounded-sm border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700 shadow-sm transition-colors hover:bg-rose-100">
+                  삭제
+                </button>
+              </>
+            ) : (
+              <div className="rounded-sm border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600 shadow-sm">
+                shared 문서는 직접 수정하지 않습니다
+              </div>
+            )}
+            <button
+              onClick={onOpenAsk}
+              className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
+            >
+              Ask로 열기
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 gap-10 md:grid-cols-12">
+        <div className="space-y-8 md:col-span-8">
+          <section className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
+            <Label>문서 본문</Label>
+            <StructuredResponse
+              text={
+                detail.bodyMarkdown ||
+                detail.summary ||
+                "표시할 문서 본문이 아직 없습니다."
+              }
+            />
+          </section>
+        </div>
+
+        <div className="space-y-8 md:col-span-4">
+          <Panel>
+            <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
+              문서 메타데이터
+            </h3>
+            <div className="space-y-4 text-sm font-medium text-slate-700">
+              <div>
+                <Label className="mb-1">Source</Label>
+                <div>
+                  {detail.metadata?.source?.provider ??
+                    "출처 정보 없음"}
+                </div>
+              </div>
+              <div>
+                <Label className="mb-1">Updated</Label>
+                <div>{updatedAt ?? "업데이트 시각 없음"}</div>
+              </div>
+              <div>
+                <Label className="mb-1">Tags</Label>
+                {tags.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-sm border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div>표시할 태그가 없습니다.</div>
+                )}
+              </div>
+            </div>
+          </Panel>
+
+          <Panel>
+            <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
+              연관 객체
+            </h3>
+            {detail.relatedObjects.length ? (
+              <div className="space-y-3">
+                {detail.relatedObjects.map((object) => (
+                  <div
+                    key={object.objectId}
+                    className="rounded-sm border border-slate-200 bg-slate-50 p-4 shadow-sm"
+                  >
+                    <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                      {object.objectKind}
+                    </div>
+                    <div className="mt-1 text-sm font-bold text-slate-900">
+                      {object.title ?? object.objectId}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm font-medium text-slate-500">
+                연결된 객체가 아직 없습니다.
+              </div>
+            )}
+          </Panel>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ContextPanel = ({
   job,
   profileSnapshot,
@@ -3280,7 +3688,7 @@ const CalendarView = ({ onOpenJob, onOpenReport, onOpenAsk }) => {
 export default function JobsWikiPrototype() {
   const [currentRoute, setCurrentRoute] = useState(() =>
     typeof window === "undefined"
-      ? { view: "onboarding", opportunityId: null }
+      ? { view: "onboarding", opportunityId: null, documentId: null }
       : readAppRoute(window.location),
   );
   const [activeOpportunityContext, setActiveOpportunityContext] = useState(() =>
@@ -3309,11 +3717,16 @@ export default function JobsWikiPrototype() {
   const workspaceRequestIdRef = useRef(0);
   const syncRequestIdRef = useRef(0);
   const currentView = currentRoute.view;
-  const currentPath = buildAppPath(currentRoute.view, currentRoute.opportunityId);
+  const currentPath = buildAppPath(
+    currentRoute.view,
+    currentRoute.opportunityId,
+    currentRoute.documentId,
+  );
   const displayProfileSnapshot = normalizeProfileSnapshot(shellProfileSnapshot);
   const activeShellContext = buildWorkspaceActiveContext({
     currentView,
     currentPath,
+    currentDocumentId: currentRoute.documentId,
     activeOpportunityContext,
     workspaceNavigation,
   });
@@ -3584,21 +3997,35 @@ export default function JobsWikiPrototype() {
   }, [currentRoute.opportunityId, currentView]);
 
   const navigateTo = (view, context = undefined, options = {}) => {
-    const normalizedContext =
-      context === undefined ? undefined : normalizeOpportunityContext(context);
+    const normalizedOpportunityContext =
+      view === "ask" || view === "detail"
+        ? context === undefined
+          ? undefined
+          : normalizeOpportunityContext(context)
+        : undefined;
+    const normalizedDocumentContext =
+      view === "document"
+        ? context === undefined
+          ? undefined
+          : normalizeDocumentContext(context)
+        : undefined;
     const nextRoute = {
       view,
       opportunityId:
         view === "ask" || view === "detail"
-          ? normalizedContext?.opportunityId ?? null
+          ? normalizedOpportunityContext?.opportunityId ?? null
+          : null,
+      documentId:
+        view === "document"
+          ? normalizedDocumentContext?.documentId ?? null
           : null,
     };
 
     if (context !== undefined) {
-      if (view === "ask" && !normalizedContext) {
+      if (view === "ask" && !normalizedOpportunityContext) {
         setActiveOpportunityContext(null);
-      } else if (normalizedContext) {
-        setActiveOpportunityContext(normalizedContext);
+      } else if (normalizedOpportunityContext) {
+        setActiveOpportunityContext(normalizedOpportunityContext);
       }
     }
 
@@ -3608,6 +4035,7 @@ export default function JobsWikiPrototype() {
   };
 
   const openJobDetail = (job) => navigateTo("detail", job);
+  const openDocument = (document) => navigateTo("document", document);
   const openAsk = (job = null, options = {}) =>
     navigateTo("ask", job, options);
 
@@ -3628,6 +4056,14 @@ export default function JobsWikiPrototype() {
             opportunityContext={activeOpportunityContext}
             onBack={() => navigateTo("workspace")}
             onOpenAsk={openAsk}
+          />
+        );
+      case "document":
+        return (
+          <DocumentDetailView
+            documentId={currentRoute.documentId}
+            onBack={() => navigateTo("workspace")}
+            onOpenAsk={() => openAsk(null)}
           />
         );
       case "ask":
@@ -3795,7 +4231,9 @@ export default function JobsWikiPrototype() {
           <WorkspaceActiveContextCard
             context={activeShellContext}
             onOpenWorkspace={() => navigateTo("workspace")}
-            onOpenAsk={() => openAsk(activeOpportunityContext)}
+            onOpenAsk={() =>
+              openAsk(currentView === "detail" ? activeOpportunityContext : null)
+            }
           />
           {renderMainContent()}
         </div>
