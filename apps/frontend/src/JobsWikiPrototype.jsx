@@ -1884,97 +1884,66 @@ const WorkspaceNavigationSection = ({
   onCreatePersonalDocument,
 }) => {
   const layerMeta = WORKSPACE_LAYER_META[section.sectionId] ?? {
-    subtitle: "workspace",
     emptyLabel: "표시할 항목이 아직 없습니다.",
   };
   const canCreate = section.sectionId === "personal_raw" || section.sectionId === "personal_wiki";
+  const sectionLabel = DOCUMENT_LAYER_LABELS[section.sectionId] ?? section.label;
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-start justify-between gap-3 px-3">
-        <div>
-          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-            {section.label}
-          </div>
-          <div className="mt-1 text-[11px] font-medium text-slate-400">
-            {layerMeta.subtitle}
-          </div>
+    <div>
+      <div className="flex items-center justify-between px-1 py-1">
+        <div className="flex items-center gap-1">
+          <ChevronRight size={11} className="text-slate-600 flex-shrink-0" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+            {sectionLabel}
+          </span>
         </div>
         {canCreate ? (
           <button
             type="button"
             onClick={() => onCreatePersonalDocument(section.sectionId)}
-            className="inline-flex items-center rounded-sm border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] font-bold text-slate-200 transition-colors hover:border-indigo-400 hover:text-white"
+            className="rounded px-1.5 py-0.5 text-[10px] font-bold text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-200"
+            title="새 문서 만들기"
           >
-            <Plus size={12} className="mr-1.5" />
-            새 문서
+            +
           </button>
         ) : null}
       </div>
 
-      {section.items.length ? (
-        <div className="space-y-1">
-          {section.items.map((item) => {
-            const Icon = getWorkspaceItemIcon(item.kind);
-            const isActive =
-              Boolean(item.path) && item.path === currentPath;
-            const isDisabled = !item.path;
+      <div className="ml-3 border-l border-slate-800/60 pl-2">
+        {section.items.length ? (
+          <div className="space-y-px">
+            {section.items.map((item) => {
+              const Icon = getWorkspaceItemIcon(item.kind);
+              const isActive = Boolean(item.path) && item.path === currentPath;
+              const isDisabled = !item.path;
 
-            return (
-              <button
-                key={`${section.sectionId}-${item.objectRef?.objectId ?? item.title}`}
-                type="button"
-                disabled={isDisabled}
-                onClick={() => {
-                  if (item.path) {
-                    onNavigatePath(item.path);
-                  }
-                }}
-                className={`w-full rounded-sm border px-3 py-3 text-left transition-all ${
-                  isActive
-                    ? "border-indigo-500 bg-indigo-600 text-white shadow-sm"
-                    : "border-transparent text-slate-200 hover:border-slate-700 hover:bg-slate-800 hover:text-white"
-                } ${
-                  isDisabled
-                    ? "cursor-not-allowed opacity-60 hover:border-transparent hover:bg-transparent hover:text-slate-300"
-                    : ""
-                }`}
-              >
-                <div className="flex items-start gap-3">
-                  <div
-                    className={`mt-0.5 rounded-sm p-1.5 ${
-                      isActive ? "bg-white/15" : "bg-slate-800"
-                    }`}
-                  >
-                    <Icon size={15} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-bold">
-                      {item.title}
-                    </div>
-                    <div
-                      className={`mt-1 text-[11px] font-medium uppercase tracking-wide ${
-                        isActive ? "text-indigo-100" : "text-slate-400"
-                      }`}
-                    >
-                      {getWorkspaceItemKindLabel(item.kind)} /{" "}
-                      {formatDocumentLayerLabel(item.layer)} /{" "}
-                      {formatWritableAffordanceLabel({
-                        layer: item.layer,
-                        writable: !isSharedLayer(item.layer),
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </button>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="rounded-sm border border-dashed border-slate-800 bg-slate-900/60 px-3 py-3 text-xs font-medium leading-relaxed text-slate-500">
-          {layerMeta.emptyLabel}
-        </div>
-      )}
+              return (
+                <button
+                  key={`${section.sectionId}-${item.objectRef?.objectId ?? item.title}`}
+                  type="button"
+                  disabled={isDisabled}
+                  onClick={() => item.path && onNavigatePath(item.path)}
+                  className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-all ${
+                    isActive
+                      ? "bg-indigo-600 text-white"
+                      : isDisabled
+                        ? "cursor-not-allowed text-slate-700"
+                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  }`}
+                >
+                  <Icon size={12} className="flex-shrink-0 opacity-70" />
+                  <span className="truncate text-xs font-medium">{item.title}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="py-1 text-[11px] font-medium text-slate-700">
+            {layerMeta.emptyLabel}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -5757,92 +5726,84 @@ export default function JobsWikiPrototype() {
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900 selection:bg-indigo-100 selection:text-indigo-900">
       <aside className="flex w-56 flex-shrink-0 flex-col border-r border-slate-800 bg-slate-900 text-slate-300">
-        <div className="mb-4 border-b border-slate-800/50 px-6 py-8">
+        <div className="border-b border-slate-800/50 px-4 py-4">
           <button
             onClick={() => navigateTo("workspace")}
-            className="flex items-center text-2xl font-extrabold tracking-tighter text-white transition-colors hover:text-indigo-200"
+            className="flex items-center text-sm font-extrabold tracking-tight text-white transition-colors hover:text-indigo-200"
           >
-            <span className="mr-3 flex h-7 w-7 items-center justify-center rounded-sm bg-indigo-600 text-xs font-bold text-white shadow-sm">
+            <span className="mr-2 flex h-6 w-6 items-center justify-center rounded-sm bg-indigo-600 text-[10px] font-bold text-white shadow-sm">
               JW
             </span>
             Jobs-Wiki
           </button>
         </div>
 
-        <nav className="flex-1 space-y-6 overflow-y-auto px-4 pb-4">
-          <div className="mt-4 px-3">
-            <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-              Workspace
-            </div>
-            <div className="mt-1 text-sm font-bold text-white">
-              layered navigation shell
-            </div>
+        <nav className="flex-1 overflow-y-auto py-3">
+          <div className="space-y-px px-2">
+            <button
+              onClick={() => navigateTo("report")}
+              className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-xs font-bold transition-all ${
+                currentView === "report"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              <FileText size={14} className="flex-shrink-0 opacity-80" />
+              리포트
+            </button>
+            <button
+              onClick={() => navigateTo("calendar")}
+              className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-xs font-bold transition-all ${
+                currentView === "calendar"
+                  ? "bg-indigo-600 text-white"
+                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              <CalIcon size={14} className="flex-shrink-0 opacity-80" />
+              캘린더
+            </button>
           </div>
 
-          <button
-            onClick={() => navigateTo("workspace")}
-            className={`w-full rounded-sm px-4 py-3 text-left text-sm font-bold transition-all ${
-              currentView === "workspace"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            <span className="flex items-center">
-              <Grid size={18} className="mr-3 opacity-90" />
-              워크스페이스 홈
-            </span>
-          </button>
-          <button
-            onClick={() => navigateTo("report")}
-            className={`w-full rounded-sm px-4 py-3 text-left text-sm font-bold transition-all ${
-              currentView === "report"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            <span className="flex items-center">
-              <FileText size={18} className="mr-3 opacity-90" />
-              리포트 프로젝션
-            </span>
-          </button>
+          <div className="mt-3 border-t border-slate-800/60 px-2 pt-3">
+            {isLoadingWorkspaceNavigation && !workspaceNavigation.sections.length ? (
+              <div className="space-y-3">
+                <div className="h-2.5 w-20 animate-pulse rounded bg-slate-800" />
+                <div className="h-5 animate-pulse rounded bg-slate-800" />
+                <div className="h-5 animate-pulse rounded bg-slate-800" />
+                <div className="h-5 animate-pulse rounded bg-slate-800" />
+              </div>
+            ) : null}
 
-          {isLoadingWorkspaceNavigation && !workspaceNavigation.sections.length ? (
-            <div className="space-y-3 px-3">
-              <div className="h-3 w-24 animate-pulse rounded bg-slate-800" />
-              <div className="h-16 animate-pulse rounded-sm bg-slate-800" />
-              <div className="h-16 animate-pulse rounded-sm bg-slate-800" />
-              <div className="h-16 animate-pulse rounded-sm bg-slate-800" />
+            {workspaceNavigationError && !workspaceNavigation.sections.length ? (
+              <div className="rounded-sm border border-amber-300/30 bg-amber-400/10 px-3 py-2 text-[11px] font-medium text-amber-100">
+                {workspaceNavigationError.message}
+              </div>
+            ) : null}
+
+            <div className="space-y-4">
+              {workspaceNavigation.sections.map((section) => (
+                <WorkspaceNavigationSection
+                  key={section.sectionId}
+                  section={section}
+                  currentPath={currentPath}
+                  onNavigatePath={navigateToPath}
+                  onCreatePersonalDocument={handleOpenCreatePersonalDocument}
+                />
+              ))}
             </div>
-          ) : null}
-
-          {workspaceNavigationError && !workspaceNavigation.sections.length ? (
-            <div className="rounded-sm border border-amber-300/30 bg-amber-400/10 px-3 py-3 text-xs font-medium leading-relaxed text-amber-100">
-              {workspaceNavigationError.message}
-            </div>
-          ) : null}
-
-          {workspaceNavigation.sections.map((section) => (
-            <WorkspaceNavigationSection
-              key={section.sectionId}
-              section={section}
-              currentPath={currentPath}
-              onNavigatePath={navigateToPath}
-              onCreatePersonalDocument={handleOpenCreatePersonalDocument}
-            />
-          ))}
-
+          </div>
         </nav>
 
-        <div className="border-t border-slate-800/50 bg-slate-900/50 p-5">
-          <div className="flex items-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-600 text-sm font-bold text-white shadow-sm">
+        <div className="border-t border-slate-800/50 px-4 py-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white flex-shrink-0">
               {displayProfileSnapshot.targetRole.charAt(0)}
             </div>
-            <div className="ml-3">
-              <p className="text-sm font-bold text-white">
+            <div className="min-w-0">
+              <p className="truncate text-xs font-bold text-white">
                 {displayProfileSnapshot.targetRole}
               </p>
-              <p className="mt-0.5 text-[11px] font-medium text-slate-400">
+              <p className="truncate text-[10px] font-medium text-slate-400">
                 {displayProfileSnapshot.experience}
               </p>
             </div>
