@@ -228,6 +228,31 @@ test("real read adapter returns a fallback workspace summary when personal conte
   assert.equal(summary.skillsGap.recommendedToStrengthen.includes("Provision personal profile context"), true)
 })
 
+test("real read adapter builds workspace shell navigation without guessing personal documents", async () => {
+  const adapter = createAdapter()
+  const workspace = await adapter.getWorkspace()
+
+  assert.equal(workspace.sections.length, 3)
+  assert.equal(workspace.sections[0].items[0].path, "/workspace")
+  assert.equal(workspace.sections[0].items[1].path, "/calendar")
+  assert.equal(workspace.sections[0].items[2].kind, "opportunity")
+  assert.match(workspace.sections[0].items[2].path, /^\/opportunities\//)
+  assert.deepEqual(workspace.sections[1], {
+    sectionId: "personal_raw",
+    label: "personal/raw",
+    items: [],
+  })
+  assert.deepEqual(workspace.sections[2], {
+    sectionId: "personal_wiki",
+    label: "personal/wiki",
+    items: [],
+  })
+  assert.deepEqual(workspace.activeProjection, {
+    projection: "report",
+    objectId: "report:baseline",
+  })
+})
+
 test("real read adapter returns time-sorted calendar records", async () => {
   const adapter = createAdapter()
   const calendar = await adapter.getCalendar({

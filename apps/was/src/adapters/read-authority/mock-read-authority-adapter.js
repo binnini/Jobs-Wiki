@@ -4,6 +4,7 @@ import {
   opportunityDetailsFixture,
   opportunityListFixture,
 } from "../../fixtures/opportunities.fixture.js"
+import { workspaceFixture } from "../../fixtures/workspace.fixture.js"
 import { workspaceSummaryFixture } from "../../fixtures/workspace-summary.fixture.js"
 
 function clone(value) {
@@ -24,6 +25,10 @@ function formatOpportunityCursor(offset) {
 
 export function createMockReadAuthorityAdapter() {
   return {
+    async getWorkspace() {
+      return clone(workspaceFixture)
+    },
+
     async getWorkspaceSummary() {
       return clone(workspaceSummaryFixture)
     },

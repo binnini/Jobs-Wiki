@@ -104,6 +104,78 @@ test("GET /api/workspace/summary returns a mock workspace summary projection", a
   })
 })
 
+test("GET /api/workspace returns layered shell navigation with active projection", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      url: "/api/workspace",
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(response.body.projection, "workspace")
+    assert.equal(response.body.navigation.sections.length, 3)
+    assert.deepEqual(response.body.navigation.sections[0], {
+      sectionId: "shared",
+      label: "shared",
+      items: [
+        {
+          objectRef: {
+            objectId: "report:baseline",
+            objectKind: "report",
+            title: "기본 리포트",
+          },
+          kind: "report",
+          layer: "shared",
+          path: "/workspace",
+          active: true,
+        },
+        {
+          objectRef: {
+            objectId: "calendar:applications",
+            objectKind: "calendar",
+            title: "지원 일정",
+          },
+          kind: "calendar",
+          layer: "shared",
+          path: "/calendar",
+        },
+        {
+          objectRef: {
+            objectId: "opportunity:backend_platform",
+            objectKind: "opportunity",
+            title: "Backend Platform Engineer",
+          },
+          kind: "opportunity",
+          layer: "shared",
+          path: "/opportunities/opp_backend_platform",
+        },
+        {
+          objectRef: {
+            objectId: "opportunity:report_runtime",
+            objectKind: "opportunity",
+            title: "Report Runtime Engineer",
+          },
+          kind: "opportunity",
+          layer: "shared",
+          path: "/opportunities/opp_report_runtime",
+        },
+      ],
+    })
+    assert.deepEqual(response.body.navigation.sections[1], {
+      sectionId: "personal_raw",
+      label: "personal/raw",
+      items: [],
+    })
+    assert.deepEqual(response.body.activeProjection, {
+      projection: "report",
+      objectRef: {
+        objectId: "report:baseline",
+        objectKind: "report",
+        title: "기본 리포트",
+      },
+    })
+  })
+})
+
 test("GET /api/opportunities returns filter-aware pagination and card-complete list items", async () => {
   await withApp(async (app) => {
     const firstPage = await invokeApp(app, {

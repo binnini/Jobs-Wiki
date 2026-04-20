@@ -509,6 +509,59 @@ function buildWorkspaceSummaryRecord(readModel, userContext) {
   }
 }
 
+function buildWorkspaceRecord(readModel) {
+  return {
+    sections: [
+      {
+        sectionId: "shared",
+        label: "shared",
+        items: [
+          {
+            objectId: "report:baseline",
+            objectKind: "report",
+            title: "기본 리포트",
+            kind: "report",
+            layer: "shared",
+            path: "/workspace",
+            active: true,
+          },
+          {
+            objectId: "calendar:applications",
+            objectKind: "calendar",
+            title: "지원 일정",
+            kind: "calendar",
+            layer: "shared",
+            path: "/calendar",
+          },
+          ...readModel.opportunityItems.slice(0, 3).map((item) => ({
+            objectId: item.objectId,
+            objectKind: "opportunity",
+            title: item.title,
+            kind: "opportunity",
+            layer: "shared",
+            path: `/opportunities/${encodeURIComponent(item.opportunityId)}`,
+          })),
+        ],
+      },
+      {
+        sectionId: "personal_raw",
+        label: "personal/raw",
+        items: [],
+      },
+      {
+        sectionId: "personal_wiki",
+        label: "personal/wiki",
+        items: [],
+      },
+    ],
+    activeProjection: {
+      projection: "report",
+      objectId: "report:baseline",
+    },
+    sync: readModel.sync,
+  }
+}
+
 async function queryJsonWithPsql({ psqlBin, connectionString, sql }) {
   const result = spawnSync(
     psqlBin,
@@ -682,6 +735,16 @@ export function createStratawikiReadAuthorityAdapter({
   now = () => new Date(),
 } = {}) {
   return {
+    async getWorkspace() {
+      const readModel = await loadReadModel({
+        env,
+        queryJson,
+        now: now(),
+      })
+
+      return buildWorkspaceRecord(readModel)
+    },
+
     async getWorkspaceSummary({ userContext } = {}) {
       const readModel = await loadReadModel({
         env,

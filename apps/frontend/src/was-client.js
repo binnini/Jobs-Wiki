@@ -87,6 +87,10 @@ export function getWorkspaceSummary() {
   return request("/api/workspace/summary")
 }
 
+export function getWorkspace() {
+  return request("/api/workspace")
+}
+
 export function getWorkspaceSync({ commandId } = {}) {
   const searchParams = new URLSearchParams()
 

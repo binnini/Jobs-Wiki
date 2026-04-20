@@ -36,6 +36,7 @@ import {
   askWorkspace,
   getCalendar,
   getOpportunityDetail,
+  getWorkspace,
   getWorkspaceSync,
   getWorkspaceSummary,
   triggerWorknetIngestion,
@@ -137,11 +138,34 @@ const COMMAND_STATUS_META = {
 };
 
 const SYNC_PROJECTION_LABELS = {
+  workspace: "워크스페이스",
   workspace_summary: "기본 리포트",
   opportunity_list: "추천 공고",
   opportunity_detail: "공고 상세",
   calendar: "지원 일정",
   ask: "심층 분석",
+};
+
+const WORKSPACE_LAYER_META = {
+  shared: {
+    subtitle: "read-only",
+    emptyLabel: "공유 해석 레이어가 준비되면 여기에서 읽습니다.",
+  },
+  personal_raw: {
+    subtitle: "personal capture",
+    emptyLabel: "개인 raw 문서가 아직 없습니다.",
+  },
+  personal_wiki: {
+    subtitle: "personal wiki",
+    emptyLabel: "개인 wiki 문서가 아직 없습니다.",
+  },
+};
+
+const WORKSPACE_KIND_LABELS = {
+  report: "리포트",
+  calendar: "캘린더",
+  opportunity: "공고",
+  document: "문서",
 };
 
 const DEFAULT_INGESTION_SOURCE_ID = "worknet.recruiting";
@@ -230,8 +254,11 @@ function readAppRoute(location = window.location) {
     return { view: "extraction", opportunityId: null };
   }
 
-  if (normalizedPathname === "/report") {
-    return { view: "report", opportunityId: null };
+  if (
+    normalizedPathname === "/workspace" ||
+    normalizedPathname === "/report"
+  ) {
+    return { view: "workspace", opportunityId: null };
   }
 
   if (normalizedPathname === "/ask") {
@@ -265,12 +292,13 @@ function buildAppPath(view, opportunityId = null) {
       return "/onboarding";
     case "extraction":
       return "/review";
+    case "workspace":
     case "report":
-      return "/report";
+      return "/workspace";
     case "detail":
       return opportunityId
         ? `/opportunities/${encodeURIComponent(opportunityId)}`
-        : "/report";
+        : "/workspace";
     case "ask": {
       const searchParams = new URLSearchParams();
 
@@ -409,6 +437,51 @@ function mapWorkspaceSyncResponse(response) {
     command: response?.command ?? null,
     projections: Array.isArray(response?.projections) ? response.projections : [],
   };
+}
+
+function mapWorkspaceNavigationResponse(response) {
+  return {
+    sync: response?.sync ?? null,
+    activeProjection: response?.activeProjection ?? null,
+    sections: Array.isArray(response?.navigation?.sections)
+      ? response.navigation.sections.map((section) => ({
+          sectionId: section.sectionId,
+          label: section.label,
+          items: Array.isArray(section.items)
+            ? section.items.map((item) => ({
+                objectRef: item.objectRef ?? null,
+                title:
+                  item.objectRef?.title ??
+                  item.title ??
+                  "제목 없음",
+                kind: item.kind ?? item.objectRef?.objectKind ?? "document",
+                layer: item.layer ?? section.sectionId,
+                path: item.path ?? null,
+                active: Boolean(item.active),
+              }))
+            : [],
+        }))
+      : [],
+  };
+}
+
+function getWorkspaceItemIcon(kind) {
+  switch (kind) {
+    case "report":
+      return FileText;
+    case "calendar":
+      return CalIcon;
+    case "opportunity":
+      return Briefcase;
+    case "document":
+      return FileCode;
+    default:
+      return Bookmark;
+  }
+}
+
+function getWorkspaceItemKindLabel(kind) {
+  return WORKSPACE_KIND_LABELS[kind] ?? "항목";
 }
 
 function normalizeOpportunityContext(job) {
@@ -1073,6 +1146,89 @@ const WorkspaceSyncPanel = ({
           {isTriggering ? "WorkNet 갱신 요청 중..." : "WorkNet 수동 갱신"}
         </button>
       </div>
+    </div>
+  );
+};
+
+const WorkspaceNavigationSection = ({
+  section,
+  currentPath,
+  onNavigatePath,
+}) => {
+  const layerMeta = WORKSPACE_LAYER_META[section.sectionId] ?? {
+    subtitle: "workspace",
+    emptyLabel: "표시할 항목이 아직 없습니다.",
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="px-3">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+          {section.label}
+        </div>
+        <div className="mt-1 text-[11px] font-medium text-slate-400">
+          {layerMeta.subtitle}
+        </div>
+      </div>
+
+      {section.items.length ? (
+        <div className="space-y-1">
+          {section.items.map((item) => {
+            const Icon = getWorkspaceItemIcon(item.kind);
+            const isActive =
+              Boolean(item.path) && item.path === currentPath;
+            const isDisabled = !item.path;
+
+            return (
+              <button
+                key={`${section.sectionId}-${item.objectRef?.objectId ?? item.title}`}
+                type="button"
+                disabled={isDisabled}
+                onClick={() => {
+                  if (item.path) {
+                    onNavigatePath(item.path);
+                  }
+                }}
+                className={`w-full rounded-sm border px-3 py-3 text-left transition-all ${
+                  isActive
+                    ? "border-indigo-500 bg-indigo-600 text-white shadow-sm"
+                    : "border-transparent text-slate-200 hover:border-slate-700 hover:bg-slate-800 hover:text-white"
+                } ${
+                  isDisabled
+                    ? "cursor-not-allowed opacity-60 hover:border-transparent hover:bg-transparent hover:text-slate-300"
+                    : ""
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`mt-0.5 rounded-sm p-1.5 ${
+                      isActive ? "bg-white/15" : "bg-slate-800"
+                    }`}
+                  >
+                    <Icon size={15} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-bold">
+                      {item.title}
+                    </div>
+                    <div
+                      className={`mt-1 text-[11px] font-medium uppercase tracking-wide ${
+                        isActive ? "text-indigo-100" : "text-slate-400"
+                      }`}
+                    >
+                      {getWorkspaceItemKindLabel(item.kind)} / {item.layer}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-sm border border-dashed border-slate-800 bg-slate-900/60 px-3 py-3 text-xs font-medium leading-relaxed text-slate-500">
+          {layerMeta.emptyLabel}
+        </div>
+      )}
     </div>
   );
 };
@@ -3016,6 +3172,12 @@ export default function JobsWikiPrototype() {
   const [shellProfileSnapshot, setShellProfileSnapshot] = useState(() =>
     normalizeProfileSnapshot(),
   );
+  const [workspaceNavigation, setWorkspaceNavigation] = useState(() =>
+    mapWorkspaceNavigationResponse(null),
+  );
+  const [workspaceNavigationError, setWorkspaceNavigationError] = useState(null);
+  const [isLoadingWorkspaceNavigation, setIsLoadingWorkspaceNavigation] =
+    useState(true);
   const [workspaceSyncState, setWorkspaceSyncState] = useState(() =>
     mapWorkspaceSyncResponse(null),
   );
@@ -3024,9 +3186,46 @@ export default function JobsWikiPrototype() {
   const [isRefreshingWorkspaceSync, setIsRefreshingWorkspaceSync] = useState(false);
   const [isTriggeringWorkspaceSync, setIsTriggeringWorkspaceSync] = useState(false);
   const [activeWorkspaceCommandId, setActiveWorkspaceCommandId] = useState(null);
+  const workspaceRequestIdRef = useRef(0);
   const syncRequestIdRef = useRef(0);
   const currentView = currentRoute.view;
+  const currentPath = buildAppPath(currentRoute.view, currentRoute.opportunityId);
   const displayProfileSnapshot = normalizeProfileSnapshot(shellProfileSnapshot);
+
+  const loadWorkspaceNavigation = async () => {
+    const requestId = workspaceRequestIdRef.current + 1;
+    workspaceRequestIdRef.current = requestId;
+    setIsLoadingWorkspaceNavigation(true);
+    setWorkspaceNavigationError(null);
+
+    try {
+      const response = await getWorkspace();
+
+      if (requestId !== workspaceRequestIdRef.current) {
+        return;
+      }
+
+      setWorkspaceNavigation(mapWorkspaceNavigationResponse(response));
+      setWorkspaceNavigationError(null);
+    } catch (requestError) {
+      if (requestId !== workspaceRequestIdRef.current) {
+        return;
+      }
+
+      const normalizedError =
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "workspace navigation을 불러오지 못했습니다.",
+            });
+
+      setWorkspaceNavigationError(normalizedError);
+    } finally {
+      if (requestId === workspaceRequestIdRef.current) {
+        setIsLoadingWorkspaceNavigation(false);
+      }
+    }
+  };
 
   const loadWorkspaceSync = async ({
     commandId = activeWorkspaceCommandId,
@@ -3114,6 +3313,27 @@ export default function JobsWikiPrototype() {
     }
   };
 
+  const navigateToPath = (path, { replace = false } = {}) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const nextUrl = new URL(path, window.location.origin);
+    const nextRoute = readAppRoute(nextUrl);
+    const nextLocation = `${nextUrl.pathname}${nextUrl.search}`;
+    const currentLocation = `${window.location.pathname}${window.location.search}`;
+
+    setAskComposerSeed("");
+    setCurrentRoute(nextRoute);
+
+    if (currentLocation === nextLocation) {
+      return;
+    }
+
+    const method = replace ? "replaceState" : "pushState";
+    window.history[method]({}, "", nextLocation);
+  };
+
   useEffect(() => {
     const handlePopState = () => {
       const nextRoute = readAppRoute(window.location);
@@ -3142,6 +3362,14 @@ export default function JobsWikiPrototype() {
 
     return () => {
       isSubscribed = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    loadWorkspaceNavigation();
+
+    return () => {
+      workspaceRequestIdRef.current += 1;
     };
   }, []);
 
@@ -3259,7 +3487,7 @@ export default function JobsWikiPrototype() {
 
   const renderMainContent = () => {
     switch (currentView) {
-      case "report":
+      case "workspace":
         return (
           <BaselineReportView
             onJobClick={openJobDetail}
@@ -3272,7 +3500,7 @@ export default function JobsWikiPrototype() {
         return (
           <OpportunityDetailView
             opportunityContext={activeOpportunityContext}
-            onBack={() => navigateTo("report")}
+            onBack={() => navigateTo("workspace")}
             onOpenAsk={openAsk}
           />
         );
@@ -3290,7 +3518,7 @@ export default function JobsWikiPrototype() {
         return (
           <CalendarView
             onOpenJob={openJobDetail}
-            onOpenReport={() => navigateTo("report")}
+            onOpenReport={() => navigateTo("workspace")}
             onOpenAsk={openAsk}
           />
         );
@@ -3325,7 +3553,7 @@ export default function JobsWikiPrototype() {
             <OnboardingView onNext={() => navigateTo("extraction")} />
           )}
           {currentView === "extraction" && (
-            <ExtractionReviewView onNext={() => navigateTo("report")} />
+            <ExtractionReviewView onNext={() => navigateTo("workspace")} />
           )}
         </main>
       </div>
@@ -3337,7 +3565,7 @@ export default function JobsWikiPrototype() {
       <aside className="flex w-64 flex-shrink-0 flex-col border-r border-slate-800 bg-slate-900 text-slate-300">
         <div className="mb-4 border-b border-slate-800/50 px-6 py-8">
           <button
-            onClick={() => navigateTo("report")}
+            onClick={() => navigateTo("workspace")}
             className="flex items-center text-2xl font-extrabold tracking-tighter text-white transition-colors hover:text-indigo-200"
           >
             <span className="mr-3 flex h-7 w-7 items-center justify-center rounded-sm bg-indigo-600 text-xs font-bold text-white shadow-sm">
@@ -3347,53 +3575,58 @@ export default function JobsWikiPrototype() {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-2 px-4">
-          <div className="mb-3 mt-4 pl-3 text-xs font-bold uppercase tracking-widest text-slate-500">
-            분석 및 탐색
+        <nav className="flex-1 space-y-6 overflow-y-auto px-4 pb-4">
+          <div className="mt-4 px-3">
+            <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+              Workspace
+            </div>
+            <div className="mt-1 text-sm font-bold text-white">
+              layered navigation shell
+            </div>
           </div>
-          <button
-            onClick={() => navigateTo("report")}
-            className={`w-full rounded-sm px-4 py-3 text-left text-sm font-bold transition-all ${
-              currentView === "report" || currentView === "detail"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            <span className="flex items-center">
-              <FileText size={18} className="mr-3 opacity-90" />
-              기본 분석 리포트
-            </span>
-          </button>
-          <button
-            onClick={() => openAsk(activeOpportunityContext)}
-            className={`mb-8 w-full rounded-sm px-4 py-3 text-left text-sm font-bold transition-all ${
-              currentView === "ask"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            <span className="flex items-center">
-              <Search size={18} className="mr-3 opacity-90" />
-              심층 분석 워크스페이스
-            </span>
-          </button>
 
-          <div className="mb-3 mt-8 pl-3 text-xs font-bold uppercase tracking-widest text-slate-500">
-            관리 및 저장
+          {isLoadingWorkspaceNavigation && !workspaceNavigation.sections.length ? (
+            <div className="space-y-3 px-3">
+              <div className="h-3 w-24 animate-pulse rounded bg-slate-800" />
+              <div className="h-16 animate-pulse rounded-sm bg-slate-800" />
+              <div className="h-16 animate-pulse rounded-sm bg-slate-800" />
+              <div className="h-16 animate-pulse rounded-sm bg-slate-800" />
+            </div>
+          ) : null}
+
+          {workspaceNavigationError && !workspaceNavigation.sections.length ? (
+            <div className="rounded-sm border border-amber-300/30 bg-amber-400/10 px-3 py-3 text-xs font-medium leading-relaxed text-amber-100">
+              {workspaceNavigationError.message}
+            </div>
+          ) : null}
+
+          {workspaceNavigation.sections.map((section) => (
+            <WorkspaceNavigationSection
+              key={section.sectionId}
+              section={section}
+              currentPath={currentPath}
+              onNavigatePath={navigateToPath}
+            />
+          ))}
+
+          <div className="space-y-2 border-t border-slate-800/70 pt-5">
+            <div className="px-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+              Workspace Tools
+            </div>
+            <button
+              onClick={() => openAsk(activeOpportunityContext)}
+              className={`w-full rounded-sm border px-3 py-3 text-left text-sm font-bold transition-all ${
+                currentView === "ask"
+                  ? "border-indigo-500 bg-indigo-600 text-white shadow-sm"
+                  : "border-transparent text-slate-200 hover:border-slate-700 hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              <span className="flex items-center">
+                <Search size={18} className="mr-3 opacity-90" />
+                심층 분석 워크스페이스
+              </span>
+            </button>
           </div>
-          <button
-            onClick={() => navigateTo("calendar")}
-            className={`w-full rounded-sm px-4 py-3 text-left text-sm font-bold transition-all ${
-              currentView === "calendar"
-                ? "bg-slate-700 text-white shadow-sm"
-                : "hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            <span className="flex items-center">
-              <CalIcon size={18} className="mr-3 opacity-90" />
-              지원 일정 관리
-            </span>
-          </button>
 
           <WorkspaceSyncPanel
             syncState={workspaceSyncState}

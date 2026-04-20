@@ -1,0 +1,61 @@
+import test from "node:test"
+import assert from "node:assert/strict"
+import { mapWorkspace } from "../src/mappers/workspace-mapper.js"
+
+test("mapWorkspace keeps layered navigation items and active projection", () => {
+  const result = mapWorkspace({
+    sections: [
+      {
+        sectionId: "shared",
+        label: "shared",
+        items: [
+          {
+            objectId: "report:baseline",
+            objectKind: "report",
+            title: "기본 리포트",
+            kind: "report",
+            layer: "shared",
+            path: "/workspace",
+            active: true,
+          },
+        ],
+      },
+      {
+        sectionId: "personal_raw",
+        label: "personal/raw",
+        items: [],
+      },
+    ],
+    activeProjection: {
+      projection: "report",
+      objectId: "report:baseline",
+    },
+    sync: {
+      visibility: "applied",
+      version: "workspace-v1",
+      visibleAt: "2026-04-20T00:00:00.000Z",
+    },
+  })
+
+  assert.equal(result.projection, "workspace")
+  assert.equal(result.sync.projection, "workspace")
+  assert.deepEqual(result.navigation.sections[0].items[0], {
+    objectRef: {
+      objectId: "report:baseline",
+      objectKind: "report",
+      title: "기본 리포트",
+    },
+    kind: "report",
+    layer: "shared",
+    path: "/workspace",
+    active: true,
+  })
+  assert.deepEqual(result.activeProjection, {
+    projection: "report",
+    objectRef: {
+      objectId: "report:baseline",
+      objectKind: "report",
+      title: "기본 리포트",
+    },
+  })
+})
