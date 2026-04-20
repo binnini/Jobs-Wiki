@@ -18,6 +18,12 @@
 정규화한 뒤, StrataWiki HTTP/REST 경로를 **기본 경로**로 사용해 validate/ingest를
 수행합니다. wrapper 경로는 rollback path 로 유지됩니다.
 
+현재 구현 기준으로는 아래처럼 이해하는 편이 맞습니다.
+
+- canonical write authority 는 StrataWiki 에 있습니다.
+- Jobs-Wiki ingestion 은 proposal caller 이며 direct DB write 를 하지 않습니다.
+- wrapper fallback 이 필요해도 runtime wrapper 만 통해 StrataWiki 를 호출합니다.
+
 - `src/config/env.js`
   - ingestion 전용 env loading
 - `src/lib/logger.js`
@@ -124,8 +130,7 @@ npm start -- --source worknet --dry-run
 - StrataWiki runtime integration
 - `STRATAWIKI_CLI_WRAPPER`
   - wrapper fallback / rollback path
-  - 현재 expected value:
-    `/Users/yebin/workSpace/stratawiki-runtime/bin/stratawiki-jobswiki.sh`
+  - 현재 구현은 StrataWiki runtime wrapper 경계를 전제로 하며, 개발 checkout 직접 호출을 허용하지 않습니다.
 - `STRATAWIKI_INTEGRATION_MODE`
   - `auto|http|wrapper`
   - 기본 권장값: `auto`
@@ -160,10 +165,11 @@ npm start -- --source worknet --dry-run
 - `INGEST_RUN_SUMMARY_DIR`가 없으면 시스템 temp 아래
   `jobs-wiki-ingestion-runs/`를 기본 저장 위치로 사용합니다.
 - Jobs-Wiki는 StrataWiki DB에 직접 접근하지 않습니다.
+- direct DB read path 도 `apps/ingestion`에는 없습니다.
 - Jobs-Wiki는 HTTP mode 에서 resource-specific REST endpoint 를 우선 사용합니다.
-- wrapper fallback 이 필요할 때도 `/Users/yebin/workSpace/stratawiki` 개발 checkout을 직접 호출하지 않습니다.
+- wrapper fallback 이 필요할 때도 StrataWiki 개발 checkout 을 직접 호출하지 않습니다.
 - wrapper fallback 은 `STRATAWIKI_CLI_WRAPPER`만 통해 StrataWiki를 실행합니다.
-- future `query_personal_knowledge` 경로는 `save=false`를 기본값으로 둡니다.
+- personal knowledge / ask 경로 설명은 `apps/was` 범위이며, ingestion baseline 의 일부로 설명하지 않습니다.
 
 ## StrataWiki Modes
 

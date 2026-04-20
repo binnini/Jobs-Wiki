@@ -24,7 +24,17 @@
 
 ## Current Runtime Status
 
-현재 `apps/was`는 mock-first MVP runtime skeleton을 가지며, `WAS_DATA_MODE=real`일 때는 StrataWiki canonical read DB를 통해 live projection을 읽을 수 있습니다.
+현재 `apps/was`는 mock / real dual-mode runtime 을 가지며, 저장소 루트의 기본 실행 경로는 `WAS_DATA_MODE=real` 입니다.
+
+현재 real mode 는 아래 세 경계를 조합합니다.
+
+- read authority
+  - StrataWiki canonical read DB 를 직접 읽는 read-backed projection path
+- ask workspace
+  - read-backed baseline answer
+  - 조건이 맞을 때만 personal-aware upgrade
+- command facade
+  - wrapper-only sync/admin command path
 
 - `src/server.js`
   - HTTP server bootstrap과 graceful shutdown
@@ -39,7 +49,8 @@
 - `src/mappers/`
   - internal normalized record -> WAS response shape
 - `src/adapters/`
-  - `mock` / `real` mode adapter factory와 family skeleton
+  - `mock` / `real` mode adapter factory
+  - `read-authority`, `ask`, `command-facade` family
 - `src/fixtures/`
   - mock adapter가 반환하는 normalized fixture
 
@@ -113,7 +124,7 @@ npm start
 GET /health
 ```
 
-현재 mock runtime으로 제공되는 MVP baseline route:
+현재 route baseline:
 
 - `GET /api/workspace/summary`
 - `POST /api/workspace/ask`
@@ -123,23 +134,39 @@ GET /health
 - `GET /api/workspace/sync`
 - `POST /api/admin/ingestions/worknet/:sourceId`
 
-기본값은 mock fixture 기반이지만, `WAS_DATA_MODE=real`에서는 위 route들이 StrataWiki fact/relation/snapshot table에서 live data를 읽습니다.
+`WAS_DATA_MODE=real` 에서는 아래처럼 동작합니다.
 
-real ask adapter는 현재 HTTP/REST 우선 dual-mode 입니다.
+- `workspace/summary`, `opportunities`, `calendar`
+  - StrataWiki fact/relation/snapshot table 기반 read projection
+- `workspace/ask`
+  - read-backed baseline answer
+  - profile context catalog 와 StrataWiki personal surface 가 모두 준비된 경우에만 personal-aware upgrade
+- `workspace/sync`
+  - 기본값은 read-side projection visibility
+  - `commandId` 가 있으면 wrapper-backed command status 까지 포함
+- `admin/ingestions/worknet/:sourceId`
+  - wrapper-backed command submit
 
-- profile sync: `PUT /api/v1/profile-contexts/{tenant_id}/{user_id}`
-- personal query: `POST /api/v1/personal-queries`
-- interpretation/status reads:
-  - `POST /api/v1/interpretation-builds`
-  - `GET /api/v1/jobs/{job_id}`
+real ask adapter는 현재 HTTP/REST 우선 dual-mode 이지만, baseline 을 아래처럼 이해해야 합니다.
+
+- ask 의 기본값은 read-backed source-first answer 입니다.
+- personal query path 는 optional upgrade 입니다.
+- `save` 는 계속 reserved no-op 입니다.
+- full PKM structure 를 이미 frontend contract 로 노출하는 단계는 아닙니다.
+
+- 현재 ask baseline 에서 실제로 사용하는 경로:
+  - `PUT /api/v1/profile-contexts/{tenant_id}/{user_id}`
+  - `POST /api/v1/personal-queries`
   - `GET /api/v1/snapshot-status`
-  - `GET /api/v1/cache-status/{record_id}`
-  - `GET /api/v1/explanations/{layer}/{record_id}`
-- resource-specific endpoint 가 없는 record/tool 조회만 generic `/api/v1/tool-calls` 또는 wrapper fallback 을 사용합니다.
+  - resource-specific endpoint 가 없는 record/tool 조회만 generic `/api/v1/tool-calls` 또는 wrapper fallback
+    - `get_profile_context`
+    - `get_personal_record`
+    - `get_interpretation_record`
+    - `get_fact_record`
 
-wrapper 는 rollback path 로 남아 있고, HTTP path 가 unavailable 일 때만 fallback 됩니다. `save`는 계속 reserved no-op입니다.
+wrapper 는 rollback path 로 남아 있고, HTTP path 가 unavailable 일 때만 fallback 됩니다.
 
-real command facade adapter도 `STRATAWIKI_CLI_WRAPPER`를 통해 thin client 구조를 가지며, `workspace/sync`와 admin trigger endpoint에서 같은 경계를 재사용합니다.
+real command facade adapter는 현재 HTTP 구현이 없고, `STRATAWIKI_CLI_WRAPPER`를 통한 thin client 만 존재합니다. `workspace/sync?commandId=...` 와 admin trigger endpoint 는 이 wrapper-only 경계를 재사용합니다.
 
 ## Test
 
