@@ -138,6 +138,29 @@ const COMMAND_STATUS_META = {
   },
 };
 
+const COMMAND_OUTCOME_META = {
+  accepted_only: {
+    title: "명령은 접수되었고 반영 여부는 follow-up sync에서 확인됩니다",
+    message: "아직 projection별 최신 반영을 단정하지 않고 계속 상태를 확인합니다.",
+    className: "border-sky-200 bg-sky-50 text-sky-900",
+  },
+  partially_applied: {
+    title: "일부 projection만 최신 상태로 확인되었습니다",
+    message: "적용된 화면은 바로 확인하고, 나머지 projection은 추가 반영을 기다립니다.",
+    className: "border-amber-200 bg-amber-50 text-amber-900",
+  },
+  fully_applied: {
+    title: "관련 projection 반영이 확인되었습니다",
+    message: "동기화 패널에서 반영된 projection 범위를 바로 확인할 수 있습니다.",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-900",
+  },
+  failed: {
+    title: "명령 실행이 완료되지 않았습니다",
+    message: "재시도가 가능하면 같은 화면에서 다시 요청할 수 있습니다.",
+    className: "border-rose-200 bg-rose-50 text-rose-900",
+  },
+};
+
 const SYNC_PROJECTION_LABELS = {
   workspace: "워크스페이스",
   workspace_summary: "기본 리포트",
@@ -177,6 +200,24 @@ const DOCUMENT_LAYER_LABELS = {
 };
 
 const DEFAULT_INGESTION_SOURCE_ID = "worknet.recruiting";
+
+const SURFACE_SYNC_LABELS = {
+  workspace: "워크스페이스",
+  report: "리포트",
+  detail: "공고 상세",
+  document: "문서",
+  ask: "심층 분석",
+  calendar: "지원 일정",
+};
+
+const SURFACE_RETRY_LABELS = {
+  workspace: "워크스페이스 상태 다시 확인",
+  report: "리포트 새로고침",
+  detail: "공고 다시 확인",
+  document: "문서 다시 확인",
+  ask: "같은 질문 다시 분석",
+  calendar: "캘린더 새로고침",
+};
 
 function formatKoreanDate(value, options = {}) {
   if (!value) {
@@ -262,11 +303,12 @@ function readAppRoute(location = window.location) {
     return { view: "extraction", opportunityId: null, documentId: null };
   }
 
-  if (
-    normalizedPathname === "/workspace" ||
-    normalizedPathname === "/report"
-  ) {
+  if (normalizedPathname === "/workspace") {
     return { view: "workspace", opportunityId: null, documentId: null };
+  }
+
+  if (normalizedPathname === "/report") {
+    return { view: "report", opportunityId: null, documentId: null };
   }
 
   if (normalizedPathname === "/ask") {
@@ -313,8 +355,9 @@ function buildAppPath(view, opportunityId = null, documentId = null) {
     case "extraction":
       return "/review";
     case "workspace":
-    case "report":
       return "/workspace";
+    case "report":
+      return "/report";
     case "detail":
       return opportunityId
         ? `/opportunities/${encodeURIComponent(opportunityId)}`
@@ -454,6 +497,14 @@ function getCommandStatusMeta(status) {
   return COMMAND_STATUS_META[status] ?? null;
 }
 
+function getCommandOutcomeMeta(outcome) {
+  if (!outcome) {
+    return null;
+  }
+
+  return COMMAND_OUTCOME_META[outcome] ?? null;
+}
+
 function isTerminalCommandStatus(status) {
   return status === "succeeded" || status === "failed" || status === "cancelled";
 }
@@ -462,11 +513,212 @@ function formatProjectionLabel(projection) {
   return SYNC_PROJECTION_LABELS[projection] ?? projection ?? "알 수 없는 projection";
 }
 
+function normalizeStringList(values) {
+  if (!Array.isArray(values)) {
+    return [];
+  }
+
+  return values.filter((value, index) => {
+    return typeof value === "string" && values.indexOf(value) === index;
+  });
+}
+
+function mapProjectionStates(projections) {
+  if (!Array.isArray(projections)) {
+    return [];
+  }
+
+  return projections
+    .filter(
+      (projection) =>
+        typeof projection?.projection === "string" &&
+        typeof projection?.visibility === "string",
+    )
+    .map((projection) => ({
+      projection: projection.projection,
+      visibility: projection.visibility,
+      lastKnownVersion: projection.lastKnownVersion ?? projection.version ?? null,
+      lastVisibleAt: projection.lastVisibleAt ?? projection.visibleAt ?? null,
+      refreshRecommended:
+        projection.refreshRecommended ??
+        (projection.visibility === "partial" || projection.visibility === "stale"),
+    }));
+}
+
+function mapWorkspaceCommand(command) {
+  if (!command?.commandId) {
+    return null;
+  }
+
+  return {
+    commandId: command.commandId,
+    status: command.status ?? null,
+    outcome: command.outcome ?? null,
+    acceptedAt: command.acceptedAt ?? null,
+    finishedAt: command.finishedAt ?? null,
+    affectedObjectRefs: normalizeStringList(command.affectedObjectRefs),
+    affectedRelationRefs: normalizeStringList(command.affectedRelationRefs),
+    refreshScopes: normalizeStringList(command.refreshScopes),
+    error: command.error
+      ? {
+          code: command.error.code ?? "unknown_failure",
+          message: command.error.message ?? "명령 상태를 해석하지 못했습니다.",
+          retryable: Boolean(command.error.retryable),
+        }
+      : null,
+  };
+}
+
 function mapWorkspaceSyncResponse(response) {
   return {
-    command: response?.command ?? null,
-    projections: Array.isArray(response?.projections) ? response.projections : [],
+    command: mapWorkspaceCommand(response?.command),
+    projections: mapProjectionStates(response?.projections),
   };
+}
+
+function mapAcceptedWorkspaceCommandResponse(response) {
+  return {
+    command: mapWorkspaceCommand(response),
+    projections: mapProjectionStates(response?.projectionStates),
+  };
+}
+
+function createCommandAttemptKey(sourceId) {
+  const commandIdSuffix =
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+
+  return `jobs-wiki-${sourceId}-${commandIdSuffix}`;
+}
+
+function getCommandGuidance(command) {
+  if (!command) {
+    return null;
+  }
+
+  if (command.error?.message) {
+    return {
+      title: command.error.retryable
+        ? "명령 실행이 일시적으로 실패했습니다"
+        : "명령 실행에 실패했습니다",
+      message: command.error.retryable
+        ? `${command.error.message} 같은 패널에서 다시 요청할 수 있습니다.`
+        : command.error.message,
+      className: command.error.retryable
+        ? "border-amber-200 bg-amber-50 text-amber-900"
+        : "border-rose-200 bg-rose-50 text-rose-900",
+    };
+  }
+
+  const outcomeMeta = getCommandOutcomeMeta(command.outcome);
+
+  if (outcomeMeta) {
+    return outcomeMeta;
+  }
+
+  if (command.status === "accepted" || command.status === "queued") {
+    return {
+      title: "수동 갱신 요청이 접수되었습니다",
+      message: "projection 반영 여부를 확인하기 위해 command 상태를 계속 조회합니다.",
+      className: "border-sky-200 bg-sky-50 text-sky-900",
+    };
+  }
+
+  if (command.status === "running" || command.status === "validating") {
+    return {
+      title: "WorkNet 갱신을 처리하는 중입니다",
+      message: "완료 전까지는 마지막 확인 데이터를 유지하면서 상태를 갱신합니다.",
+      className: "border-sky-200 bg-sky-50 text-sky-900",
+    };
+  }
+
+  if (command.status === "succeeded") {
+    return {
+      title: "명령 처리 자체는 완료되었습니다",
+      message: "projection별 최신 반영 여부는 아래 sync 상태를 기준으로 확인합니다.",
+      className: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    };
+  }
+
+  return null;
+}
+
+function formatSurfaceLabel(surface) {
+  return SURFACE_SYNC_LABELS[surface] ?? "현재 화면";
+}
+
+function getSurfaceRetryLabel(surface, sync, refreshError) {
+  if (surface === "ask" && refreshError) {
+    return "같은 질문 다시 분석";
+  }
+
+  if (sync?.visibility === "pending") {
+    return `${formatSurfaceLabel(surface)} 상태 다시 확인`;
+  }
+
+  return SURFACE_RETRY_LABELS[surface] ?? "다시 시도";
+}
+
+function getSurfaceSyncGuidance(surface, sync) {
+  if (!sync?.visibility) {
+    return null;
+  }
+
+  const surfaceLabel = formatSurfaceLabel(surface);
+
+  if (sync.visibility === "pending") {
+    return {
+      title: `${surfaceLabel}는 갱신 중입니다`,
+      message:
+        surface === "ask"
+          ? "마지막 답변을 유지한 채 새 근거와 문맥을 다시 확인합니다."
+          : `${surfaceLabel} 화면은 마지막 확인 데이터를 유지하고 있으며, 새 데이터가 준비되면 반영됩니다.`,
+      className: "border-sky-200 bg-sky-50 text-sky-900",
+      showRetry: true,
+    };
+  }
+
+  if (sync.visibility === "partial") {
+    return {
+      title: `${surfaceLabel} 일부만 최신 상태입니다`,
+      message:
+        surface === "report"
+          ? "추천 공고, 시장 브리프, 액션 큐 중 일부 블록만 먼저 갱신되었을 수 있습니다."
+          : surface === "document"
+            ? "문서 본문과 연관 분석 블록 중 일부가 마지막 확인본일 수 있습니다."
+            : surface === "ask"
+              ? "답변은 유지되지만 근거 또는 연관 공고 일부는 아직 최신이 아닐 수 있습니다."
+              : "일정 목록 일부만 최신 상태일 수 있으므로 다시 확인을 권장합니다.",
+      className: "border-amber-200 bg-amber-50 text-amber-900",
+      showRetry: true,
+    };
+  }
+
+  if (sync.visibility === "unknown") {
+    return {
+      title: `${surfaceLabel} 최신성은 아직 단정할 수 없습니다`,
+      message:
+        surface === "ask"
+          ? "현재 답변은 마지막 성공 결과를 기준으로 유지합니다. 중요한 판단 전에는 같은 질문을 다시 보내 확인하세요."
+          : `${surfaceLabel}는 마지막 확인본을 유지하고 있습니다. 필요하면 새로고침으로 최신 반영 여부를 다시 확인하세요.`,
+      className: "border-slate-200 bg-slate-100 text-slate-900",
+      showRetry: true,
+    };
+  }
+
+  if (sync.visibility === "stale") {
+    return {
+      title: `${surfaceLabel} 데이터가 오래되었을 수 있습니다`,
+      message:
+        surface === "calendar"
+          ? "기존 일정은 유지하지만 최신 마감일 확인을 위해 캘린더를 다시 불러오는 편이 안전합니다."
+          : `${surfaceLabel}는 마지막 성공 데이터를 유지하고 있습니다. 최신 반영이 필요하면 다시 확인을 권장합니다.`,
+      className: "border-amber-200 bg-amber-50 text-amber-900",
+      showRetry: true,
+    };
+  }
+
+  return null;
 }
 
 function mapWorkspaceNavigationResponse(response) {
@@ -1224,7 +1476,7 @@ const ExtractionReviewView = ({ onNext }) => (
         onClick={onNext}
         className="flex items-center rounded-sm bg-slate-900 px-8 py-3.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-slate-800"
       >
-        확인 완료 및 기본 리포트 보기
+        확인 완료 및 워크스페이스 열기
         <MoveRight size={16} className="ml-2.5" />
       </button>
     </div>
@@ -1263,53 +1515,209 @@ const RetryPanel = ({
   </div>
 );
 
-const SyncNotice = ({ sync, refreshError }) => {
-  const syncMeta = getSyncMeta(sync);
-  const showRetryGuidance = Boolean(syncMeta?.noticeTitle || refreshError);
+const SyncNotice = ({
+  surface,
+  sync,
+  refreshError,
+  onRetry,
+  isRetrying = false,
+}) => {
+  const syncGuidance = getSurfaceSyncGuidance(surface, sync);
+  const showRetryAction = Boolean(
+    onRetry && (refreshError || syncGuidance?.showRetry || sync?.refreshRecommended),
+  );
 
-  if (!showRetryGuidance) {
+  if (!syncGuidance && !refreshError && !showRetryAction) {
     return null;
   }
 
   return (
     <div className="space-y-3">
-      {syncMeta?.noticeTitle ? (
+      {syncGuidance ? (
         <InlineNotice
-          title={syncMeta.noticeTitle}
-          message={syncMeta.noticeMessage}
-          className={syncMeta.noticeClassName ?? ""}
+          title={syncGuidance.title}
+          message={syncGuidance.message}
+          className={syncGuidance.className}
         />
       ) : null}
       {refreshError ? (
         <InlineNotice
-          title="새 데이터 반영에 실패했습니다"
+          title={`${formatSurfaceLabel(surface)} 다시 확인에 실패했습니다`}
           message={refreshError.message}
-          className="border-amber-200 bg-amber-50 text-amber-900"
+          className={
+            refreshError.retryable
+              ? "border-amber-200 bg-amber-50 text-amber-900"
+              : "border-rose-200 bg-rose-50 text-rose-900"
+          }
         />
       ) : null}
-      <div className="text-xs font-medium leading-relaxed text-slate-500">
-        좌측 <span className="font-bold text-slate-700">Workspace Sync</span>{" "}
-        패널에서 다시 확인하거나 WorkNet 수동 갱신을 요청할 수 있습니다.
-      </div>
+      {showRetryAction ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-sm border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <button
+            onClick={onRetry}
+            disabled={isRetrying}
+            className="flex items-center rounded-sm border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-800 transition-colors hover:bg-slate-100 disabled:opacity-50"
+          >
+            <RefreshCw
+              size={14}
+              className={`mr-2 ${isRetrying ? "animate-spin" : ""}`}
+            />
+            {isRetrying
+              ? `${formatSurfaceLabel(surface)} 다시 확인 중...`
+              : getSurfaceRetryLabel(surface, sync, refreshError)}
+          </button>
+          <div className="text-xs font-medium leading-relaxed text-slate-500">
+            좌측 <span className="font-bold text-slate-700">Workspace Sync</span>{" "}
+            패널에서도 전체 projection 상태와 WorkNet 수동 갱신을 함께 확인할 수 있습니다.
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+};
+
+const WORKSPACE_VISIBILITY_NOTICE_ORDER = [
+  "pending",
+  "partial",
+  "unknown",
+  "stale",
+];
+
+function buildWorkspaceVisibilityNotice(visibility, projections) {
+  const projectionLabels = projections.map((projection) =>
+    formatProjectionLabel(projection.projection),
+  );
+  const joinedLabels = projectionLabels.join(", ");
+
+  if (visibility === "pending") {
+    return {
+      visibility,
+      title: "일부 workspace projection이 갱신 중입니다",
+      message: `${joinedLabels} 화면은 마지막 확인 데이터를 유지하면서 새 반영을 기다립니다.`,
+      className: "border-sky-200 bg-sky-50 text-sky-900",
+    };
+  }
+
+  if (visibility === "partial") {
+    return {
+      visibility,
+      title: "workspace 일부 projection만 최신 상태입니다",
+      message: `${joinedLabels}는 준비된 블록부터 먼저 보여주고 있어 다시 확인을 권장합니다.`,
+      className: "border-amber-200 bg-amber-50 text-amber-900",
+    };
+  }
+
+  if (visibility === "unknown") {
+    return {
+      visibility,
+      title: "workspace projection 최신성을 아직 단정할 수 없습니다",
+      message: `${joinedLabels}는 마지막 확인본을 유지하고 있습니다. 중요한 판단 전에는 sync를 다시 확인해 주세요.`,
+      className: "border-slate-200 bg-slate-100 text-slate-900",
+    };
+  }
+
+  if (visibility === "stale") {
+    return {
+      visibility,
+      title: "workspace projection 일부가 오래되었을 수 있습니다",
+      message: `${joinedLabels}는 마지막 성공 데이터를 유지하고 있습니다. refresh recommended 상태이면 다시 불러오는 편이 안전합니다.`,
+      className: "border-amber-200 bg-amber-50 text-amber-900",
+    };
+  }
+
+  return null;
+}
+
+const WorkspaceFreshnessNotice = ({
+  syncState,
+  syncError,
+  onRetry,
+  isRetrying = false,
+}) => {
+  const projections = syncState?.projections ?? [];
+  const notices = WORKSPACE_VISIBILITY_NOTICE_ORDER
+    .map((visibility) => {
+      const matched = projections.filter(
+        (projection) => projection.visibility === visibility,
+      );
+
+      return matched.length
+        ? buildWorkspaceVisibilityNotice(visibility, matched)
+        : null;
+    })
+    .filter(Boolean);
+  const showRetryAction = Boolean(onRetry && (syncError || notices.length));
+
+  if (!syncError && !notices.length && !showRetryAction) {
+    return null;
+  }
+
+  return (
+    <div className="space-y-3">
+      {syncError ? (
+        <InlineNotice
+          title="workspace sync 상태를 다시 확인하지 못했습니다"
+          message={syncError.message}
+          className={
+            syncError.retryable
+              ? "border-amber-200 bg-amber-50 text-amber-900"
+              : "border-rose-200 bg-rose-50 text-rose-900"
+          }
+        />
+      ) : null}
+      {notices.map((notice) => (
+        <InlineNotice
+          key={notice.visibility}
+          title={notice.title}
+          message={notice.message}
+          className={notice.className}
+        />
+      ))}
+      {showRetryAction ? (
+        <div className="flex flex-wrap items-center gap-3 rounded-sm border border-slate-200 bg-white px-4 py-3 shadow-sm">
+          <button
+            onClick={onRetry}
+            disabled={isRetrying}
+            className="flex items-center rounded-sm border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-bold text-slate-800 transition-colors hover:bg-slate-100 disabled:opacity-50"
+          >
+            <RefreshCw
+              size={14}
+              className={`mr-2 ${isRetrying ? "animate-spin" : ""}`}
+            />
+            {isRetrying
+              ? "워크스페이스 상태 다시 확인 중..."
+              : "워크스페이스 상태 다시 확인"}
+          </button>
+          <div className="text-xs font-medium leading-relaxed text-slate-500">
+            visibility는 backend가 내려준 projection별 상태만 사용하고, 화면에서
+            최신성을 추정하지 않습니다.
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 };
 
 const WorkspaceSyncPanel = ({
   syncState,
+  latestCommand,
   syncError,
   isLoading,
   isRefreshing,
   isTriggering,
+  isPollingCommand,
   onRefresh,
   onTrigger,
 }) => {
   const projections = syncState?.projections ?? [];
-  const command = syncState?.command ?? null;
+  const command = latestCommand ?? syncState?.command ?? null;
   const commandMeta = getCommandStatusMeta(command?.status);
+  const commandGuidance = getCommandGuidance(command);
   const refreshRecommendedCount = projections.filter(
     (projection) => projection.refreshRecommended,
   ).length;
+  const isTriggerDisabled = isTriggering || isPollingCommand;
+  const commandRefreshScopes = command?.refreshScopes ?? [];
 
   return (
     <div className="mt-6 rounded-sm border border-slate-800 bg-slate-950/60 p-4 shadow-sm">
@@ -1338,8 +1746,42 @@ const WorkspaceSyncPanel = ({
       ) : null}
 
       {command?.commandId ? (
-        <div className="mb-3 rounded-sm border border-slate-800 bg-slate-900/80 px-3 py-2 text-[11px] font-medium text-slate-300">
-          command: {command.commandId}
+        <div className="mb-3 space-y-3 rounded-sm border border-slate-800 bg-slate-900/80 px-3 py-3 text-[11px] font-medium text-slate-300">
+          <div className="font-mono text-[11px] text-slate-200">
+            command: {command.commandId}
+          </div>
+          <div className="flex flex-wrap gap-2 text-[11px] text-slate-400">
+            {command.acceptedAt ? (
+              <span>접수: {formatKoreanDateTime(command.acceptedAt)}</span>
+            ) : null}
+            {command.finishedAt ? (
+              <span>종료: {formatKoreanDateTime(command.finishedAt)}</span>
+            ) : null}
+          </div>
+          {commandGuidance ? (
+            <InlineNotice
+              title={commandGuidance.title}
+              message={commandGuidance.message}
+              className={commandGuidance.className}
+            />
+          ) : null}
+          {commandRefreshScopes.length ? (
+            <div>
+              <div className="mb-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                Refresh Scope
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {commandRefreshScopes.map((scope) => (
+                  <span
+                    key={scope}
+                    className="rounded-sm border border-slate-700 bg-slate-950 px-2 py-1 text-[11px] font-bold text-slate-200"
+                  >
+                    {formatProjectionLabel(scope)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       ) : null}
 
@@ -1405,11 +1847,17 @@ const WorkspaceSyncPanel = ({
         </button>
         <button
           onClick={onTrigger}
-          disabled={isTriggering}
+          disabled={isTriggerDisabled}
           className="flex items-center justify-center rounded-sm border border-indigo-400/30 bg-indigo-500/10 px-3 py-2 text-xs font-bold text-indigo-100 transition-colors hover:bg-indigo-500/20 disabled:opacity-50"
         >
           <Zap size={14} className="mr-2" />
-          {isTriggering ? "WorkNet 갱신 요청 중..." : "WorkNet 수동 갱신"}
+          {isTriggering
+            ? "WorkNet 갱신 요청 중..."
+            : isPollingCommand
+              ? "WorkNet 갱신 처리 중..."
+              : command?.error?.retryable
+                ? "WorkNet 다시 요청"
+                : "WorkNet 수동 갱신"}
         </button>
       </div>
     </div>
@@ -1581,6 +2029,228 @@ const BlockPlaceholder = ({ title, description }) => (
     <p className="text-sm leading-relaxed text-slate-500">{description}</p>
   </Panel>
 );
+
+const WorkspaceHomeView = ({
+  profileSnapshot,
+  syncState,
+  latestCommand,
+  syncError,
+  isRefreshingSync,
+  isTriggeringSync,
+  isPollingCommand,
+  onRefreshSync,
+  onTriggerSync,
+  onOpenReport,
+  onOpenAsk,
+  onOpenCalendar,
+}) => {
+  const projections = syncState?.projections ?? [];
+  const command = latestCommand ?? syncState?.command ?? null;
+  const commandMeta = getCommandStatusMeta(command?.status);
+  const commandGuidance = getCommandGuidance(command);
+
+  return (
+    <div className="mx-auto max-w-6xl space-y-10 animate-in fade-in duration-500">
+      <header className="mt-4 border-b border-slate-200 pb-8">
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="rounded-sm border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 shadow-sm">
+              Workspace Home
+            </div>
+            {commandMeta ? (
+              <div
+                className={`rounded-sm border px-3 py-1.5 text-xs font-bold shadow-sm ${commandMeta.className}`}
+              >
+                최근 갱신 {commandMeta.label}
+              </div>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={onRefreshSync}
+              disabled={isRefreshingSync}
+              className="flex items-center rounded-sm border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
+            >
+              <RefreshCw
+                size={16}
+                className={`mr-2 ${isRefreshingSync ? "animate-spin" : ""}`}
+              />
+              sync 다시 확인
+            </button>
+            <button
+              onClick={onTriggerSync}
+              disabled={isTriggeringSync || isPollingCommand}
+              className="flex items-center rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:opacity-50"
+            >
+              <Zap size={16} className="mr-2" />
+              {isTriggeringSync
+                ? "WorkNet 갱신 요청 중..."
+                : isPollingCommand
+                  ? "WorkNet 갱신 처리 중..."
+                  : "WorkNet 수동 갱신"}
+            </button>
+          </div>
+        </div>
+
+        <h1 className="max-w-4xl text-4xl font-extrabold leading-tight tracking-tight text-slate-900 md:text-5xl">
+          현재 워크스페이스의 active projection과 sync 상태를 한 화면에서
+          정리합니다.
+        </h1>
+        <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-600">
+          기존 summary, ask, calendar, active detail 화면은 그대로 유지하고,
+          이 홈에서는 현재 프로필 기준과 projection visibility를 workspace-first
+          기준으로 다시 묶어 보여줍니다.
+        </p>
+      </header>
+
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr),minmax(320px,1fr)]">
+        <Panel>
+          <Label>현재 프로필 스냅샷</Label>
+          <div className="mt-4 space-y-6">
+            <div className="flex flex-wrap items-center gap-4">
+              <div className="flex h-12 w-12 items-center justify-center rounded-sm bg-slate-900 text-base font-bold text-white shadow-sm">
+                {profileSnapshot.targetRole?.charAt(0) ?? "J"}
+              </div>
+              <div>
+                <div className="text-lg font-bold text-slate-900">
+                  {profileSnapshot.targetRole}
+                </div>
+                <div className="mt-1 text-sm font-semibold text-slate-500">
+                  {profileSnapshot.experience}
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+                <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                  관심 영역
+                </div>
+                <div className="mt-2 text-sm font-bold text-slate-900">
+                  {profileSnapshot.location ?? "지역 미정"} /{" "}
+                  {profileSnapshot.domain ?? "도메인 미정"}
+                </div>
+              </div>
+              <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+                <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                  핵심 스킬
+                </div>
+                <div className="mt-2 text-sm font-bold text-slate-900">
+                  {(profileSnapshot.skills ?? []).slice(0, 4).join(" • ") || "-"}
+                </div>
+              </div>
+            </div>
+          </div>
+        </Panel>
+
+        <Panel>
+          <Label>Workspace Quick Actions</Label>
+          <div className="mt-4 space-y-3">
+            <button
+              onClick={onOpenReport}
+              className="flex w-full items-center justify-between rounded-sm border border-slate-200 bg-white px-4 py-3 text-left text-sm font-bold text-slate-900 shadow-sm transition-colors hover:border-indigo-600"
+            >
+              <span className="flex items-center">
+                <FileText size={16} className="mr-3 text-indigo-600" />
+                리포트 projection 열기
+              </span>
+              <ChevronRight size={16} className="text-slate-400" />
+            </button>
+            <button
+              onClick={() => onOpenAsk(null)}
+              className="flex w-full items-center justify-between rounded-sm border border-slate-200 bg-white px-4 py-3 text-left text-sm font-bold text-slate-900 shadow-sm transition-colors hover:border-indigo-600"
+            >
+              <span className="flex items-center">
+                <Search size={16} className="mr-3 text-indigo-600" />
+                Ask workspace 열기
+              </span>
+              <ChevronRight size={16} className="text-slate-400" />
+            </button>
+            <button
+              onClick={onOpenCalendar}
+              className="flex w-full items-center justify-between rounded-sm border border-slate-200 bg-white px-4 py-3 text-left text-sm font-bold text-slate-900 shadow-sm transition-colors hover:border-indigo-600"
+            >
+              <span className="flex items-center">
+                <CalIcon size={16} className="mr-3 text-indigo-600" />
+                캘린더 projection 열기
+              </span>
+              <ChevronRight size={16} className="text-slate-400" />
+            </button>
+          </div>
+        </Panel>
+      </div>
+
+      <section>
+        <div className="mb-5 flex items-end justify-between border-b border-slate-200 pb-4">
+          <h2 className="text-2xl font-bold tracking-tight text-slate-900">
+            Projection Visibility
+          </h2>
+          <div className="text-sm font-bold text-slate-500">
+            `/api/workspace/sync` 응답을 그대로 표시합니다
+          </div>
+        </div>
+
+        <WorkspaceFreshnessNotice
+          syncState={syncState}
+          syncError={syncError}
+          onRetry={onRefreshSync}
+          isRetrying={isRefreshingSync}
+        />
+
+        {commandGuidance ? (
+          <InlineNotice
+            title={commandGuidance.title}
+            message={commandGuidance.message}
+            className={commandGuidance.className}
+          />
+        ) : null}
+
+        <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {projections.length ? (
+            projections.map((projection) => {
+              const syncMeta = getSyncMeta(projection);
+
+              return (
+                <div
+                  key={projection.projection}
+                  className="rounded-sm border border-slate-200 bg-white p-5 shadow-sm"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-bold text-slate-900">
+                        {formatProjectionLabel(projection.projection)}
+                      </div>
+                      <div className="mt-2 text-xs font-medium text-slate-500">
+                        {projection.lastVisibleAt
+                          ? `${formatKoreanDateTime(projection.lastVisibleAt)} 확인`
+                          : "표시 가능한 확인 시각 없음"}
+                      </div>
+                    </div>
+                    {syncMeta?.badgeLabel ? (
+                      <span
+                        className={`rounded-sm border px-2 py-0.5 text-[11px] font-bold ${syncMeta.badgeClassName}`}
+                      >
+                        {syncMeta.badgeLabel}
+                      </span>
+                    ) : null}
+                  </div>
+                  {projection.lastKnownVersion ? (
+                    <div className="mt-4 rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
+                      version {projection.lastKnownVersion}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })
+          ) : (
+            <div className="rounded-sm border border-slate-200 bg-white px-5 py-4 text-sm font-medium text-slate-500 shadow-sm">
+              아직 표시 가능한 projection visibility가 없습니다.
+            </div>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+};
 
 const ReportLoadingView = () => (
   <div className="mx-auto max-w-6xl space-y-8 animate-pulse">
@@ -1765,7 +2435,13 @@ const BaselineReportView = ({
         </h1>
       </header>
 
-      <SyncNotice sync={summary.sync} refreshError={refreshError} />
+      <SyncNotice
+        surface="report"
+        sync={summary.sync}
+        refreshError={refreshError}
+        onRetry={() => loadSummary({ preserveData: Boolean(summary) })}
+        isRetrying={isRefreshing}
+      />
 
       <div className="flex flex-wrap items-center rounded-sm border border-slate-200 bg-white p-6 shadow-sm">
         <div className="flex flex-1 flex-wrap items-center gap-x-8 gap-y-4">
@@ -2309,7 +2985,13 @@ const OpportunityDetailView = ({
         </div>
       </div>
 
-      <SyncNotice sync={detailResponse.sync} refreshError={refreshError} />
+      <SyncNotice
+        surface="detail"
+        sync={detailResponse.sync}
+        refreshError={refreshError}
+        onRetry={() => loadDetail({ preserveData: Boolean(detailResponse) })}
+        isRetrying={isRefreshing}
+      />
 
       <header className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
         <div>
@@ -2668,7 +3350,13 @@ const DocumentDetailView = ({
         </div>
       </div>
 
-      <SyncNotice sync={documentResponse.sync} refreshError={refreshError} />
+      <SyncNotice
+        surface="document"
+        sync={documentResponse.sync}
+        refreshError={refreshError}
+        onRetry={() => loadDocument({ preserveData: Boolean(documentResponse) })}
+        isRetrying={isRefreshing}
+      />
       <InlineNotice
         title={
           isSharedLayer(detail.layer)
@@ -3513,7 +4201,17 @@ const AskWorkspaceView = ({
           ref={scrollRef}
         >
           <div className="mx-auto max-w-3xl space-y-8">
-            <SyncNotice sync={currentSync} refreshError={submitError} />
+            <SyncNotice
+              surface="ask"
+              sync={currentSync}
+              refreshError={submitError}
+              onRetry={
+                submittedQuestion
+                  ? () => submitQuestion(submittedQuestion)
+                  : undefined
+              }
+              isRetrying={isSubmitting}
+            />
             <AskActiveContextBanner activeContext={contextState} />
 
             {isSwitchingContext ? (
@@ -3828,7 +4526,13 @@ const CalendarView = ({ onOpenJob, onOpenReport, onOpenAsk }) => {
         </div>
       </header>
 
-      <SyncNotice sync={calendarResponse.sync} refreshError={refreshError} />
+      <SyncNotice
+        surface="calendar"
+        sync={calendarResponse.sync}
+        refreshError={refreshError}
+        onRetry={() => loadCalendar({ preserveData: Boolean(calendarResponse) })}
+        isRetrying={isRefreshing}
+      />
 
       <div className="rounded-sm border border-slate-200 bg-white shadow-sm">
         {viewMode === "list" ? (
@@ -4063,6 +4767,7 @@ export default function JobsWikiPrototype() {
     currentRoute.documentId,
   );
   const displayProfileSnapshot = normalizeProfileSnapshot(shellProfileSnapshot);
+  const latestWorkspaceCommand = workspaceSyncState.command ?? null;
   const activeShellContext = buildWorkspaceActiveContext({
     currentView,
     currentPath,
@@ -4160,19 +4865,26 @@ export default function JobsWikiPrototype() {
 
     try {
       const response = await triggerWorknetIngestion(DEFAULT_INGESTION_SOURCE_ID);
-      const commandId = response.commandId ?? null;
+      const acceptedState = mapAcceptedWorkspaceCommandResponse(response);
+      const commandId =
+        acceptedState.command?.commandId ??
+        response.commandId ??
+        createCommandAttemptKey(DEFAULT_INGESTION_SOURCE_ID);
 
-      setWorkspaceSyncState((current) =>
-        mapWorkspaceSyncResponse({
-          ...current,
-          command: commandId
-            ? {
-                commandId,
-                status: "accepted",
-              }
-            : current.command,
-        }),
-      );
+      setWorkspaceSyncState((current) => ({
+        command:
+          acceptedState.command ??
+          mapWorkspaceCommand({
+            commandId,
+            status: "accepted",
+            acceptedAt: new Date().toISOString(),
+          }) ??
+          current.command,
+        projections:
+          acceptedState.projections.length
+            ? acceptedState.projections
+            : current.projections,
+      }));
       setActiveWorkspaceCommandId(commandId);
 
       await loadWorkspaceSync({
@@ -4417,6 +5129,23 @@ export default function JobsWikiPrototype() {
     switch (currentView) {
       case "workspace":
         return (
+          <WorkspaceHomeView
+            profileSnapshot={displayProfileSnapshot}
+            syncState={workspaceSyncState}
+            latestCommand={latestWorkspaceCommand}
+            syncError={workspaceSyncError}
+            isRefreshingSync={isRefreshingWorkspaceSync}
+            isTriggeringSync={isTriggeringWorkspaceSync}
+            isPollingCommand={Boolean(activeWorkspaceCommandId)}
+            onRefreshSync={() => loadWorkspaceSync({ preserveData: true })}
+            onTriggerSync={handleTriggerWorkspaceIngestion}
+            onOpenReport={() => navigateTo("report")}
+            onOpenAsk={openAsk}
+            onOpenCalendar={() => navigateTo("calendar")}
+          />
+        );
+      case "report":
+        return (
           <BaselineReportView
             onJobClick={openJobDetail}
             onOpenAsk={openAsk}
@@ -4467,11 +5196,19 @@ export default function JobsWikiPrototype() {
         );
       default:
         return (
-          <BaselineReportView
-            onJobClick={openJobDetail}
+          <WorkspaceHomeView
+            profileSnapshot={displayProfileSnapshot}
+            syncState={workspaceSyncState}
+            latestCommand={latestWorkspaceCommand}
+            syncError={workspaceSyncError}
+            isRefreshingSync={isRefreshingWorkspaceSync}
+            isTriggeringSync={isTriggeringWorkspaceSync}
+            isPollingCommand={Boolean(activeWorkspaceCommandId)}
+            onRefreshSync={() => loadWorkspaceSync({ preserveData: true })}
+            onTriggerSync={handleTriggerWorkspaceIngestion}
+            onOpenReport={() => navigateTo("report")}
             onOpenAsk={openAsk}
             onOpenCalendar={() => navigateTo("calendar")}
-            onEditProfile={() => navigateTo("onboarding")}
           />
         );
     }
@@ -4528,6 +5265,33 @@ export default function JobsWikiPrototype() {
             </div>
           </div>
 
+          <button
+            onClick={() => navigateTo("workspace")}
+            className={`w-full rounded-sm px-4 py-3 text-left text-sm font-bold transition-all ${
+              currentView === "workspace"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "hover:bg-slate-800 hover:text-white"
+            }`}
+          >
+            <span className="flex items-center">
+              <Grid size={18} className="mr-3 opacity-90" />
+              워크스페이스 홈
+            </span>
+          </button>
+          <button
+            onClick={() => navigateTo("report")}
+            className={`w-full rounded-sm px-4 py-3 text-left text-sm font-bold transition-all ${
+              currentView === "report"
+                ? "bg-indigo-600 text-white shadow-sm"
+                : "hover:bg-slate-800 hover:text-white"
+            }`}
+          >
+            <span className="flex items-center">
+              <FileText size={18} className="mr-3 opacity-90" />
+              리포트 프로젝션
+            </span>
+          </button>
+
           {isLoadingWorkspaceNavigation && !workspaceNavigation.sections.length ? (
             <div className="space-y-3 px-3">
               <div className="h-3 w-24 animate-pulse rounded bg-slate-800" />
@@ -4578,10 +5342,12 @@ export default function JobsWikiPrototype() {
 
           <WorkspaceSyncPanel
             syncState={workspaceSyncState}
+            latestCommand={latestWorkspaceCommand}
             syncError={workspaceSyncError}
             isLoading={isLoadingWorkspaceSync}
             isRefreshing={isRefreshingWorkspaceSync}
             isTriggering={isTriggeringWorkspaceSync}
+            isPollingCommand={Boolean(activeWorkspaceCommandId)}
             onRefresh={() => loadWorkspaceSync({ preserveData: true })}
             onTrigger={handleTriggerWorkspaceIngestion}
           />
