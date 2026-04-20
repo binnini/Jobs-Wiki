@@ -1,22 +1,28 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+  AlertCircle,
+  ArrowLeft,
   Bookmark,
   Calendar as CalIcon,
+  ChevronRight,
   Check,
   CheckCircle,
   Clock,
   ExternalLink,
   FileText,
   Grid,
+  Lightbulb,
   List,
   MapPin,
   MessageSquare,
+  MoveRight,
   Plus,
   RefreshCw,
   Search,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
+  UploadCloud,
   Zap,
   Database,
 } from "lucide-react";
@@ -2016,6 +2022,11 @@ export default function JobsWikiPrototype() {
           ? current
           : createRouteDocumentContext(currentRoute.documentId),
       );
+      setActiveOpportunityContext(null);
+    }
+
+    if (["workspace", "report", "calendar", "onboarding", "extraction"].includes(currentView)) {
+      setActiveDocumentContext(null);
       setActiveOpportunityContext(null);
     }
   }, [currentRoute.documentId, currentRoute.opportunityId, currentView]);
