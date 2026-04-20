@@ -12,6 +12,10 @@ status: draft
 따라서 view model도 report/opportunity 중심에서 끝나지 않고,
 `workspace`, `document`, `personal authoring`, `wiki generation`을 포함해야 합니다.
 
+다만 현재 실제 구현은 이 target view model보다 좁습니다.
+지금 살아 있는 구현 중심은 `report / opportunity / ask / calendar` slice이며,
+generic workspace shell과 document-centered personal authoring view model은 follow-up입니다.
+
 ## Scope
 
 현재 MVP 우선 화면 기준으로 아래를 다룹니다.

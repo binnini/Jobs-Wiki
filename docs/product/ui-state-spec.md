@@ -16,6 +16,10 @@ status: draft
 - personal command success와 상위 layer 변경이 다르다는 점
 - LLM generation 결과가 personal에만 저장된다는 점
 
+다만 현재 실제 구현은 이 target state set보다 좁습니다.
+현재 제품에서 가장 먼저 검증 가능한 상태는 `summary / opportunity / ask / calendar` read slice 기준이며,
+workspace shell, document detail, personal authoring command state는 follow-up 구현이 남아 있습니다.
+
 ## Scope
 
 현재 MVP 우선 화면 기준으로 아래를 다룹니다.

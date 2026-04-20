@@ -109,12 +109,16 @@ npm run smoke:live
   - extraction, Ask, interpretation, personal artifact 방향을 묶은 LLM 요구사항 기준선 문서
 - `product/requirements-realignment-matrix.md`
   - LLM 요구사항과 workspace-first MVP 기준으로 기존 요구사항을 재배치한 표 문서
+- `product/workspace-first-implementation-backlog.md`
+  - workspace-first MVP를 실제 구현 순서로 내린 우선순위 backlog 문서
 - `architecture/frontend-view-model.md`
   - API response field가 실제 UI block에 어떻게 매핑되는지 정리한 frontend 구현 기준 문서
 - `architecture/frontend-routing-baseline.md`
   - workspace-first MVP 기준의 현재 frontend route set과 Ask query context 규칙을 정리한 문서
 - `architecture/was-runtime-layout.md`
   - apps/was의 route, service, mapper, adapter, fixture 구조를 구현 직전 수준으로 정리한 문서
+- `architecture/repo-work-breakdown.md`
+  - Jobs-Wiki와 StrataWiki 사이의 ownership과 cross-repo 작업 분해를 정리한 문서
 - `architecture/was-adapter-contract.md`
   - WAS 내부 adapter interface와 normalized record shape를 정리한 문서
 - `api/was-mvp-contract.md`

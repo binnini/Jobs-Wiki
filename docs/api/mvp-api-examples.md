@@ -18,13 +18,25 @@ status: draft
 
 ## Scope
 
-현재 MVP 우선 endpoint만 다룹니다.
+현재 문서는 두 층의 example을 함께 다룹니다.
 
+- workspace-first target MVP contract
+- 현재 구현된 recruiting vertical slice
+
+대상 endpoint:
+
+- `GET /api/workspace`
+- `GET /api/documents/{documentId}`
 - `GET /api/workspace/summary`
 - `POST /api/workspace/ask`
 - `GET /api/opportunities`
 - `GET /api/opportunities/{opportunityId}`
 - `GET /api/calendar`
+
+메모:
+
+- `workspace`, `documents` 예시는 target contract 성격이 강합니다.
+- `workspace/summary`, `ask`, `opportunities`, `calendar` 예시는 현재 구현 slice와 더 가깝습니다.
 
 ## Shared Error Shape
 
@@ -50,7 +62,116 @@ status: draft
 - `temporarily_unavailable`
 - `unknown_failure`
 
-## 1. `GET /api/workspace/summary`
+## 1. `GET /api/workspace`
+
+### Target Success Example
+
+```json
+{
+  "projection": "workspace",
+  "sync": {
+    "projection": "workspace",
+    "visibility": "applied",
+    "lastKnownVersion": "workspace_2026_04_20_001"
+  },
+  "navigation": {
+    "sections": [
+      {
+        "sectionId": "shared",
+        "label": "shared",
+        "items": [
+          {
+            "objectRef": {
+              "objectId": "report:baseline",
+              "objectKind": "report",
+              "title": "기본 리포트"
+            },
+            "kind": "report",
+            "layer": "shared",
+            "active": true
+          },
+          {
+            "objectRef": {
+              "objectId": "document:market-trend-jp-backend",
+              "objectKind": "document",
+              "title": "일본 백엔드 채용 트렌드"
+            },
+            "kind": "document",
+            "layer": "shared"
+          }
+        ]
+      },
+      {
+        "sectionId": "personal_raw",
+        "label": "personal/raw",
+        "items": [
+          {
+            "objectRef": {
+              "objectId": "document:resume-v3",
+              "objectKind": "document",
+              "title": "이력서_v3.pdf"
+            },
+            "kind": "document",
+            "layer": "personal_raw"
+          }
+        ]
+      }
+    ]
+  },
+  "activeContext": {
+    "objectRef": {
+      "objectId": "report:baseline",
+      "objectKind": "report",
+      "title": "기본 리포트"
+    },
+    "projection": "report",
+    "title": "기본 리포트"
+  }
+}
+```
+
+## 2. `GET /api/documents/{documentId}`
+
+### Target Success Example
+
+```json
+{
+  "projection": "document",
+  "sync": {
+    "projection": "document",
+    "visibility": "applied"
+  },
+  "item": {
+    "documentRef": {
+      "objectId": "document:market-trend-jp-backend",
+      "objectKind": "document",
+      "title": "일본 백엔드 채용 트렌드"
+    },
+    "layer": "shared",
+    "writable": false,
+    "surface": {
+      "title": "일본 백엔드 채용 트렌드",
+      "summary": "현재 shared interpretation 기반 요약입니다.",
+      "bodyMarkdown": "## 핵심 신호\n\n- 플랫폼/백엔드 수요 증가\n- 운영 경험과 API 설계 강조"
+    },
+    "metadata": {
+      "source": {
+        "provider": "stratawiki"
+      },
+      "updatedAt": "2026-04-20T14:00:00+09:00"
+    },
+    "relatedObjects": [
+      {
+        "objectId": "job_posting:toss_core_backend",
+        "objectKind": "opportunity",
+        "title": "코어 백엔드 엔지니어 (결제 시스템)"
+      }
+    ]
+  }
+}
+```
+
+## 3. `GET /api/workspace/summary`
 
 ### Success Example
 
@@ -204,7 +325,7 @@ status: draft
 }
 ```
 
-## 2. `POST /api/workspace/ask`
+## 4. `POST /api/workspace/ask`
 
 ### Request Example
 
@@ -212,6 +333,7 @@ status: draft
 {
   "question": "토스페이먼츠 공고 기준으로 인턴십의 API 최적화 경험을 어떻게 더 설득력 있게 연결할 수 있을까?",
   "opportunityId": "opp_toss_core_backend",
+  "documentId": "document:resume_internship",
   "save": true
 }
 ```
@@ -314,7 +436,7 @@ status: draft
 }
 ```
 
-## 3. `GET /api/opportunities`
+## 5. `GET /api/opportunities`
 
 ### Request Example
 
@@ -400,7 +522,7 @@ GET /api/opportunities?limit=2&status=open&closingWithinDays=30
 }
 ```
 
-## 4. `GET /api/opportunities/{opportunityId}`
+## 6. `GET /api/opportunities/{opportunityId}`
 
 ### Success Example
 
@@ -506,7 +628,7 @@ GET /api/opportunities?limit=2&status=open&closingWithinDays=30
 }
 ```
 
-## 5. `GET /api/calendar`
+## 7. `GET /api/calendar`
 
 ### Request Example
 

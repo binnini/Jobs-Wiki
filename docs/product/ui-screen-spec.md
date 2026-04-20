@@ -12,6 +12,10 @@ status: draft
 따라서 각 화면은 recruiting report를 보여주는 데 그치지 않고,
 사용자가 `shared`와 `personal`을 구분하며 자신의 knowledge workspace를 운영하는 흐름을 중심으로 설명합니다.
 
+이 문서는 target MVP screen set을 우선 설명합니다.
+현재 실제 구현은 이보다 좁고, `Report Projection`, `Opportunity Detail`, `Ask Workspace`, `Calendar` 중심의 recruiting vertical slice가 더 앞서 있습니다.
+`Workspace Shell`과 `Document Detail`은 이번 기준선에서 MVP로 승격되었지만, 구현은 follow-up이 남아 있습니다.
+
 이 문서는 아래를 고정합니다.
 
 - 각 화면의 역할
