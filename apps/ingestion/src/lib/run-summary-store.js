@@ -70,6 +70,8 @@ export function buildFailureRunSummary({
       transport: error?.transport ?? null,
       operation: error?.operation ?? null,
     },
+    retry: error?.retry,
+    context: error?.context,
     fetchSummary: error?.fetchSummary,
     sourceReports: error?.sourceReports,
     env: env

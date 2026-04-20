@@ -4,6 +4,31 @@ function wait(durationMs) {
   })
 }
 
+export class RetryExhaustedError extends Error {
+  constructor({
+    message,
+    attempts,
+    maxAttempts,
+    delayMs,
+    lastError,
+  }) {
+    super(message, lastError ? { cause: lastError } : undefined)
+    this.name = "RetryExhaustedError"
+    this.code = lastError?.code ?? "retry_exhausted"
+    this.retryable = false
+    this.status = lastError?.status ?? null
+    this.transport = lastError?.transport ?? null
+    this.operation = lastError?.operation ?? null
+    this.retry = {
+      attempts,
+      maxAttempts,
+      delayMs,
+    }
+    this.fetchSummary = lastError?.fetchSummary
+    this.sourceReports = lastError?.sourceReports
+  }
+}
+
 export async function runWithRetry(task, {
   maxAttempts = 1,
   delayMs = 0,
@@ -44,5 +69,13 @@ export async function runWithRetry(task, {
     }
   }
 
-  throw lastError
+  throw new RetryExhaustedError({
+    message:
+      lastError?.message ??
+      `Task failed after ${attempt} attempts.`,
+    attempts: attempt,
+    maxAttempts,
+    delayMs,
+    lastError,
+  })
 }
