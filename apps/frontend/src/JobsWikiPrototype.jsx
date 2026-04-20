@@ -2063,13 +2063,6 @@ const WorkspaceHomeView = ({
   latestCommand,
   syncError,
   isRefreshingSync,
-  isTriggeringSync,
-  isPollingCommand,
-  onRefreshSync,
-  onTriggerSync,
-  onOpenReport,
-  onOpenAsk,
-  onOpenCalendar,
 }) => {
   const projections = syncState?.projections ?? [];
   const command = latestCommand ?? syncState?.command ?? null;
@@ -2077,134 +2070,44 @@ const WorkspaceHomeView = ({
   const commandGuidance = getCommandGuidance(command);
 
   return (
-    <div className="mx-auto max-w-6xl space-y-10 animate-in fade-in duration-500">
-      <header className="mt-4 border-b border-slate-200 pb-8">
-        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="rounded-sm border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 shadow-sm">
-              Workspace Home
+    <div className="space-y-8 animate-in fade-in duration-300">
+      <Panel>
+        <Label>현재 프로필 스냅샷</Label>
+        <div className="mt-4 space-y-6">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-sm bg-slate-900 text-base font-bold text-white shadow-sm">
+              {profileSnapshot.targetRole?.charAt(0) ?? "J"}
             </div>
-            {commandMeta ? (
-              <div
-                className={`rounded-sm border px-3 py-1.5 text-xs font-bold shadow-sm ${commandMeta.className}`}
-              >
-                최근 갱신 {commandMeta.label}
+            <div>
+              <div className="text-lg font-bold text-slate-900">
+                {profileSnapshot.targetRole}
               </div>
-            ) : null}
+              <div className="mt-1 text-sm font-semibold text-slate-500">
+                {profileSnapshot.experience}
+              </div>
+            </div>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <button
-              onClick={onRefreshSync}
-              disabled={isRefreshingSync}
-              className="flex items-center rounded-sm border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
-            >
-              <RefreshCw
-                size={16}
-                className={`mr-2 ${isRefreshingSync ? "animate-spin" : ""}`}
-              />
-              sync 다시 확인
-            </button>
-            <button
-              onClick={onTriggerSync}
-              disabled={isTriggeringSync || isPollingCommand}
-              className="flex items-center rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:opacity-50"
-            >
-              <Zap size={16} className="mr-2" />
-              {isTriggeringSync
-                ? "WorkNet 갱신 요청 중..."
-                : isPollingCommand
-                  ? "WorkNet 갱신 처리 중..."
-                  : "WorkNet 수동 갱신"}
-            </button>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                관심 영역
+              </div>
+              <div className="mt-2 text-sm font-bold text-slate-900">
+                {profileSnapshot.location ?? "지역 미정"} /{" "}
+                {profileSnapshot.domain ?? "도메인 미정"}
+              </div>
+            </div>
+            <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+              <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                핵심 스킬
+              </div>
+              <div className="mt-2 text-sm font-bold text-slate-900">
+                {(profileSnapshot.skills ?? []).slice(0, 4).join(" • ") || "-"}
+              </div>
+            </div>
           </div>
         </div>
-
-        <h1 className="max-w-4xl text-4xl font-extrabold leading-tight tracking-tight text-slate-900 md:text-5xl">
-          현재 워크스페이스의 active projection과 sync 상태를 한 화면에서
-          정리합니다.
-        </h1>
-        <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-600">
-          기존 summary, ask, calendar, active detail 화면은 그대로 유지하고,
-          이 홈에서는 현재 프로필 기준과 projection visibility를 workspace-first
-          기준으로 다시 묶어 보여줍니다.
-        </p>
-      </header>
-
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,2fr),minmax(320px,1fr)]">
-        <Panel>
-          <Label>현재 프로필 스냅샷</Label>
-          <div className="mt-4 space-y-6">
-            <div className="flex flex-wrap items-center gap-4">
-              <div className="flex h-12 w-12 items-center justify-center rounded-sm bg-slate-900 text-base font-bold text-white shadow-sm">
-                {profileSnapshot.targetRole?.charAt(0) ?? "J"}
-              </div>
-              <div>
-                <div className="text-lg font-bold text-slate-900">
-                  {profileSnapshot.targetRole}
-                </div>
-                <div className="mt-1 text-sm font-semibold text-slate-500">
-                  {profileSnapshot.experience}
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
-                <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                  관심 영역
-                </div>
-                <div className="mt-2 text-sm font-bold text-slate-900">
-                  {profileSnapshot.location ?? "지역 미정"} /{" "}
-                  {profileSnapshot.domain ?? "도메인 미정"}
-                </div>
-              </div>
-              <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
-                <div className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                  핵심 스킬
-                </div>
-                <div className="mt-2 text-sm font-bold text-slate-900">
-                  {(profileSnapshot.skills ?? []).slice(0, 4).join(" • ") || "-"}
-                </div>
-              </div>
-            </div>
-          </div>
-        </Panel>
-
-        <Panel>
-          <Label>Workspace Quick Actions</Label>
-          <div className="mt-4 space-y-3">
-            <button
-              onClick={onOpenReport}
-              className="flex w-full items-center justify-between rounded-sm border border-slate-200 bg-white px-4 py-3 text-left text-sm font-bold text-slate-900 shadow-sm transition-colors hover:border-indigo-600"
-            >
-              <span className="flex items-center">
-                <FileText size={16} className="mr-3 text-indigo-600" />
-                리포트 projection 열기
-              </span>
-              <ChevronRight size={16} className="text-slate-400" />
-            </button>
-            <button
-              onClick={() => onOpenAsk(null)}
-              className="flex w-full items-center justify-between rounded-sm border border-slate-200 bg-white px-4 py-3 text-left text-sm font-bold text-slate-900 shadow-sm transition-colors hover:border-indigo-600"
-            >
-              <span className="flex items-center">
-                <Search size={16} className="mr-3 text-indigo-600" />
-                Ask workspace 열기
-              </span>
-              <ChevronRight size={16} className="text-slate-400" />
-            </button>
-            <button
-              onClick={onOpenCalendar}
-              className="flex w-full items-center justify-between rounded-sm border border-slate-200 bg-white px-4 py-3 text-left text-sm font-bold text-slate-900 shadow-sm transition-colors hover:border-indigo-600"
-            >
-              <span className="flex items-center">
-                <CalIcon size={16} className="mr-3 text-indigo-600" />
-                캘린더 projection 열기
-              </span>
-              <ChevronRight size={16} className="text-slate-400" />
-            </button>
-          </div>
-        </Panel>
-      </div>
+      </Panel>
 
       <section>
         <div className="mb-5 flex items-end justify-between border-b border-slate-200 pb-4">
@@ -5758,13 +5661,6 @@ export default function JobsWikiPrototype() {
             latestCommand={latestWorkspaceCommand}
             syncError={workspaceSyncError}
             isRefreshingSync={isRefreshingWorkspaceSync}
-            isTriggeringSync={isTriggeringWorkspaceSync}
-            isPollingCommand={Boolean(activeWorkspaceCommandId)}
-            onRefreshSync={() => loadWorkspaceSync({ preserveData: true })}
-            onTriggerSync={handleTriggerWorkspaceIngestion}
-            onOpenReport={() => navigateTo("report")}
-            onOpenAsk={openAsk}
-            onOpenCalendar={() => navigateTo("calendar")}
           />
         );
       case "report":
@@ -5827,13 +5723,6 @@ export default function JobsWikiPrototype() {
             latestCommand={latestWorkspaceCommand}
             syncError={workspaceSyncError}
             isRefreshingSync={isRefreshingWorkspaceSync}
-            isTriggeringSync={isTriggeringWorkspaceSync}
-            isPollingCommand={Boolean(activeWorkspaceCommandId)}
-            onRefreshSync={() => loadWorkspaceSync({ preserveData: true })}
-            onTriggerSync={handleTriggerWorkspaceIngestion}
-            onOpenReport={() => navigateTo("report")}
-            onOpenAsk={openAsk}
-            onOpenCalendar={() => navigateTo("calendar")}
           />
         );
     }
@@ -5867,7 +5756,7 @@ export default function JobsWikiPrototype() {
 
   return (
     <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900 selection:bg-indigo-100 selection:text-indigo-900">
-      <aside className="flex w-64 flex-shrink-0 flex-col border-r border-slate-800 bg-slate-900 text-slate-300">
+      <aside className="flex w-56 flex-shrink-0 flex-col border-r border-slate-800 bg-slate-900 text-slate-300">
         <div className="mb-4 border-b border-slate-800/50 px-6 py-8">
           <button
             onClick={() => navigateTo("workspace")}
@@ -5942,41 +5831,6 @@ export default function JobsWikiPrototype() {
             />
           ))}
 
-          <div className="space-y-2 border-t border-slate-800/70 pt-5">
-            <div className="px-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">
-              Workspace Tools
-            </div>
-            <button
-              onClick={() =>
-                openAsk(
-                  activeDocumentContext ??
-                    activeOpportunityContext,
-                )
-              }
-              className={`w-full rounded-sm border px-3 py-3 text-left text-sm font-bold transition-all ${
-                currentView === "ask"
-                  ? "border-indigo-500 bg-indigo-600 text-white shadow-sm"
-                  : "border-transparent text-slate-200 hover:border-slate-700 hover:bg-slate-800 hover:text-white"
-              }`}
-            >
-              <span className="flex items-center">
-                <Search size={18} className="mr-3 opacity-90" />
-                심층 분석 워크스페이스
-              </span>
-            </button>
-          </div>
-
-          <WorkspaceSyncPanel
-            syncState={workspaceSyncState}
-            latestCommand={latestWorkspaceCommand}
-            syncError={workspaceSyncError}
-            isLoading={isLoadingWorkspaceSync}
-            isRefreshing={isRefreshingWorkspaceSync}
-            isTriggering={isTriggeringWorkspaceSync}
-            isPollingCommand={Boolean(activeWorkspaceCommandId)}
-            onRefresh={() => loadWorkspaceSync({ preserveData: true })}
-            onTrigger={handleTriggerWorkspaceIngestion}
-          />
         </nav>
 
         <div className="border-t border-slate-800/50 bg-slate-900/50 p-5">
@@ -6009,7 +5863,7 @@ export default function JobsWikiPrototype() {
         onSubmit={handleCreatePersonalDocument}
       />
 
-      <main className="flex-1 overflow-y-auto bg-slate-100/50">
+      <main className="flex-1 min-w-0 overflow-y-auto bg-slate-100/50">
         <div className="p-8 md:p-10 lg:p-12">
           <style>{`
             .custom-scrollbar::-webkit-scrollbar { width: 6px; }
@@ -6037,6 +5891,81 @@ export default function JobsWikiPrototype() {
           {renderMainContent()}
         </div>
       </main>
+
+      <aside className="flex w-72 flex-shrink-0 flex-col border-l border-slate-200 bg-white overflow-y-auto">
+        <div className="border-b border-slate-100 px-5 py-4">
+          <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+            Actions
+          </span>
+        </div>
+        <div className="flex-1 overflow-y-auto">
+          <div className="border-b border-slate-100 px-4 py-4">
+            <button
+              onClick={() => openAsk(activeDocumentContext ?? activeOpportunityContext)}
+              className={`w-full rounded-sm border px-3 py-2.5 text-left text-sm font-bold transition-all ${
+                currentView === "ask"
+                  ? "border-indigo-500 bg-indigo-600 text-white"
+                  : "border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-900"
+              }`}
+            >
+              <span className="flex items-center">
+                <Search size={15} className="mr-2 opacity-80" />
+                심층 분석 워크스페이스
+              </span>
+            </button>
+          </div>
+          <div className="space-y-3 px-4 py-4">
+            <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
+              Sync
+            </div>
+            {workspaceSyncState.command?.commandId ? (
+              <div className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2">
+                <div className="flex items-center justify-between gap-2">
+                  {(() => {
+                    const meta = getCommandStatusMeta(workspaceSyncState.command.status);
+                    return meta ? (
+                      <span className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-bold ${meta.className}`}>
+                        {meta.label}
+                      </span>
+                    ) : null;
+                  })()}
+                </div>
+              </div>
+            ) : null}
+            {(workspaceSyncState.projections ?? []).map((p) => {
+              const meta = getSyncMeta(p);
+              return (
+                <div key={p.projection} className="flex items-center justify-between rounded-sm border border-slate-100 px-3 py-2">
+                  <span className="text-xs font-bold text-slate-700">{formatProjectionLabel(p.projection)}</span>
+                  {meta?.badgeLabel ? (
+                    <span className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-bold ${meta.badgeClassName}`}>
+                      {meta.badgeLabel}
+                    </span>
+                  ) : null}
+                </div>
+              );
+            })}
+            <div className="flex gap-2 pt-1">
+              <button
+                onClick={() => loadWorkspaceSync({ preserveData: true })}
+                disabled={isRefreshingWorkspaceSync}
+                className="flex flex-1 items-center justify-center rounded-sm border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
+              >
+                <RefreshCw size={13} className={`mr-1.5 ${isRefreshingWorkspaceSync ? "animate-spin" : ""}`} />
+                새로고침
+              </button>
+              <button
+                onClick={handleTriggerWorkspaceIngestion}
+                disabled={isTriggeringWorkspaceSync || Boolean(activeWorkspaceCommandId)}
+                className="flex flex-1 items-center justify-center rounded-sm border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:opacity-50"
+              >
+                <Zap size={13} className="mr-1.5" />
+                {isTriggeringWorkspaceSync ? "요청 중..." : Boolean(activeWorkspaceCommandId) ? "처리 중..." : "수동 갱신"}
+              </button>
+            </div>
+          </div>
+        </div>
+      </aside>
     </div>
   );
 }
