@@ -1580,8 +1580,8 @@ const SyncNotice = ({
               : getSurfaceRetryLabel(surface, sync, refreshError)}
           </button>
           <div className="text-xs font-medium leading-relaxed text-slate-500">
-            좌측 <span className="font-bold text-slate-700">Workspace Sync</span>{" "}
-            패널에서도 전체 projection 상태와 WorkNet 수동 갱신을 함께 확인할 수 있습니다.
+            우측 <span className="font-bold text-slate-700">Sync</span>{" "}
+            패널에서 전체 projection 상태와 WorkNet 수동 갱신을 확인할 수 있습니다.
           </div>
         </div>
       ) : null}
@@ -5679,43 +5679,86 @@ export default function JobsWikiPrototype() {
       </main>
 
       <aside className="flex w-72 flex-shrink-0 flex-col border-l border-slate-200 bg-white overflow-y-auto">
-        <div className="border-b border-slate-100 px-5 py-4">
-          <span className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
-            Actions
-          </span>
-        </div>
-        <div className="flex-1 overflow-y-auto">
-          <div className="border-b border-slate-100 px-4 py-4">
-            <button
-              onClick={() => openAsk(activeDocumentContext ?? activeOpportunityContext)}
-              className={`w-full rounded-sm border px-3 py-2.5 text-left text-sm font-bold transition-all ${
-                currentView === "ask"
-                  ? "border-indigo-500 bg-indigo-600 text-white"
-                  : "border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-900"
-              }`}
-            >
-              <span className="flex items-center">
-                <Search size={15} className="mr-2 opacity-80" />
-                심층 분석 워크스페이스
+        {currentView === "document" && activeDocumentContext ? (
+          <div className="border-b border-slate-100 px-5 py-4">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">문서</div>
+            <div className="text-sm font-bold text-slate-900 truncate">{activeDocumentContext.title ?? currentRoute.documentId}</div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {activeDocumentContext.layer ? (
+                <span className="rounded border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700">
+                  {formatDocumentLayerLabel(activeDocumentContext.layer)}
+                </span>
+              ) : null}
+              <span className={`rounded border px-1.5 py-0.5 text-[10px] font-bold ${isSharedLayer(activeDocumentContext.layer) ? "border-slate-200 bg-slate-100 text-slate-500" : "border-emerald-200 bg-emerald-50 text-emerald-700"}`}>
+                {isSharedLayer(activeDocumentContext.layer) ? "read-only" : "writable"}
               </span>
-            </button>
+            </div>
           </div>
+        ) : currentView === "detail" && activeOpportunityContext ? (
+          <div className="border-b border-slate-100 px-5 py-4">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">공고</div>
+            <div className="text-sm font-bold text-slate-900 truncate">{activeOpportunityContext.title}</div>
+            {activeOpportunityContext.company ? (
+              <div className="mt-0.5 text-xs font-medium text-slate-600">{activeOpportunityContext.company}</div>
+            ) : null}
+            {activeOpportunityContext.deadline ? (
+              <div className="mt-1 text-[11px] font-medium text-slate-500">마감: {activeOpportunityContext.deadline}</div>
+            ) : null}
+            {activeOpportunityContext.urgency ? (
+              <div className="mt-1">
+                <span className="rounded border border-amber-200 bg-amber-50 px-1.5 py-0.5 text-[10px] font-bold text-amber-700">
+                  {activeOpportunityContext.urgency}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        ) : currentView === "ask" && (activeDocumentContext ?? activeOpportunityContext) ? (
+          <div className="border-b border-slate-100 px-5 py-4">
+            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">분석 컨텍스트</div>
+            <div className="text-xs font-medium text-slate-700 truncate">
+              {activeDocumentContext?.title ?? activeOpportunityContext?.title ?? "워크스페이스 전체"}
+            </div>
+            {activeDocumentContext?.layer ? (
+              <div className="mt-1.5">
+                <span className="rounded border border-indigo-100 bg-indigo-50 px-1.5 py-0.5 text-[10px] font-bold text-indigo-700">
+                  {formatDocumentLayerLabel(activeDocumentContext.layer)}
+                </span>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="border-b border-slate-100 px-4 py-4">
+          <button
+            onClick={() => openAsk(activeDocumentContext ?? activeOpportunityContext)}
+            className={`w-full rounded-sm border px-3 py-2.5 text-left text-sm font-bold transition-all ${
+              currentView === "ask"
+                ? "border-indigo-500 bg-indigo-600 text-white"
+                : "border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-900"
+            }`}
+          >
+            <span className="flex items-center">
+              <Search size={15} className="mr-2 opacity-80" />
+              심층 분석 워크스페이스
+            </span>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
           <div className="space-y-3 px-4 py-4">
             <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">
               Sync
             </div>
             {workspaceSyncState.command?.commandId ? (
               <div className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2">
-                <div className="flex items-center justify-between gap-2">
-                  {(() => {
-                    const meta = getCommandStatusMeta(workspaceSyncState.command.status);
-                    return meta ? (
-                      <span className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-bold ${meta.className}`}>
-                        {meta.label}
-                      </span>
-                    ) : null;
-                  })()}
-                </div>
+                {(() => {
+                  const meta = getCommandStatusMeta(workspaceSyncState.command.status);
+                  return meta ? (
+                    <span className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-bold ${meta.className}`}>
+                      {meta.label}
+                    </span>
+                  ) : null;
+                })()}
               </div>
             ) : null}
             {(workspaceSyncState.projections ?? []).map((p) => {
