@@ -26,8 +26,10 @@
   - 수동 실행 옵션 파싱
 - `src/jobs/manual-run.js`
   - CLI entrypoint
+- `src/jobs/fetch-worknet-source-payloads.js`
+  - WorkNet source ref/payload fetch, pagination window, fetch success/failure summary baseline
 - `src/jobs/run-worknet-ingestion.js`
-  - WorkNet fetch -> proposal batch -> StrataWiki validate/ingest workflow
+  - fetch stage를 재사용해 proposal batch -> StrataWiki validate/ingest workflow 실행
 - `src/clients/index.js`
   - WorkNet provider + StrataWiki dual-mode client bootstrap
 

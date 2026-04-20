@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto"
 import { createStratawikiRecruitingProposalBatch } from "../mappers/stratawiki-domain-proposal-batch.js"
+import { fetchWorknetSourcePayloads } from "./fetch-worknet-source-payloads.js"
 
 function hashValue(value) {
   return createHash("sha256").update(String(value)).digest("hex").slice(0, 12)
@@ -54,14 +55,6 @@ export async function runWorknetIngestion({
     )
   }
 
-  if (!env.worknetKeys.employment) {
-    throw new Error(
-      "Missing WorkNet employment auth key. Set EMPLOYMENT_INFO or WORKNET_EMPLOYMENT_AUTH_KEY before running WorkNet ingestion.",
-    )
-  }
-
-  await clients.stratawiki.assertWriteRuntimeConfig()
-
   logger.info("ingestion.worknet.started", {
     runId,
     sourceId,
@@ -71,26 +64,24 @@ export async function runWorknetIngestion({
     attempt,
   })
 
-  const sourcePage = await clients.worknetRecruiting.listRecruitingSources({
-    authKey: env.worknetKeys.employment,
-    page: fetchPage,
-    size: fetchSize,
-    sortBy: "posted_at",
-    sortDirection: "DESC",
+  const fetchResult = await fetchWorknetSourcePayloads({
+    env,
+    logger,
+    sourceId,
+    runId,
+    clients,
+    fetchPage,
+    fetchSize,
+    attempt,
   })
+  await clients.stratawiki.assertWriteRuntimeConfig()
 
-  const sourceRefs = sourcePage.items ?? []
-
+  const sourceRefs = fetchResult.sourceRefs
   const batchReports = []
   let totalFactProposals = 0
   let totalRelationProposals = 0
 
-  for (const sourceRef of sourceRefs) {
-    const payload = await clients.worknetRecruiting.getRecruitingSource({
-      authKey: env.worknetKeys.employment,
-      sourceId: sourceRef.sourceId,
-    })
-
+  for (const { sourceRef, payload } of fetchResult.sourcePayloads) {
     const batchId = createBatchId({
       runId,
       sourceId: sourceRef.sourceId,
@@ -167,10 +158,12 @@ export async function runWorknetIngestion({
       {
         name: "fetch",
         status: "completed",
-        fetched: sourceRefs.length,
-        page: sourcePage.page,
-        size: sourcePage.size,
-        total: sourcePage.total,
+        listed: fetchResult.summary.listedSources,
+        fetched: fetchResult.summary.fetchedSources,
+        failed: fetchResult.summary.failedSources,
+        page: fetchResult.fetchWindow.page,
+        size: fetchResult.fetchWindow.size,
+        total: fetchResult.summary.totalAvailableSources,
       },
       {
         name: "map_proposals",
@@ -188,12 +181,15 @@ export async function runWorknetIngestion({
       },
     ],
     summary: {
-      fetchedSources: sourceRefs.length,
+      listedSources: fetchResult.summary.listedSources,
+      fetchedSources: fetchResult.summary.fetchedSources,
+      failedSources: fetchResult.summary.failedSources,
       validatedBatches: batchReports.length,
       ingestedBatches: dryRun ? 0 : batchReports.length,
       factProposalCount: totalFactProposals,
       relationProposalCount: totalRelationProposals,
     },
+    sources: fetchResult.sourceReports,
     batches: batchReports,
     env: {
       nodeEnv: env.nodeEnv,
