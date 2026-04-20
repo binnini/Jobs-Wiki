@@ -2802,7 +2802,7 @@ const OpportunityDetailView = ({
   );
 
   return (
-    <div className="mx-auto max-w-5xl space-y-12 animate-in slide-in-from-right-4 duration-500">
+    <div className="mx-auto max-w-5xl space-y-8 animate-in slide-in-from-right-4 duration-500">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
         <button
           onClick={onBack}
@@ -2856,10 +2856,10 @@ const OpportunityDetailView = ({
               {formatStatusLabel(detailResponse.item.metadata?.status)}
             </span>
           </div>
-          <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-slate-900">
+          <h1 className="text-2xl font-bold leading-tight tracking-tight text-slate-900">
             {detail.title}
           </h1>
-          <div className="mt-6 flex flex-wrap items-center gap-x-8 gap-y-2 text-base font-bold text-slate-600">
+          <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm font-medium text-slate-600">
             <MetaTag icon={MapPin}>
               {detail.location ?? "위치 정보 없음"}
             </MetaTag>
@@ -2891,8 +2891,8 @@ const OpportunityDetailView = ({
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-16 border-t border-slate-200 pt-12 md:grid-cols-12">
-        <div className="space-y-12 md:col-span-8">
+      <div className="grid grid-cols-1 gap-8 border-t border-slate-200 pt-8 md:grid-cols-12">
+        <div className="space-y-8 md:col-span-8">
           <section className="rounded-sm border border-slate-200 bg-slate-50 p-8 shadow-sm">
             <Label className="mb-4 text-slate-600">기업 및 도메인 컨텍스트</Label>
             <div className="space-y-5">
@@ -2969,9 +2969,9 @@ const OpportunityDetailView = ({
             </h3>
 
             <div className="mb-8">
-              <div className="flex items-baseline text-5xl font-extrabold tracking-tight text-slate-900">
+              <div className="flex items-baseline text-3xl font-bold tracking-tight text-slate-900">
                 {detail.matchScore ?? "-"}
-                <span className="ml-1 text-lg font-bold text-slate-500">점</span>
+                <span className="ml-1 text-sm font-medium text-slate-500">점</span>
               </div>
               <div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-slate-100">
                 <div
@@ -3421,7 +3421,7 @@ const DocumentDetailView = ({
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-12 animate-in slide-in-from-right-4 duration-500">
+    <div className="mx-auto max-w-5xl space-y-8 animate-in slide-in-from-right-4 duration-500">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
         <button
           onClick={onBack}
@@ -3479,29 +3479,11 @@ const DocumentDetailView = ({
       <header className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div>
-            <div className="mb-4 flex flex-wrap items-center gap-3">
-              <span
-                className={`rounded-sm border px-3 py-1 text-xs font-bold shadow-sm ${getDocumentLayerBadgeClassName(detail.layer)}`}
-              >
-                {formatDocumentLayerLabel(detail.layer)}
-              </span>
-              <span
-                className={`rounded-sm border px-3 py-1 text-xs font-bold shadow-sm ${getWritableBadgeClassName({
-                  layer: detail.layer,
-                  writable: detail.writable,
-                })}`}
-              >
-                {formatWritableAffordanceLabel({
-                  layer: detail.layer,
-                  writable: detail.writable,
-                })}
-              </span>
-            </div>
-            <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-slate-900">
+            <h1 className="text-2xl font-bold leading-tight tracking-tight text-slate-900">
               {detail.title}
             </h1>
             {detail.summary ? (
-              <p className="mt-5 max-w-3xl text-base font-medium leading-relaxed text-slate-600">
+              <p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">
                 {detail.summary}
               </p>
             ) : null}
@@ -4813,7 +4795,7 @@ const CalendarView = ({ onOpenJob, onOpenReport, onOpenAsk }) => {
                     <div className="mb-1 text-xs font-bold uppercase tracking-widest text-slate-400">
                       마감일
                     </div>
-                    <div className="text-3xl font-extrabold tracking-tighter text-slate-900">
+                    <div className="text-xl font-bold tracking-tight text-slate-900">
                       {formatMonthDay(item.startsAt)}
                     </div>
                     <div
