@@ -80,6 +80,15 @@ workspace-first 제품 방향에 맞춰 다시 고정합니다.
 - `GET /api/workspace/sync`
 - `POST /api/admin/ingestions/worknet/{sourceId}`
 
+현재 sync/status 기준선:
+
+- `GET /api/workspace/sync`
+  - read-side projection visibility를 조회합니다.
+  - `commandId` query가 있으면 command status, retryable error shape, refresh scope를 함께 반환할 수 있습니다.
+- `POST /api/admin/ingestions/worknet/{sourceId}`
+  - ingestion trigger를 직접 수행하지 않고 external MCP facade로 위임합니다.
+  - accepted response는 `commandId`와 projection visibility hint를 포함할 수 있습니다.
+
 현재 구현된 endpoint slice:
 
 - `GET /api/workspace/summary`

@@ -1,3 +1,50 @@
+function buildMockCommandStatus(commandId) {
+  if (commandId.includes("partial")) {
+    return {
+      commandId,
+      status: "succeeded",
+      outcome: "partially_applied",
+      refreshScopes: ["workspace_summary", "calendar"],
+      projectionStates: [
+        {
+          projection: "workspace_summary",
+          visibility: "applied",
+        },
+        {
+          projection: "calendar",
+          visibility: "pending",
+        },
+      ],
+    }
+  }
+
+  if (commandId.includes("failed")) {
+    return {
+      commandId,
+      status: "failed",
+      outcome: "failed",
+      refreshScopes: ["workspace_summary"],
+      error: {
+        code: "temporarily_unavailable",
+        message: "The downstream ingestion queue is temporarily unavailable.",
+        retryable: true,
+      },
+    }
+  }
+
+  return {
+    commandId,
+    status: "accepted",
+    refreshScopes: ["workspace_summary"],
+    projectionStates: [
+      {
+        projection: "workspace_summary",
+        visibility: "pending",
+      },
+    ],
+  }
+}
+
 export function createMockCommandFacadeAdapter() {
   return {
     async submitCommand({ command } = {}) {
@@ -28,16 +75,7 @@ export function createMockCommandFacadeAdapter() {
     },
 
     async getCommandStatus({ commandId }) {
-      return {
-        commandId,
-        status: "accepted",
-        projectionStates: [
-          {
-            projection: "workspace_summary",
-            visibility: "pending",
-          },
-        ],
-      }
+      return buildMockCommandStatus(commandId)
     },
   }
 }

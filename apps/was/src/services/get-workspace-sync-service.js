@@ -37,19 +37,44 @@ function dedupeProjectionStates(states) {
   return Array.from(projectionStateMap.values())
 }
 
+function dedupeStringValues(values) {
+  const dedupedValues = []
+  const seen = new Set()
+
+  for (const value of values ?? []) {
+    if (typeof value !== "string" || seen.has(value)) {
+      continue
+    }
+
+    seen.add(value)
+    dedupedValues.push(value)
+  }
+
+  return dedupedValues
+}
+
+function dedupeOptionalStringValues(values) {
+  const dedupedValues = dedupeStringValues(values)
+  return dedupedValues.length > 0 ? dedupedValues : undefined
+}
+
 function translateCommandStatusToProjectionStates(commandStatus) {
   if (commandStatus?.projectionStates?.length) {
     return dedupeProjectionStates(commandStatus.projectionStates)
   }
 
+  const projections = dedupeStringValues(commandStatus?.refreshScopes)
+  const fallbackProjections = projections.length > 0 ? projections : DEFAULT_SYNC_PROJECTIONS
   const visibility =
     commandStatus?.status === "succeeded"
       ? "unknown"
-      : commandStatus?.status === "failed" || commandStatus?.status === "cancelled"
+      : commandStatus?.status === "failed" ||
+          commandStatus?.status === "cancelled" ||
+          commandStatus?.outcome === "failed"
         ? "stale"
         : "pending"
 
-  return DEFAULT_SYNC_PROJECTIONS.map((projection) => ({
+  return fallbackProjections.map((projection) => ({
     projection,
     visibility,
   }))
@@ -70,6 +95,13 @@ export async function getWorkspaceSyncService({
       command: compactObject({
         commandId: command.commandId,
         status: command.status,
+        outcome: command.outcome,
+        acceptedAt: command.acceptedAt,
+        finishedAt: command.finishedAt,
+        affectedObjectRefs: dedupeOptionalStringValues(command.affectedObjectRefs),
+        affectedRelationRefs: dedupeOptionalStringValues(command.affectedRelationRefs),
+        refreshScopes: dedupeOptionalStringValues(command.refreshScopes),
+        error: command.error,
       }),
       projections: translateCommandStatusToProjectionStates(command),
     }

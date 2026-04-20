@@ -355,8 +355,40 @@ type CalendarResponse = {
 ```ts
 type WorkspaceSyncResponse = {
   projections: ProjectionSyncState[];
+  command?: {
+    commandId: string;
+    status:
+      | "accepted"
+      | "validating"
+      | "queued"
+      | "running"
+      | "succeeded"
+      | "failed"
+      | "cancelled";
+    outcome?:
+      | "accepted_only"
+      | "partially_applied"
+      | "fully_applied"
+      | "failed";
+    acceptedAt?: string;
+    finishedAt?: string;
+    affectedObjectRefs?: string[];
+    affectedRelationRefs?: string[];
+    refreshScopes?: string[];
+    error?: {
+      code: string;
+      message: string;
+      retryable?: boolean;
+    };
+  };
 };
 ```
+
+메모:
+
+- `commandId` query가 있으면 WAS는 command status와 projection visibility를 함께 반환할 수 있습니다.
+- `projectionStates`가 있으면 그 상태를 우선 사용하고, 없으면 `refreshScopes`를 fallback scope로 사용합니다.
+- command failure는 top-level HTTP error로만 승격하지 않고, poll 대상 command 자체의 normalized error shape로 반환할 수 있습니다.
 
 ## StrataWiki Mapping Direction
 

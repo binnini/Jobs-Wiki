@@ -390,11 +390,66 @@ test("GET /api/workspace/sync returns command visibility when commandId is provi
     assert.deepEqual(response.body.command, {
       commandId: "mock-command-worknet.recruiting",
       status: "accepted",
+      refreshScopes: ["workspace_summary"],
     })
     assert.deepEqual(response.body.projections, [
       {
         projection: "workspace_summary",
         visibility: "pending",
+      },
+    ])
+  })
+})
+
+test("GET /api/workspace/sync exposes projection-local partial visibility from command status", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      url: "/api/workspace/sync?commandId=mock-command-partial-worknet.recruiting",
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(response.body.command, {
+      commandId: "mock-command-partial-worknet.recruiting",
+      status: "succeeded",
+      outcome: "partially_applied",
+      refreshScopes: ["workspace_summary", "calendar"],
+    })
+    assert.deepEqual(response.body.projections, [
+      {
+        projection: "workspace_summary",
+        visibility: "applied",
+      },
+      {
+        projection: "calendar",
+        visibility: "pending",
+      },
+    ])
+  })
+})
+
+test("GET /api/workspace/sync returns retryable command failures in a normalized shape", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      url: "/api/workspace/sync?commandId=mock-command-failed-worknet.recruiting",
+    })
+
+    assert.equal(response.status, 200)
+    assert.deepEqual(response.body.command, {
+      commandId: "mock-command-failed-worknet.recruiting",
+      status: "failed",
+      outcome: "failed",
+      refreshScopes: ["workspace_summary"],
+      error: {
+        code: "temporarily_unavailable",
+        message: "The downstream ingestion queue is temporarily unavailable.",
+        retryable: true,
+      },
+    })
+    assert.deepEqual(response.body.projections, [
+      {
+        projection: "workspace_summary",
+        visibility: "stale",
+        refreshRecommended: true,
       },
     ])
   })

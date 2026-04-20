@@ -16,6 +16,13 @@ export function mapWorkspaceSync(record) {
       ? compactObject({
           commandId: record.command.commandId,
           status: record.command.status,
+          outcome: record.command.outcome,
+          acceptedAt: record.command.acceptedAt,
+          finishedAt: record.command.finishedAt,
+          affectedObjectRefs: record.command.affectedObjectRefs,
+          affectedRelationRefs: record.command.affectedRelationRefs,
+          refreshScopes: record.command.refreshScopes,
+          error: record.command.error,
         })
       : undefined,
   })
