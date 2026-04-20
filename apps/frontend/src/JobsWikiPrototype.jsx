@@ -166,6 +166,7 @@ const WORKSPACE_KIND_LABELS = {
   calendar: "캘린더",
   opportunity: "공고",
   document: "문서",
+  ask: "분석",
 };
 
 const DEFAULT_INGESTION_SOURCE_ID = "worknet.recruiting";
@@ -475,6 +476,8 @@ function getWorkspaceItemIcon(kind) {
       return Briefcase;
     case "document":
       return FileCode;
+    case "ask":
+      return Search;
     default:
       return Bookmark;
   }
@@ -482,6 +485,65 @@ function getWorkspaceItemIcon(kind) {
 
 function getWorkspaceItemKindLabel(kind) {
   return WORKSPACE_KIND_LABELS[kind] ?? "항목";
+}
+
+function buildWorkspaceActiveContext({
+  currentView,
+  currentPath,
+  activeOpportunityContext,
+  workspaceNavigation,
+}) {
+  const activeNavigationItem = workspaceNavigation.sections
+    .flatMap((section) => section.items ?? [])
+    .find((item) => item.path === currentPath)
+
+  if (currentView === "ask") {
+    return {
+      kind: "ask",
+      projectionLabel: "심층 분석",
+      title: activeOpportunityContext?.title ?? "워크스페이스 전체 분석",
+      description: activeOpportunityContext?.company
+        ? `${activeOpportunityContext.company} 공고를 기준으로 Ask 컨텍스트를 유지합니다.`
+        : "선택한 공고 없이 현재 워크스페이스 전체를 기준으로 분석합니다.",
+      layer: activeOpportunityContext ? "shared" : null,
+    };
+  }
+
+  if (currentView === "detail") {
+    return {
+      kind: "opportunity",
+      projectionLabel: "공고 상세",
+      title:
+        activeOpportunityContext?.title ??
+        activeNavigationItem?.title ??
+        "선택한 공고",
+      description: activeOpportunityContext?.company
+        ? `${activeOpportunityContext.company} 공고 상세를 읽는 중입니다.`
+        : "선택한 공고의 상세 projection을 보고 있습니다.",
+      layer: activeNavigationItem?.layer ?? "shared",
+    };
+  }
+
+  if (activeNavigationItem) {
+    return {
+      kind: activeNavigationItem.kind,
+      projectionLabel: getWorkspaceItemKindLabel(activeNavigationItem.kind),
+      title: activeNavigationItem.title,
+      description:
+        activeNavigationItem.kind === "calendar"
+          ? "시간축 기준으로 현재 지원 일정을 탐색합니다."
+          : "워크스페이스 메인 shell에서 현재 projection을 보고 있습니다.",
+      layer: activeNavigationItem.layer,
+    };
+  }
+
+  return {
+    kind: "report",
+    projectionLabel: "리포트",
+    title: "기본 리포트",
+    description: "워크스페이스 메인 shell에서 기본 리포트를 보고 있습니다.",
+    layer: "shared",
+  };
 }
 
 function normalizeOpportunityContext(job) {
@@ -1229,6 +1291,64 @@ const WorkspaceNavigationSection = ({
           {layerMeta.emptyLabel}
         </div>
       )}
+    </div>
+  );
+};
+
+const WorkspaceActiveContextCard = ({
+  context,
+  onOpenWorkspace,
+  onOpenAsk,
+}) => {
+  const Icon = getWorkspaceItemIcon(context.kind);
+
+  return (
+    <div className="mb-8 rounded-sm border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="rounded-sm bg-slate-900 p-3 text-white shadow-sm">
+            <Icon size={20} strokeWidth={1.8} />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+              Current Active Context
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-sm border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-600">
+                {context.projectionLabel}
+              </span>
+              {context.layer ? (
+                <span className="rounded-sm border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-indigo-700">
+                  {context.layer}
+                </span>
+              ) : null}
+            </div>
+            <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+              {context.title}
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
+              {context.description}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={onOpenWorkspace}
+            className="rounded-sm border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+          >
+            workspace 홈
+          </button>
+          <button
+            type="button"
+            onClick={onOpenAsk}
+            className="rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100"
+          >
+            Ask로 열기
+          </button>
+        </div>
+      </div>
     </div>
   );
 };
@@ -3191,6 +3311,12 @@ export default function JobsWikiPrototype() {
   const currentView = currentRoute.view;
   const currentPath = buildAppPath(currentRoute.view, currentRoute.opportunityId);
   const displayProfileSnapshot = normalizeProfileSnapshot(shellProfileSnapshot);
+  const activeShellContext = buildWorkspaceActiveContext({
+    currentView,
+    currentPath,
+    activeOpportunityContext,
+    workspaceNavigation,
+  });
 
   const loadWorkspaceNavigation = async () => {
     const requestId = workspaceRequestIdRef.current + 1;
@@ -3666,6 +3792,11 @@ export default function JobsWikiPrototype() {
               border-radius: 10px;
             }
           `}</style>
+          <WorkspaceActiveContextCard
+            context={activeShellContext}
+            onOpenWorkspace={() => navigateTo("workspace")}
+            onOpenAsk={() => openAsk(activeOpportunityContext)}
+          />
           {renderMainContent()}
         </div>
       </main>
