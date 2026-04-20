@@ -26,15 +26,24 @@ export function validateAskWorkspaceRequest(value) {
     )
   }
 
+  if (value.documentId !== undefined && typeof value.documentId !== "string") {
+    throw createFieldValidationError(
+      "documentId must be a string when provided",
+      "documentId",
+    )
+  }
+
   if (value.save !== undefined && typeof value.save !== "boolean") {
     throw createFieldValidationError("save must be a boolean when provided", "save")
   }
 
   const opportunityId = value.opportunityId?.trim() || undefined
+  const documentId = value.documentId?.trim() || undefined
 
   return {
     question,
     opportunityId,
+    documentId,
     save: value.save,
   }
 }

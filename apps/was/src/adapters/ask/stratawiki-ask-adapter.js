@@ -145,6 +145,33 @@ function buildOpportunityAnswer({ question, detail, relatedOpportunities, now })
   }
 }
 
+function buildDocumentAnswer({ question, detail, relatedOpportunities, now }) {
+  const sections = [
+    `### Document focus`,
+    `Question: ${question}`,
+    [
+      `${detail.title} is currently the grounding document.`,
+      detail.layer === "shared"
+        ? "This document stays read-only."
+        : "This document is part of the personal workspace.",
+    ].join(" "),
+    `### What this document already says`,
+    detail.summary ??
+      trimText(detail.bodyMarkdown, 240) ??
+      "A document summary is visible in the current projection.",
+    `### Next grounded step`,
+    relatedOpportunities.length > 0
+      ? `Use the related opportunities below to connect this document to current recruiting context.`
+      : "No related opportunities are attached yet, so the answer stays document-grounded.",
+  ]
+
+  return {
+    answerId: createAnswerId(now),
+    markdown: sections.join("\n\n"),
+    generatedAt: now.toISOString(),
+  }
+}
+
 function buildGenericAnswer({ question, summary, opportunities, evidence, now }) {
   const strongestSignals =
     opportunities.length > 0
@@ -208,6 +235,42 @@ async function collectGenericEvidence({ readAuthority, opportunities }) {
   }
 }
 
+async function collectDocumentContext({
+  readAuthority,
+  userContext,
+  documentId,
+}) {
+  const [detail, relatedList] = await Promise.all([
+    readAuthority.getDocumentDetail({
+      userContext,
+      documentId,
+    }),
+    readAuthority.listOpportunities({
+      userContext,
+      query: {
+        limit: 6,
+      },
+    }),
+  ])
+  const relatedOpportunityObjectIds = new Set(
+    (detail.relatedObjects ?? [])
+      .filter((item) => item.objectKind === "opportunity")
+      .map((item) => item.objectId),
+  )
+  const matchedOpportunities = (relatedList.items ?? [])
+    .filter((item) => relatedOpportunityObjectIds.has(item.objectId))
+    .slice(0, 3)
+
+  return {
+    detail,
+    relatedList,
+    relatedOpportunities:
+      matchedOpportunities.length > 0
+        ? matchedOpportunities
+        : (relatedList.items ?? []).slice(0, 3),
+  }
+}
+
 function deriveAskSync(primarySync, fallbackSync) {
   return primarySync ?? fallbackSync
 }
@@ -255,7 +318,19 @@ async function ensureProfileContext({
   }
 }
 
-function buildPersonalAwareQuestion(question, detail) {
+function buildPersonalAwareQuestion(question, { detail, documentDetail }) {
+  if (documentDetail) {
+    const contextLines = [
+      `Document title: ${documentDetail.title}`,
+      `Layer: ${documentDetail.layer}`,
+      documentDetail.summary
+        ? `Summary: ${trimText(documentDetail.summary, 200)}`
+        : undefined,
+    ].filter(Boolean)
+
+    return `${question}\n\nDocument context:\n${contextLines.join("\n")}`
+  }
+
   if (!detail) {
     return question
   }
@@ -327,6 +402,8 @@ function buildPersonalAwareResult({
   artifacts,
   sync,
   relatedOpportunities,
+  relatedDocuments,
+  activeContext,
   profileVersion,
   generatedAt,
 }) {
@@ -348,7 +425,8 @@ function buildPersonalAwareResult({
     ),
   ].filter(Boolean)
 
-  const relatedDocuments = [
+  const combinedRelatedDocuments = [
+    ...(relatedDocuments ?? []),
     ...artifacts.personalRecords.map((record) => buildRelatedDocument("personal", record)),
     ...artifacts.interpretationRecords.map((record) =>
       buildRelatedDocument("interpretation", record),
@@ -358,6 +436,7 @@ function buildPersonalAwareResult({
 
   return {
     sync,
+    activeContext,
     answer: {
       answerId: createAnswerId(generatedAt),
       markdown: answer.answer_markdown,
@@ -365,7 +444,7 @@ function buildPersonalAwareResult({
     },
     evidence,
     relatedOpportunities,
-    relatedDocuments,
+    relatedDocuments: combinedRelatedDocuments,
   }
 }
 
@@ -384,10 +463,18 @@ export function createStratawikiAskAdapter({
     profileContextCatalog ?? loadProfileContextCatalog(env.profileContextCatalogPath)
 
   return {
-    async askWorkspace({ userContext, question, opportunityId }) {
+    async askWorkspace({ userContext, question, opportunityId, documentId }) {
       const generatedAt = now()
 
-      const opportunityContext = opportunityId
+      const documentContext = documentId
+        ? await collectDocumentContext({
+            readAuthority: adapter,
+            userContext,
+            documentId,
+          })
+        : null
+
+      const opportunityContext = !documentContext && opportunityId
         ? await Promise.all([
             adapter.getOpportunityDetail({
               userContext,
@@ -408,7 +495,7 @@ export function createStratawikiAskAdapter({
           }))
         : null
 
-      const genericContext = !opportunityContext
+      const genericContext = !opportunityContext && !documentContext
         ? await Promise.all([
             adapter.getWorkspaceSummary({
               userContext,
@@ -450,7 +537,10 @@ export function createStratawikiAskAdapter({
             userId: resolvedProfile.userId,
             question: buildPersonalAwareQuestion(
               question,
-              opportunityContext?.detail,
+              {
+                detail: opportunityContext?.detail,
+                documentDetail: documentContext?.detail,
+              },
             ),
             profileVersion: resolvedProfile.profileVersion,
             factSnapshot: currentFactSnapshot,
@@ -471,13 +561,44 @@ export function createStratawikiAskAdapter({
             answer: personalAnswer,
             artifacts,
             sync: deriveAskSync(
-              opportunityContext?.detail?.sync ?? genericContext?.summary?.sync,
-              opportunityContext?.relatedList?.sync ?? genericContext?.relatedList?.sync,
+              documentContext?.detail?.sync ??
+                opportunityContext?.detail?.sync ??
+                genericContext?.summary?.sync,
+              documentContext?.relatedList?.sync ??
+                opportunityContext?.relatedList?.sync ??
+                genericContext?.relatedList?.sync,
             ),
             relatedOpportunities:
+              documentContext?.relatedOpportunities ??
               opportunityContext?.relatedOpportunities ??
               genericContext?.relatedOpportunities ??
               [],
+            relatedDocuments: documentContext
+              ? [
+                  buildRelatedDocument("document", {
+                    id: documentContext.detail.documentId,
+                    title: documentContext.detail.title,
+                    summary: documentContext.detail.summary,
+                  }),
+                ].filter(Boolean)
+              : [],
+            activeContext: documentContext
+              ? {
+                  contextType: "document",
+                  title: documentContext.detail.title,
+                  documentId: documentContext.detail.documentId,
+                  layer: documentContext.detail.layer,
+                }
+              : opportunityContext
+                ? {
+                    contextType: "opportunity",
+                    title: opportunityContext.detail.title,
+                    opportunityId,
+                  }
+                : {
+                    contextType: "workspace",
+                    title: "워크스페이스 전체 분석",
+                  },
             profileVersion: resolvedProfile.profileVersion,
             generatedAt,
           })
@@ -492,12 +613,64 @@ export function createStratawikiAskAdapter({
         }
       }
 
+      if (documentContext) {
+        return {
+          sync: deriveAskSync(
+            documentContext.detail.sync,
+            documentContext.relatedList.sync,
+          ),
+          activeContext: {
+            contextType: "document",
+            title: documentContext.detail.title,
+            documentId: documentContext.detail.documentId,
+            layer: documentContext.detail.layer,
+          },
+          answer: buildDocumentAnswer({
+            question,
+            detail: documentContext.detail,
+            relatedOpportunities: documentContext.relatedOpportunities,
+            now: generatedAt,
+          }),
+          evidence: [
+            compactObject({
+              evidenceId: documentContext.detail.documentId,
+              kind:
+                documentContext.detail.layer === "shared"
+                  ? "interpretation"
+                  : "personal",
+              label: documentContext.detail.title,
+              excerpt:
+                documentContext.detail.summary ??
+                trimText(documentContext.detail.bodyMarkdown, 240),
+              documentTitle: documentContext.detail.title,
+            }),
+          ].filter(Boolean),
+          relatedOpportunities: documentContext.relatedOpportunities,
+          relatedDocuments: [
+            compactObject({
+              documentObjectId: documentContext.detail.documentId,
+              documentObjectKind: "document",
+              documentTitle: documentContext.detail.title,
+              role: documentContext.detail.layer,
+              excerpt:
+                documentContext.detail.summary ??
+                trimText(documentContext.detail.bodyMarkdown, 240),
+            }),
+          ],
+        }
+      }
+
       if (opportunityContext) {
         return {
           sync: deriveAskSync(
             opportunityContext.detail.sync,
             opportunityContext.relatedList.sync,
           ),
+          activeContext: {
+            contextType: "opportunity",
+            title: opportunityContext.detail.title,
+            opportunityId,
+          },
           answer: buildOpportunityAnswer({
             question,
             detail: opportunityContext.detail,
@@ -517,6 +690,10 @@ export function createStratawikiAskAdapter({
 
       return {
         sync: deriveAskSync(genericContext.summary.sync, genericContext.relatedList.sync),
+        activeContext: {
+          contextType: "workspace",
+          title: "워크스페이스 전체 분석",
+        },
         answer: buildGenericAnswer({
           question,
           summary: genericContext.summary,

@@ -6,12 +6,14 @@ test("validateAskWorkspaceRequest trims question and normalizes blank opportunit
   const result = validateAskWorkspaceRequest({
     question: "  What should I improve first?  ",
     opportunityId: "   ",
+    documentId: "  ",
     save: false,
   })
 
   assert.deepEqual(result, {
     question: "What should I improve first?",
     opportunityId: undefined,
+    documentId: undefined,
     save: false,
   })
 })
@@ -37,6 +39,20 @@ test("validateAskWorkspaceRequest rejects non-string opportunityId", () => {
       error.code === "validation_failed" &&
       error.message === "opportunityId must be a string when provided" &&
       error.details?.field === "opportunityId",
+  )
+})
+
+test("validateAskWorkspaceRequest rejects non-string documentId", () => {
+  assert.throws(
+    () =>
+      validateAskWorkspaceRequest({
+        question: "How does this document fit?",
+        documentId: 123,
+      }),
+    (error) =>
+      error.code === "validation_failed" &&
+      error.message === "documentId must be a string when provided" &&
+      error.details?.field === "documentId",
   )
 })
 

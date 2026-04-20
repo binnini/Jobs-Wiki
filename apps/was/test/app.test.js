@@ -487,6 +487,32 @@ test("POST /api/workspace/ask returns an opportunity-scoped answer and excludes 
       ["opp_report_runtime", "opp_product_data"],
     )
     assert.equal(response.body.relatedDocuments.length, 2)
+    assert.equal(response.body.activeContext.contextType, "opportunity")
+  })
+})
+
+test("POST /api/workspace/ask returns a document-scoped answer when documentId is provided", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      method: "POST",
+      url: "/api/workspace/ask",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        question: "이 문서를 기준으로 다음 액션을 정리해 줘.",
+        documentId: "personal_raw:personal:resume-v3",
+      },
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(response.body.activeContext.contextType, "document")
+    assert.equal(
+      response.body.activeContext.documentRef.objectId,
+      "personal_raw:personal:resume-v3",
+    )
+    assert.equal(response.body.answer.markdown.includes("Document focus"), true)
+    assert.equal(response.body.relatedDocuments.length >= 1, true)
   })
 })
 

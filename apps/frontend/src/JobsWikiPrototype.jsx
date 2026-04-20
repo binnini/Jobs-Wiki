@@ -273,7 +273,7 @@ function readAppRoute(location = window.location) {
     return {
       view: "ask",
       opportunityId: trimOptionalQueryParam(searchParams.get("opportunityId")),
-      documentId: null,
+      documentId: trimOptionalQueryParam(searchParams.get("documentId")),
     };
   }
 
@@ -326,7 +326,9 @@ function buildAppPath(view, opportunityId = null, documentId = null) {
     case "ask": {
       const searchParams = new URLSearchParams();
 
-      if (opportunityId) {
+      if (documentId) {
+        searchParams.set("documentId", documentId);
+      } else if (opportunityId) {
         searchParams.set("opportunityId", opportunityId);
       }
 
@@ -519,6 +521,7 @@ function buildWorkspaceActiveContext({
   currentPath,
   currentDocumentId,
   activeOpportunityContext,
+  activeDocumentContext,
   workspaceNavigation,
 }) {
   const activeNavigationItem = workspaceNavigation.sections
@@ -526,6 +529,19 @@ function buildWorkspaceActiveContext({
     .find((item) => item.path === currentPath)
 
   if (currentView === "ask") {
+    if (activeDocumentContext) {
+      return {
+        kind: "ask",
+        projectionLabel: "심층 분석",
+        title: activeDocumentContext.title,
+        description:
+          activeDocumentContext.layer === "shared"
+            ? "shared 문서를 기준으로 Ask 컨텍스트를 유지하며 답변과 근거를 문서 surface에 고정합니다."
+            : "personal 문서를 기준으로 Ask 컨텍스트를 유지하며 결과는 읽기 전용으로 보여줍니다.",
+        layer: activeDocumentContext.layer ?? null,
+      };
+    }
+
     return {
       kind: "ask",
       projectionLabel: "심층 분석",
@@ -670,6 +686,7 @@ function normalizeDocumentContext(document) {
       "문서",
     layer: document.layer ?? null,
     writable: document.writable ?? false,
+    summary: document.summary ?? document.excerpt ?? null,
   };
 }
 
@@ -769,21 +786,70 @@ function mapAskEvidenceItem(item) {
   };
 }
 
+function mapAskRelatedDocument(item) {
+  return normalizeDocumentContext({
+    documentId: item.documentRef?.objectId ?? null,
+    title: item.documentRef?.title ?? "문서",
+    layer: item.role ?? null,
+    excerpt: item.excerpt ?? null,
+  });
+}
+
+function mapAskActiveContext(activeContext) {
+  if (!activeContext?.contextType) {
+    return null;
+  }
+
+  if (activeContext.contextType === "document") {
+    return {
+      contextType: "document",
+      ...normalizeDocumentContext({
+        documentId: activeContext.documentRef?.objectId ?? null,
+        title: activeContext.documentRef?.title ?? activeContext.title,
+        layer: activeContext.layer ?? null,
+      }),
+    };
+  }
+
+  if (activeContext.contextType === "opportunity") {
+    return {
+      contextType: "opportunity",
+      ...normalizeOpportunityContext({
+        opportunityId: activeContext.opportunityRef?.opportunityId ?? null,
+        title: activeContext.opportunityRef?.title ?? activeContext.title,
+      }),
+    };
+  }
+
+  return {
+    contextType: "workspace",
+    title: activeContext.title ?? "워크스페이스 전체 분석",
+  };
+}
+
 function mapAskResponse(response) {
   return {
     answerText: response.answer?.markdown ?? "",
     answerId: response.answer?.answerId ?? null,
     generatedAt: response.answer?.generatedAt ?? null,
     sync: response.sync ?? null,
+    activeContext: mapAskActiveContext(response.activeContext),
     evidence: (response.evidence ?? []).map(mapAskEvidenceItem),
     relatedOpportunities: (response.relatedOpportunities ?? []).map(
       mapSummaryOpportunity,
+    ),
+    relatedDocuments: (response.relatedDocuments ?? []).map(
+      mapAskRelatedDocument,
     ),
   };
 }
 
 function createRouteOpportunityContext(opportunityId) {
   return normalizeOpportunityContext({ opportunityId });
+}
+
+function createRouteDocumentContext(documentId) {
+  return normalizeDocumentContext({ documentId });
 }
 
 function buildHeroHeadline(summary) {
@@ -2595,7 +2661,7 @@ const DocumentDetailView = ({
               </div>
             )}
             <button
-              onClick={onOpenAsk}
+              onClick={() => onOpenAsk(detail)}
               className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
             >
               Ask로 열기
@@ -2688,12 +2754,13 @@ const DocumentDetailView = ({
 };
 
 const ContextPanel = ({
-  job,
+  activeContext,
   profileSnapshot,
-  isLoadingJob = false,
+  isLoadingContext = false,
   contextError = null,
 }) => {
   const profile = normalizeProfileSnapshot(profileSnapshot);
+  const contextType = activeContext?.contextType ?? "workspace";
 
   return (
     <Panel>
@@ -2712,37 +2779,57 @@ const ContextPanel = ({
           </div>
         </div>
         <div>
-          <Label className="mb-1">분석 대상 공고</Label>
-          {job ? (
+          <Label className="mb-1">현재 Ask 기준</Label>
+          {contextType === "opportunity" ? (
             <div className="space-y-3 rounded-sm border border-indigo-100 bg-indigo-50 p-4 shadow-sm">
               <div>
                 <div className="mb-1 text-xs font-bold text-indigo-900">
-                  {job.company}
+                  {activeContext.company ?? "공고 컨텍스트"}
                 </div>
                 <div className="text-sm font-bold text-indigo-700">
-                  {job.title}
+                  {activeContext.title}
                 </div>
               </div>
-              {job.summary ? (
+              {activeContext.summary ? (
                 <p className="text-sm font-medium leading-relaxed text-indigo-950/80">
-                  {job.summary}
+                  {activeContext.summary}
                 </p>
               ) : null}
-              {job.deadline || job.urgency ? (
+              {activeContext.deadline || activeContext.urgency ? (
                 <div className="flex flex-wrap gap-3 text-[11px] font-bold text-indigo-800/70">
-                  {job.deadline ? <span>마감 {job.deadline}</span> : null}
-                  {job.urgency ? <span>{job.urgency}</span> : null}
+                  {activeContext.deadline ? <span>마감 {activeContext.deadline}</span> : null}
+                  {activeContext.urgency ? <span>{activeContext.urgency}</span> : null}
                 </div>
               ) : null}
+            </div>
+          ) : contextType === "document" ? (
+            <div className="space-y-3 rounded-sm border border-amber-200 bg-amber-50 p-4 shadow-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-sm border px-2 py-0.5 text-[11px] font-bold ${getDocumentLayerBadgeClassName(activeContext.layer)}`}
+                >
+                  {formatDocumentLayerLabel(activeContext.layer)}
+                </span>
+                <span className="text-xs font-bold text-amber-900">
+                  문서 컨텍스트
+                </span>
+              </div>
+              <div className="text-sm font-bold text-amber-900">
+                {activeContext.title}
+              </div>
+              <p className="text-sm font-medium leading-relaxed text-amber-950/80">
+                {activeContext.summary ??
+                  "현재 문서를 기준으로 답변, 근거, 연관 객체를 정리합니다."}
+              </p>
             </div>
           ) : (
             <div className="rounded-sm border border-slate-200 bg-slate-50 p-3 text-center text-sm font-bold text-slate-600">
-              전체 프로필 기반 분석 (지정 공고 없음)
+              전체 워크스페이스 기반 분석 (지정 문서/공고 없음)
             </div>
           )}
-          {isLoadingJob ? (
+          {isLoadingContext ? (
             <p className="mt-3 text-xs font-bold text-slate-500">
-              선택 공고의 컨텍스트를 보강하는 중입니다.
+              현재 컨텍스트를 보강하는 중입니다.
             </p>
           ) : null}
           {contextError ? (
@@ -2763,6 +2850,51 @@ const ContextPanel = ({
               </span>
             ))}
           </div>
+        </div>
+      </div>
+    </Panel>
+  );
+};
+
+const AskActiveContextBanner = ({ activeContext }) => {
+  if (!activeContext || activeContext.contextType === "workspace") {
+    return null;
+  }
+
+  const isDocument = activeContext.contextType === "document";
+  const badgeClassName = isDocument
+    ? getDocumentLayerBadgeClassName(activeContext.layer)
+    : "border-indigo-200 bg-indigo-50 text-indigo-700";
+
+  return (
+    <Panel
+      className={
+        isDocument ? "border-amber-200 bg-amber-50/50" : "border-indigo-200 bg-indigo-50/50"
+      }
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Label className={isDocument ? "text-amber-700" : "text-indigo-700"}>
+            active context
+          </Label>
+          <h3 className="text-lg font-bold text-slate-900">
+            {activeContext.title}
+          </h3>
+          <p className="mt-2 text-sm font-medium leading-relaxed text-slate-700">
+            {isDocument
+              ? "현재 답변은 이 문서 projection을 기준으로 정리하며, shared와 personal 경계를 유지한 채 근거와 연관 객체를 함께 보여줍니다."
+              : "현재 답변은 이 공고를 기준으로 정리하며, 근거와 연관 객체를 같은 컨텍스트 아래에서 묶어 보여줍니다."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className={`rounded-sm border px-2.5 py-1 text-[11px] font-bold shadow-sm ${badgeClassName}`}>
+            {isDocument
+              ? formatDocumentLayerLabel(activeContext.layer)
+              : "opportunity"}
+          </span>
+          <span className="rounded-sm border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
+            grounded answer
+          </span>
         </div>
       </div>
     </Panel>
@@ -2913,6 +3045,68 @@ const RelatedOpportunitiesPanel = ({
   );
 };
 
+const RelatedDocumentsPanel = ({
+  currentDocument,
+  relatedDocuments,
+  onOpenDocument,
+  onSwitch,
+  isSwitching = false,
+}) => {
+  const visibleDocuments = (relatedDocuments ?? []).filter(
+    (document) => document.documentId !== currentDocument?.documentId,
+  );
+
+  if (visibleDocuments.length === 0) {
+    return null;
+  }
+
+  return (
+    <Panel>
+      <h3 className="mb-4 flex items-center border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
+        <FileCode size={16} className="mr-2 text-slate-500" />
+        연관 문서
+      </h3>
+      <div className="space-y-4">
+        {visibleDocuments.map((document) => (
+          <div
+            key={document.documentId}
+            className="rounded-sm border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-slate-400"
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <h4 className="text-sm font-bold text-slate-800">
+                {document.title}
+              </h4>
+              <span
+                className={`rounded-sm border px-2 py-0.5 text-[11px] font-bold ${getDocumentLayerBadgeClassName(document.layer)}`}
+              >
+                {formatDocumentLayerLabel(document.layer)}
+              </span>
+            </div>
+            <p className="mb-4 text-xs font-medium leading-relaxed text-slate-600">
+              {document.summary ?? "연결된 문서 요약이 아직 준비되지 않았습니다."}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => onOpenDocument(document)}
+                className="rounded-sm border border-slate-200 bg-slate-50 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100"
+              >
+                문서 열기
+              </button>
+              <button
+                onClick={() => onSwitch(document)}
+                disabled={isSwitching}
+                className="rounded-sm border border-amber-200 bg-amber-50 py-2 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                이 문서로 다시 분석
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+};
+
 const FollowUpPanel = ({ hasJob, onSelect }) => (
   <Panel>
     <h3 className="mb-4 flex items-center border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
@@ -2966,24 +3160,27 @@ const FollowUpPanel = ({ hasJob, onSelect }) => (
   </Panel>
 );
 
-function buildAskWelcomeText(activeJob) {
-  if (activeJob) {
-    return `**${activeJob.company}**의 **${activeJob.title}** 공고를 기준으로 심층 분석을 시작할 준비가 되었습니다. 질문을 보내면 실제 WAS 응답을 기준으로 답변, 근거, 연관 공고를 함께 보여줍니다.`;
+function buildAskWelcomeText(activeContext) {
+  if (activeContext?.contextType === "document") {
+    return `**${activeContext.title}** 문서를 기준으로 심층 분석을 시작할 준비가 되었습니다. 질문을 보내면 현재 문서에 grounded된 답변과 함께 근거, 연관 문서, 연관 공고를 함께 보여줍니다.`;
+  }
+
+  if (activeContext?.contextType === "opportunity") {
+    return `**${activeContext.company ?? "선택한 회사"}**의 **${activeContext.title}** 공고를 기준으로 심층 분석을 시작할 준비가 되었습니다. 질문을 보내면 실제 WAS 응답을 기준으로 답변, 근거, 연관 공고를 함께 보여줍니다.`;
   }
 
   return "현재 전체 프로필을 기준으로 심층 분석 워크스페이스가 활성화되었습니다. 특정 공고 없이도 지원 전략, 역량 보완, 우선순위 질문을 바로 보낼 수 있습니다.";
 }
 
 const AskWorkspaceView = ({
-  activeJob,
+  activeContext,
   profileSnapshot,
   initialPrompt = "",
   onContextChange,
   onOpenJob,
+  onOpenDocument,
 }) => {
-  const [contextJob, setContextJob] = useState(() =>
-    activeJob ? normalizeOpportunityContext(activeJob) : null,
-  );
+  const [contextState, setContextState] = useState(() => activeContext ?? null);
   const [contextError, setContextError] = useState(null);
   const [isLoadingContext, setIsLoadingContext] = useState(false);
   const [input, setInput] = useState(() => initialPrompt ?? "");
@@ -2998,17 +3195,21 @@ const AskWorkspaceView = ({
   const contextRequestIdRef = useRef(0);
 
   useEffect(() => {
-    setContextJob(activeJob ? normalizeOpportunityContext(activeJob) : null);
+    setContextState(activeContext ?? null);
     setContextError(null);
-  }, [activeJob]);
+  }, [activeContext]);
 
   useEffect(() => {
-    const opportunityId = activeJob?.opportunityId ?? null;
-    const shouldHydrate =
-      Boolean(opportunityId) &&
-      (!activeJob?.company || !activeJob?.summary);
+    const shouldHydrateOpportunity =
+      contextState?.contextType === "opportunity" &&
+      Boolean(contextState?.opportunityId) &&
+      (!contextState?.company || !contextState?.summary);
+    const shouldHydrateDocument =
+      contextState?.contextType === "document" &&
+      Boolean(contextState?.documentId) &&
+      (!contextState?.layer || !contextState?.title);
 
-    if (!shouldHydrate) {
+    if (!shouldHydrateOpportunity && !shouldHydrateDocument) {
       setIsLoadingContext(false);
       return undefined;
     }
@@ -3017,13 +3218,23 @@ const AskWorkspaceView = ({
     contextRequestIdRef.current = requestId;
     setIsLoadingContext(true);
 
-    getOpportunityDetail(opportunityId)
-      .then((response) => {
+    const request = shouldHydrateDocument
+      ? getDocumentDetail(contextState.documentId).then((response) => ({
+          contextType: "document",
+          ...mapDocumentResponse(response),
+        }))
+      : getOpportunityDetail(contextState.opportunityId).then((response) => ({
+          contextType: "opportunity",
+          ...mapDetailOpportunity(response),
+        }));
+
+    request
+      .then((nextContext) => {
         if (requestId !== contextRequestIdRef.current) {
           return;
         }
 
-        setContextJob(mapDetailOpportunity(response));
+        setContextState(nextContext);
         setContextError(null);
       })
       .catch((requestError) => {
@@ -3035,7 +3246,9 @@ const AskWorkspaceView = ({
           requestError instanceof WasClientError
             ? requestError
             : new WasClientError({
-                message: "선택한 공고 컨텍스트를 보강하지 못했습니다.",
+                message: shouldHydrateDocument
+                  ? "선택한 문서 컨텍스트를 보강하지 못했습니다."
+                  : "선택한 공고 컨텍스트를 보강하지 못했습니다.",
               });
 
         setContextError(normalizedError);
@@ -3049,7 +3262,7 @@ const AskWorkspaceView = ({
     return () => {
       contextRequestIdRef.current += 1;
     };
-  }, [activeJob]);
+  }, [contextState]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -3059,7 +3272,7 @@ const AskWorkspaceView = ({
 
   const submitQuestion = async (
     rawQuestion,
-    { contextOverride = contextJob, switchingContext = false } = {},
+    { contextOverride = contextState, switchingContext = false } = {},
   ) => {
     const normalizedQuestion = rawQuestion.trim();
 
@@ -3081,14 +3294,27 @@ const AskWorkspaceView = ({
     try {
       const response = await askWorkspace({
         question: normalizedQuestion,
-        opportunityId: contextOverride?.opportunityId,
+        opportunityId:
+          contextOverride?.contextType === "opportunity"
+            ? contextOverride.opportunityId
+            : undefined,
+        documentId:
+          contextOverride?.contextType === "document"
+            ? contextOverride.documentId
+            : undefined,
       });
 
       if (requestId !== requestIdRef.current) {
         return;
       }
 
-      setAskResult(mapAskResponse(response));
+      const nextAskResult = mapAskResponse(response);
+
+      setAskResult(nextAskResult);
+      if (nextAskResult.activeContext) {
+        setContextState(nextAskResult.activeContext);
+        onContextChange(nextAskResult.activeContext);
+      }
       setInitialError(null);
       setSubmitError(null);
     } catch (requestError) {
@@ -3127,19 +3353,24 @@ const AskWorkspaceView = ({
     }
 
     submitQuestion(submittedQuestion, {
-      contextOverride: contextJob,
+      contextOverride: contextState,
       switchingContext: false,
     });
   };
 
-  const handleSwitchContext = (job) => {
-    const nextContext = normalizeOpportunityContext(job);
+  const handleSwitchContext = (context) => {
+    const nextContext =
+      context?.documentId != null
+        ? { contextType: "document", ...normalizeDocumentContext(context) }
+        : context?.opportunityId != null
+          ? { contextType: "opportunity", ...normalizeOpportunityContext(context) }
+          : null;
 
     if (!nextContext) {
       return;
     }
 
-    setContextJob(nextContext);
+    setContextState(nextContext);
     setContextError(null);
     onContextChange(nextContext);
 
@@ -3165,6 +3396,7 @@ const AskWorkspaceView = ({
 
   const currentEvidence = askResult?.evidence ?? [];
   const relatedJobs = askResult?.relatedOpportunities ?? [];
+  const relatedDocuments = askResult?.relatedDocuments ?? [];
   const currentSync = askResult?.sync ?? null;
   const generatedAt = formatKoreanDateTime(askResult?.generatedAt);
 
@@ -3177,7 +3409,7 @@ const AskWorkspaceView = ({
               메인 분석 패널
             </h2>
             <p className="mt-1 text-sm font-medium text-slate-600">
-              실제 WAS Ask projection을 기준으로 답변, 근거, 연관 공고를 함께 읽습니다.
+              실제 WAS Ask projection을 기준으로 답변, 근거, 연관 문서와 공고를 함께 읽습니다.
             </p>
           </div>
           {generatedAt ? (
@@ -3194,11 +3426,12 @@ const AskWorkspaceView = ({
         >
           <div className="mx-auto max-w-3xl space-y-8">
             <SyncNotice sync={currentSync} refreshError={submitError} />
+            <AskActiveContextBanner activeContext={contextState} />
 
             {isSwitchingContext ? (
               <InlineNotice
-                title="새 공고 컨텍스트로 같은 질문을 다시 분석하는 중입니다"
-                message="현재 화면은 유지하고, 새 공고 기준의 답변이 준비되면 갱신합니다."
+                title="새 컨텍스트로 같은 질문을 다시 분석하는 중입니다"
+                message="현재 화면은 유지하고, 새 기준의 답변이 준비되면 갱신합니다."
                 className="border-sky-200 bg-sky-50 text-sky-900"
               />
             ) : null}
@@ -3213,7 +3446,7 @@ const AskWorkspaceView = ({
             ) : (
               <Panel className="border-dashed bg-slate-50">
                 <Label className="mb-3 text-indigo-600">Welcome</Label>
-                <StructuredResponse text={buildAskWelcomeText(contextJob)} />
+                <StructuredResponse text={buildAskWelcomeText(contextState)} />
               </Panel>
             )}
 
@@ -3273,20 +3506,34 @@ const AskWorkspaceView = ({
 
       <div className="custom-scrollbar flex w-[420px] flex-shrink-0 flex-col gap-6 overflow-y-auto pr-2 pb-8">
         <ContextPanel
-          job={contextJob}
+          activeContext={contextState}
           profileSnapshot={profileSnapshot}
-          isLoadingJob={isLoadingContext}
+          isLoadingContext={isLoadingContext}
           contextError={contextError}
         />
         <EvidencePanel evidence={currentEvidence} />
+        <RelatedDocumentsPanel
+          currentDocument={
+            contextState?.contextType === "document" ? contextState : null
+          }
+          relatedDocuments={relatedDocuments}
+          onOpenDocument={onOpenDocument}
+          onSwitch={handleSwitchContext}
+          isSwitching={isSwitchingContext}
+        />
         <RelatedOpportunitiesPanel
-          currentJob={contextJob}
+          currentJob={
+            contextState?.contextType === "opportunity" ? contextState : null
+          }
           relatedJobs={relatedJobs}
           onOpenJob={onOpenJob}
           onSwitch={handleSwitchContext}
           isSwitching={isSwitchingContext}
         />
-        <FollowUpPanel hasJob={!!contextJob} onSelect={handleSend} />
+        <FollowUpPanel
+          hasJob={contextState?.contextType === "opportunity"}
+          onSelect={handleSend}
+        />
       </div>
     </div>
   );
@@ -3696,6 +3943,11 @@ export default function JobsWikiPrototype() {
       ? null
       : createRouteOpportunityContext(readAppRoute(window.location).opportunityId),
   );
+  const [activeDocumentContext, setActiveDocumentContext] = useState(() =>
+    typeof window === "undefined" || !readAppRoute(window.location).documentId
+      ? null
+      : createRouteDocumentContext(readAppRoute(window.location).documentId),
+  );
   const [askComposerSeed, setAskComposerSeed] = useState("");
   const [shellProfileSnapshot, setShellProfileSnapshot] = useState(() =>
     normalizeProfileSnapshot(),
@@ -3728,6 +3980,7 @@ export default function JobsWikiPrototype() {
     currentPath,
     currentDocumentId: currentRoute.documentId,
     activeOpportunityContext,
+    activeDocumentContext,
     workspaceNavigation,
   });
 
@@ -3974,8 +4227,19 @@ export default function JobsWikiPrototype() {
 
   useEffect(() => {
     if (currentView === "ask") {
+      if (currentRoute.documentId) {
+        setActiveDocumentContext((current) =>
+          current?.documentId === currentRoute.documentId
+            ? current
+            : createRouteDocumentContext(currentRoute.documentId),
+        );
+        setActiveOpportunityContext(null);
+        return;
+      }
+
       if (!currentRoute.opportunityId) {
         setActiveOpportunityContext(null);
+        setActiveDocumentContext(null);
         return;
       }
 
@@ -3984,6 +4248,7 @@ export default function JobsWikiPrototype() {
           ? current
           : createRouteOpportunityContext(currentRoute.opportunityId),
       );
+      setActiveDocumentContext(null);
       return;
     }
 
@@ -3993,8 +4258,18 @@ export default function JobsWikiPrototype() {
           ? current
           : createRouteOpportunityContext(currentRoute.opportunityId),
       );
+      setActiveDocumentContext(null);
     }
-  }, [currentRoute.opportunityId, currentView]);
+
+    if (currentView === "document" && currentRoute.documentId) {
+      setActiveDocumentContext((current) =>
+        current?.documentId === currentRoute.documentId
+          ? current
+          : createRouteDocumentContext(currentRoute.documentId),
+      );
+      setActiveOpportunityContext(null);
+    }
+  }, [currentRoute.documentId, currentRoute.opportunityId, currentView]);
 
   const navigateTo = (view, context = undefined, options = {}) => {
     const normalizedOpportunityContext =
@@ -4004,7 +4279,7 @@ export default function JobsWikiPrototype() {
           : normalizeOpportunityContext(context)
         : undefined;
     const normalizedDocumentContext =
-      view === "document"
+      view === "ask" || view === "document"
         ? context === undefined
           ? undefined
           : normalizeDocumentContext(context)
@@ -4013,19 +4288,30 @@ export default function JobsWikiPrototype() {
       view,
       opportunityId:
         view === "ask" || view === "detail"
-          ? normalizedOpportunityContext?.opportunityId ?? null
+          ? normalizedDocumentContext?.documentId
+            ? null
+            : normalizedOpportunityContext?.opportunityId ?? null
           : null,
       documentId:
-        view === "document"
+        view === "ask" || view === "document"
           ? normalizedDocumentContext?.documentId ?? null
           : null,
     };
 
     if (context !== undefined) {
-      if (view === "ask" && !normalizedOpportunityContext) {
+      if (view === "ask" && !normalizedOpportunityContext && !normalizedDocumentContext) {
         setActiveOpportunityContext(null);
+        setActiveDocumentContext(null);
       } else if (normalizedOpportunityContext) {
         setActiveOpportunityContext(normalizedOpportunityContext);
+        setActiveDocumentContext(null);
+      } else if (normalizedDocumentContext) {
+        setActiveDocumentContext(normalizedDocumentContext);
+        setActiveOpportunityContext(null);
+      } else if (view === "detail") {
+        setActiveDocumentContext(null);
+      } else if (view === "document") {
+        setActiveOpportunityContext(null);
       }
     }
 
@@ -4036,8 +4322,8 @@ export default function JobsWikiPrototype() {
 
   const openJobDetail = (job) => navigateTo("detail", job);
   const openDocument = (document) => navigateTo("document", document);
-  const openAsk = (job = null, options = {}) =>
-    navigateTo("ask", job, options);
+  const openAsk = (context = null, options = {}) =>
+    navigateTo("ask", context, options);
 
   const renderMainContent = () => {
     switch (currentView) {
@@ -4063,17 +4349,24 @@ export default function JobsWikiPrototype() {
           <DocumentDetailView
             documentId={currentRoute.documentId}
             onBack={() => navigateTo("workspace")}
-            onOpenAsk={() => openAsk(null)}
+            onOpenAsk={openAsk}
           />
         );
       case "ask":
         return (
           <AskWorkspaceView
-            activeJob={activeOpportunityContext}
+            activeContext={
+              activeDocumentContext
+                ? { contextType: "document", ...activeDocumentContext }
+                : activeOpportunityContext
+                  ? { contextType: "opportunity", ...activeOpportunityContext }
+                  : null
+            }
             profileSnapshot={displayProfileSnapshot}
             initialPrompt={askComposerSeed}
-            onContextChange={(job) => navigateTo("ask", job)}
+            onContextChange={(context) => navigateTo("ask", context)}
             onOpenJob={openJobDetail}
+            onOpenDocument={openDocument}
           />
         );
       case "calendar":
@@ -4176,7 +4469,12 @@ export default function JobsWikiPrototype() {
               Workspace Tools
             </div>
             <button
-              onClick={() => openAsk(activeOpportunityContext)}
+              onClick={() =>
+                openAsk(
+                  activeDocumentContext ??
+                    activeOpportunityContext,
+                )
+              }
               className={`w-full rounded-sm border px-3 py-3 text-left text-sm font-bold transition-all ${
                 currentView === "ask"
                   ? "border-indigo-500 bg-indigo-600 text-white shadow-sm"
@@ -4232,7 +4530,15 @@ export default function JobsWikiPrototype() {
             context={activeShellContext}
             onOpenWorkspace={() => navigateTo("workspace")}
             onOpenAsk={() =>
-              openAsk(currentView === "detail" ? activeOpportunityContext : null)
+              openAsk(
+                currentView === "detail"
+                  ? activeOpportunityContext
+                  : currentView === "document"
+                    ? activeDocumentContext
+                    : currentView === "ask"
+                      ? activeDocumentContext ?? activeOpportunityContext
+                      : null,
+              )
             }
           />
           {renderMainContent()}

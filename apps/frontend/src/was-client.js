@@ -109,6 +109,7 @@ export function getWorkspaceSync({ commandId } = {}) {
 export function askWorkspace({
   question,
   opportunityId,
+  documentId,
   save,
   userContextHeaders,
 } = {}) {
@@ -118,6 +119,7 @@ export function askWorkspace({
     body: {
       question,
       ...(opportunityId ? { opportunityId } : {}),
+      ...(documentId ? { documentId } : {}),
       ...(save !== undefined ? { save } : {}),
     },
   })

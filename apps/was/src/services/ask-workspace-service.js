@@ -7,6 +7,7 @@ export async function askWorkspaceService({
     userContext,
     question: input.question,
     opportunityId: input.opportunityId,
+    documentId: input.documentId,
     // `save` stays reserved in the MVP contract and is intentionally a no-op.
   })
 
