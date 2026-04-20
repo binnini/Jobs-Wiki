@@ -711,22 +711,25 @@ export function mapSummaryOpportunity(item) {
 }
 
 export function mapDetailOpportunity(response) {
-  const item = response.item;
+  const item = response?.item ?? null;
   return normalizeOpportunityContext({
-    opportunityId: item.opportunityRef?.opportunityId,
-    title: item.surface?.title,
-    company: item.company?.name,
-    summary: item.surface?.summary,
-    descriptionMarkdown: item.surface?.descriptionMarkdown,
-    qualification: item.qualification,
-    analysis: item.analysis,
-    companySummary: item.company?.summary,
-    companyContext: { description: item.company?.summary, whyRelevant: item.company?.mainBusiness },
-    requirements: splitBlockText(item.qualification?.requirementsText),
-    closesAt: item.metadata?.closesAt,
-    urgencyLabel: getFallbackUrgencyLabel(item.metadata?.closesAt),
-    employmentType: item.metadata?.employmentType,
-    sourceUrl: item.metadata?.source?.sourceUrl,
+    opportunityId: item?.opportunityRef?.opportunityId ?? null,
+    title: item?.surface?.title ?? "공고 정보를 불러오지 못했습니다.",
+    company: item?.company?.name ?? "회사 정보 준비 중",
+    summary: item?.surface?.summary ?? null,
+    descriptionMarkdown: item?.surface?.descriptionMarkdown ?? null,
+    qualification: item?.qualification ?? null,
+    analysis: item?.analysis ?? null,
+    companySummary: item?.company?.summary ?? null,
+    companyContext: {
+      description: item?.company?.summary ?? null,
+      whyRelevant: item?.company?.mainBusiness ?? null,
+    },
+    requirements: splitBlockText(item?.qualification?.requirementsText),
+    closesAt: item?.metadata?.closesAt ?? null,
+    urgencyLabel: getFallbackUrgencyLabel(item?.metadata?.closesAt),
+    employmentType: item?.metadata?.employmentType ?? null,
+    sourceUrl: item?.metadata?.source?.sourceUrl ?? null,
   });
 }
 

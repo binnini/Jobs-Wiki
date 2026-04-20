@@ -9,6 +9,7 @@ import {
   CheckCircle,
   Clock,
   ExternalLink,
+  FileCode,
   FileText,
   Grid,
   Lightbulb,
@@ -45,6 +46,7 @@ import {
   createRouteOpportunityContext,
   DEFAULT_INGESTION_SOURCE_ID,
   formatDocumentLayerLabel,
+  formatEmploymentType,
   formatKoreanDate,
   formatKoreanDateTime,
   formatMonthDay,
@@ -1002,6 +1004,24 @@ const OpportunityDetailView = ({
       <RetryPanel
         title="공고 상세를 불러오지 못했습니다"
         message={error.message}
+        onRetry={() => loadDetail()}
+        secondaryAction={
+          <button
+            onClick={onBack}
+            className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm"
+          >
+            기본 리포트로 돌아가기
+          </button>
+        }
+      />
+    );
+  }
+
+  if (!detailResponse?.item) {
+    return (
+      <RetryPanel
+        title="공고를 찾을 수 없습니다"
+        message="선택한 공고의 상세 데이터가 아직 준비되지 않았거나 더 이상 접근할 수 없습니다."
         onRetry={() => loadDetail()}
         secondaryAction={
           <button
