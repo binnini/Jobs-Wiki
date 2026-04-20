@@ -145,6 +145,43 @@ export function registerPersonalAsset({ filename, mediaType, storageRef, assetKi
   })
 }
 
+export function generateWikiDocument(
+  documentId,
+  { operation, summaryStyle, rewriteGoal, structureTemplate } = {},
+) {
+  return request(`/api/documents/${encodeURIComponent(documentId)}/${operation}`, {
+    method: "POST",
+    headers: buildDemoUserContextHeaders(),
+    body: {
+      operation,
+      ...(summaryStyle ? { summaryStyle } : {}),
+      ...(rewriteGoal ? { rewriteGoal } : {}),
+      ...(structureTemplate ? { structureTemplate } : {}),
+    },
+  })
+}
+
+export function suggestWikiLinks(documentId, { maxSuggestions } = {}) {
+  return request(`/api/documents/${encodeURIComponent(documentId)}/suggest-links`, {
+    method: "POST",
+    headers: buildDemoUserContextHeaders(),
+    body: {
+      ...(maxSuggestions ? { maxSuggestions } : {}),
+    },
+  })
+}
+
+export function attachWikiLinks(documentId, { wikiDocumentVersion, attachments }) {
+  return request(`/api/documents/${encodeURIComponent(documentId)}/attach-links`, {
+    method: "POST",
+    headers: buildDemoUserContextHeaders(),
+    body: {
+      wikiDocumentVersion,
+      attachments,
+    },
+  })
+}
+
 export function getWorkspaceSync({ commandId } = {}) {
   const searchParams = new URLSearchParams()
 

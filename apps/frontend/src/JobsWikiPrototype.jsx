@@ -36,9 +36,11 @@ import {
   Database,
 } from "lucide-react";
 import {
+  attachWikiLinks,
   askWorkspace,
   createDocument,
   deleteDocument,
+  generateWikiDocument,
   getCalendar,
   getDocumentDetail,
   getOpportunityDetail,
@@ -46,6 +48,7 @@ import {
   getWorkspaceSync,
   getWorkspaceSummary,
   registerPersonalAsset,
+  suggestWikiLinks,
   triggerWorknetIngestion,
   updateDocument,
   WasClientError,
@@ -3306,6 +3309,7 @@ const DocumentDetailView = ({
   documentId,
   onBack,
   onOpenAsk,
+  onOpenDocument,
   onWorkspaceChanged,
 }) => {
   const [documentResponse, setDocumentResponse] = useState(null);
@@ -3319,11 +3323,15 @@ const DocumentDetailView = ({
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRegisteringAsset, setIsRegisteringAsset] = useState(false);
+  const [isGeneratingWiki, setIsGeneratingWiki] = useState(false);
+  const [isSuggestingLinks, setIsSuggestingLinks] = useState(false);
+  const [isAttachingLinks, setIsAttachingLinks] = useState(false);
   const [mutationError, setMutationError] = useState(null);
   const [mutationNotice, setMutationNotice] = useState(null);
   const [assetFilename, setAssetFilename] = useState("");
   const [assetMediaType, setAssetMediaType] = useState("application/pdf");
   const [assetStorageRef, setAssetStorageRef] = useState("");
+  const [linkSuggestions, setLinkSuggestions] = useState([]);
   const requestIdRef = useRef(0);
 
   const loadDocument = async ({ preserveData = false } = {}) => {
@@ -3390,6 +3398,7 @@ const DocumentDetailView = ({
     setIsEditing(false);
     setMutationError(null);
     setMutationNotice(null);
+    setLinkSuggestions([]);
 
     if (!documentId) {
       setIsLoading(false);
@@ -3455,6 +3464,113 @@ const DocumentDetailView = ({
 
   const refreshWorkspace = async () => {
     await onWorkspaceChanged?.();
+  };
+
+  const handleGenerateWiki = async (operation) => {
+    if (detail.layer !== "personal_raw" || !detail.writable || isGeneratingWiki) {
+      return;
+    }
+
+    setIsGeneratingWiki(true);
+    setMutationError(null);
+    setMutationNotice(null);
+
+    try {
+      const response = await generateWikiDocument(detail.documentId, { operation });
+      const generatedDocumentId = response.item?.documentRef?.objectId ?? null;
+
+      await refreshWorkspace();
+      setMutationNotice(
+        operation === "summarize"
+          ? "personal/wiki summary를 생성했습니다."
+          : operation === "rewrite"
+            ? "personal/wiki rewrite 결과를 생성했습니다."
+            : "personal/wiki structured note를 생성했습니다.",
+      );
+
+      if (generatedDocumentId) {
+        onOpenDocument?.({
+          documentId: generatedDocumentId,
+        });
+      }
+    } catch (requestError) {
+      setMutationError(
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "personal/wiki 생성에 실패했습니다.",
+            }),
+      );
+    } finally {
+      setIsGeneratingWiki(false);
+    }
+  };
+
+  const handleSuggestLinks = async () => {
+    if (detail.layer !== "personal_wiki" || !detail.writable || isSuggestingLinks) {
+      return;
+    }
+
+    setIsSuggestingLinks(true);
+    setMutationError(null);
+    setMutationNotice(null);
+
+    try {
+      const response = await suggestWikiLinks(detail.documentId, {
+        maxSuggestions: 5,
+      });
+      setLinkSuggestions(response.suggestions ?? []);
+      setMutationNotice("link suggestion은 preview only이며 shared를 변경하지 않습니다.");
+    } catch (requestError) {
+      setMutationError(
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "link suggestion을 불러오지 못했습니다.",
+            }),
+      );
+    } finally {
+      setIsSuggestingLinks(false);
+    }
+  };
+
+  const handleAttachSuggestedLinks = async () => {
+    if (
+      detail.layer !== "personal_wiki" ||
+      !detail.writable ||
+      !detail.version ||
+      isAttachingLinks ||
+      linkSuggestions.length === 0
+    ) {
+      return;
+    }
+
+    setIsAttachingLinks(true);
+    setMutationError(null);
+    setMutationNotice(null);
+
+    try {
+      await attachWikiLinks(detail.documentId, {
+        wikiDocumentVersion: detail.version,
+        attachments: linkSuggestions.map((item) => ({
+          layer: item.layer,
+          id: item.id,
+        })),
+      });
+      await loadDocument({ preserveData: true });
+      await refreshWorkspace();
+      setMutationNotice("선택된 link를 personal/wiki 문서에만 attach했습니다.");
+    } catch (requestError) {
+      setMutationError(
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "link attach에 실패했습니다.",
+            }),
+      );
+    } finally {
+      setIsAttachingLinks(false);
+    }
   };
 
   const handleSaveDocument = async () => {
@@ -3731,6 +3847,42 @@ const DocumentDetailView = ({
 
       <div className="grid grid-cols-1 gap-10 md:grid-cols-12">
         <div className="space-y-8 md:col-span-8">
+          {detail.writable && detail.layer === "personal_raw" ? (
+            <Panel>
+              <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
+                raw to wiki generation
+              </h3>
+              <p className="mb-4 text-sm font-medium leading-relaxed text-slate-600">
+                이 액션은 shared를 publish하지 않고, 현재 personal/raw 문서를 기반으로 personal/wiki 결과만 생성합니다.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleGenerateWiki("summarize")}
+                  disabled={isGeneratingWiki}
+                  className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm disabled:opacity-40"
+                >
+                  {isGeneratingWiki ? "생성 중..." : "summarize"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGenerateWiki("rewrite")}
+                  disabled={isGeneratingWiki}
+                  className="rounded-sm border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-800 shadow-sm disabled:opacity-40"
+                >
+                  {isGeneratingWiki ? "생성 중..." : "rewrite"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleGenerateWiki("structure")}
+                  disabled={isGeneratingWiki}
+                  className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 shadow-sm disabled:opacity-40"
+                >
+                  {isGeneratingWiki ? "생성 중..." : "structure"}
+                </button>
+              </div>
+            </Panel>
+          ) : null}
           <section className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
             <Label>문서 본문</Label>
             {detail.writable && isEditing ? (
@@ -3780,6 +3932,47 @@ const DocumentDetailView = ({
         </div>
 
         <div className="space-y-8 md:col-span-4">
+          {detail.writable && detail.layer === "personal_wiki" ? (
+            <Panel>
+              <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
+                wiki link actions
+              </h3>
+              <p className="mb-4 text-sm font-medium leading-relaxed text-slate-600">
+                suggestion은 읽기 전용 preview이고, attach는 personal/wiki 문서 메타데이터에만 반영됩니다.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={handleSuggestLinks}
+                  disabled={isSuggestingLinks}
+                  className="rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700 shadow-sm disabled:opacity-40"
+                >
+                  {isSuggestingLinks ? "조회 중..." : "suggest links"}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAttachSuggestedLinks}
+                  disabled={isAttachingLinks || linkSuggestions.length === 0}
+                  className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 shadow-sm disabled:opacity-40"
+                >
+                  {isAttachingLinks ? "적용 중..." : "attach links"}
+                </button>
+              </div>
+              {linkSuggestions.length ? (
+                <div className="mt-4 space-y-2">
+                  {linkSuggestions.map((item, index) => (
+                    <div
+                      key={`${item.layer}-${item.id}-${index}`}
+                      className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700"
+                    >
+                      {item.layer}: {item.id}
+                      {item.reason ? ` - ${item.reason}` : ""}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </Panel>
+          ) : null}
           {detail.writable ? (
             <Panel>
               <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
@@ -5597,6 +5790,7 @@ export default function JobsWikiPrototype() {
             documentId={currentRoute.documentId}
             onBack={() => navigateTo("workspace")}
             onOpenAsk={openAsk}
+            onOpenDocument={openDocument}
             onWorkspaceChanged={loadWorkspaceNavigation}
           />
         );

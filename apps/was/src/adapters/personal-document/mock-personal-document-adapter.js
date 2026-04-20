@@ -6,7 +6,10 @@ function assertMockMutationCapability(readAuthority) {
     typeof readAuthority.createPersonalDocumentRecord !== "function" ||
     typeof readAuthority.updatePersonalDocumentRecord !== "function" ||
     typeof readAuthority.deletePersonalDocumentRecord !== "function" ||
-    typeof readAuthority.registerPersonalAssetRecord !== "function"
+    typeof readAuthority.registerPersonalAssetRecord !== "function" ||
+    typeof readAuthority.generatePersonalWikiDocumentRecord !== "function" ||
+    typeof readAuthority.suggestPersonalWikiLinksRecord !== "function" ||
+    typeof readAuthority.attachPersonalWikiLinksRecord !== "function"
   ) {
     throw createValidationError(
       "Mock personal document adapter requires mutable mock read authority support.",
@@ -44,6 +47,30 @@ export function createMockPersonalDocumentAdapter({ readAuthority } = {}) {
     async registerPersonalAsset({ userContext, input }) {
       return readAuthority.registerPersonalAssetRecord({
         userContext,
+        input,
+      })
+    },
+
+    async generatePersonalWikiDocument({ userContext, documentId, input }) {
+      return readAuthority.generatePersonalWikiDocumentRecord({
+        userContext,
+        documentId,
+        input,
+      })
+    },
+
+    async suggestPersonalWikiLinks({ userContext, documentId, input }) {
+      return readAuthority.suggestPersonalWikiLinksRecord({
+        userContext,
+        documentId,
+        input,
+      })
+    },
+
+    async attachPersonalWikiLinks({ userContext, documentId, input }) {
+      return readAuthority.attachPersonalWikiLinksRecord({
+        userContext,
+        documentId,
         input,
       })
     },

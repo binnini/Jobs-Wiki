@@ -39,6 +39,33 @@ function validateStringArray(value, fieldName) {
   })
 }
 
+function validateAnchorArray(value, fieldName) {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (!Array.isArray(value)) {
+    throw createValidationError(`\`${fieldName}\` must be an array.`)
+  }
+
+  return value.map((entry, index) => {
+    if (!entry || typeof entry !== "object") {
+      throw createValidationError(`\`${fieldName}[${index}]\` must be an object.`)
+    }
+
+    const layer = validateOptionalString(entry.layer, `${fieldName}[${index}].layer`)
+    const id = validateOptionalString(entry.id, `${fieldName}[${index}].id`)
+
+    if (!layer || !id) {
+      throw createValidationError(
+        `\`${fieldName}[${index}]\` requires non-empty \`layer\` and \`id\`.`,
+      )
+    }
+
+    return { layer, id }
+  })
+}
+
 export function validateCreateDocumentRequest(body = {}) {
   const layer = validateOptionalString(body.layer, "layer")
 
@@ -132,5 +159,55 @@ export function validateRegisterAssetRequest(body = {}) {
     mediaType,
     storageRef,
     assetKind,
+  }
+}
+
+export function validateGenerateWikiRequest(body = {}) {
+  const operation = validateOptionalString(body.operation, "operation")
+
+  if (!["summarize", "rewrite", "structure"].includes(operation ?? "")) {
+    throw createValidationError(
+      "`operation` must be `summarize`, `rewrite`, or `structure`.",
+    )
+  }
+
+  return {
+    operation,
+    summaryStyle: validateOptionalString(body.summaryStyle, "summaryStyle") ?? "concise",
+    rewriteGoal: validateOptionalString(body.rewriteGoal, "rewriteGoal") ?? "job-prep",
+    structureTemplate:
+      validateOptionalString(body.structureTemplate, "structureTemplate") ?? "job-brief",
+  }
+}
+
+export function validateSuggestWikiLinksRequest(body = {}) {
+  const maxSuggestionsValue =
+    body.maxSuggestions === undefined ? 10 : Number(body.maxSuggestions)
+
+  if (!Number.isInteger(maxSuggestionsValue) || maxSuggestionsValue <= 0) {
+    throw createValidationError("`maxSuggestions` must be a positive integer.")
+  }
+
+  return {
+    maxSuggestions: maxSuggestionsValue,
+  }
+}
+
+export function validateAttachWikiLinksRequest(body = {}) {
+  const wikiDocumentVersion = Number(body.wikiDocumentVersion)
+
+  if (!Number.isInteger(wikiDocumentVersion) || wikiDocumentVersion <= 0) {
+    throw createValidationError("`wikiDocumentVersion` must be a positive integer.")
+  }
+
+  const attachments = validateAnchorArray(body.attachments, "attachments")
+
+  if (!attachments || attachments.length === 0) {
+    throw createValidationError("`attachments` must include at least one link target.")
+  }
+
+  return {
+    wikiDocumentVersion,
+    attachments,
   }
 }

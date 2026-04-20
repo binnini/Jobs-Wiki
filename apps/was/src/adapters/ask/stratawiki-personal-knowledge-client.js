@@ -596,6 +596,197 @@ export function createStratawikiPersonalKnowledgeClient({
       })
     },
 
+    async summarizePersonalDocumentToWiki({
+      tenantId,
+      userId,
+      sourceDocumentRef,
+      profileVersion,
+      modelProfile,
+      summaryStyle,
+      saveTarget,
+    }) {
+      const payload = {
+        domain,
+        tenant_id: tenantId,
+        user_id: userId,
+        source_document_ref: sourceDocumentRef,
+        profile_version: profileVersion,
+        model_profile: modelProfile,
+        save_target: saveTarget,
+        ...(summaryStyle ? { summary_style: summaryStyle } : {}),
+      }
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.summarizePersonalDocumentToWikiTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.summarizePersonalDocumentToWikiTool,
+            arguments: payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.summarizePersonalDocumentToWikiTool, payload)
+        },
+      })
+    },
+
+    async rewritePersonalDocumentToWiki({
+      tenantId,
+      userId,
+      sourceDocumentRef,
+      profileVersion,
+      modelProfile,
+      rewriteGoal,
+      saveTarget,
+    }) {
+      const payload = {
+        domain,
+        tenant_id: tenantId,
+        user_id: userId,
+        source_document_ref: sourceDocumentRef,
+        profile_version: profileVersion,
+        model_profile: modelProfile,
+        save_target: saveTarget,
+        ...(rewriteGoal ? { rewrite_goal: rewriteGoal } : {}),
+      }
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.rewritePersonalDocumentToWikiTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.rewritePersonalDocumentToWikiTool,
+            arguments: payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.rewritePersonalDocumentToWikiTool, payload)
+        },
+      })
+    },
+
+    async structurePersonalDocumentToWiki({
+      tenantId,
+      userId,
+      sourceDocumentRef,
+      profileVersion,
+      modelProfile,
+      structureTemplate,
+      saveTarget,
+    }) {
+      const payload = {
+        domain,
+        tenant_id: tenantId,
+        user_id: userId,
+        source_document_ref: sourceDocumentRef,
+        profile_version: profileVersion,
+        model_profile: modelProfile,
+        save_target: saveTarget,
+        ...(structureTemplate ? { structure_template: structureTemplate } : {}),
+      }
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.structurePersonalDocumentToWikiTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.structurePersonalDocumentToWikiTool,
+            arguments: payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.structurePersonalDocumentToWikiTool, payload)
+        },
+      })
+    },
+
+    async suggestPersonalWikiLinks({
+      tenantId,
+      userId,
+      wikiDocumentId,
+      wikiDocumentVersion,
+      profileVersion,
+      modelProfile,
+      maxSuggestions,
+    }) {
+      const payload = {
+        domain,
+        tenant_id: tenantId,
+        user_id: userId,
+        wiki_document_id: wikiDocumentId,
+        wiki_document_version: wikiDocumentVersion,
+        profile_version: profileVersion,
+        model_profile: modelProfile,
+        ...(maxSuggestions ? { max_suggestions: maxSuggestions } : {}),
+      }
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.suggestPersonalWikiLinksTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.suggestPersonalWikiLinksTool,
+            arguments: payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.suggestPersonalWikiLinksTool, payload)
+        },
+      })
+    },
+
+    async attachPersonalWikiLinks({
+      tenantId,
+      userId,
+      wikiDocumentId,
+      wikiDocumentVersion,
+      attachments,
+    }) {
+      const payload = {
+        domain,
+        tenant_id: tenantId,
+        user_id: userId,
+        wiki_document_id: wikiDocumentId,
+        wiki_document_version: wikiDocumentVersion,
+        attachments,
+      }
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.attachPersonalWikiLinksTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.attachPersonalWikiLinksTool,
+            arguments: payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.attachPersonalWikiLinksTool, payload)
+        },
+      })
+    },
+
     async getInterpretationRecord({ interpretationId }) {
       return await withFallback({
         env,

@@ -91,6 +91,30 @@ function normalizeDocumentConflict(error) {
   throw error
 }
 
+async function loadRuntimePersonalDocument({
+  personalKnowledgeClient,
+  profileContextEntry,
+  documentId,
+}) {
+  const response = await personalKnowledgeClient.getPersonalDocument({
+    tenantId: profileContextEntry.tenantId,
+    userId: profileContextEntry.userId,
+    documentId,
+  })
+
+  return response?.document ?? response
+}
+
+function buildSourceDocumentRef(document) {
+  return {
+    document_id: document.document_id,
+    subspace: document.subspace,
+    version: document.version,
+    kind: document.kind,
+    asset_refs: Array.isArray(document.asset_refs) ? document.asset_refs : [],
+  }
+}
+
 export function createStratawikiPersonalDocumentAdapter({
   env = {},
   personalKnowledgeClient = createStratawikiPersonalKnowledgeClient({ env }),
@@ -211,6 +235,133 @@ export function createStratawikiPersonalDocumentAdapter({
 
         throw error
       }
+    },
+
+    async generatePersonalWikiDocument({ userContext, documentId, input }) {
+      const profileContextEntry = resolveWritableProfileContext({
+        env,
+        profileContextCatalog,
+        userContext,
+      })
+      const parsedDocumentId = parsePersonalLayerDocumentId(documentId)
+
+      if (parsedDocumentId.layer !== "personal_raw") {
+        throw createValidationError(
+          "Raw-to-wiki generation requires a `personal_raw` source document.",
+        )
+      }
+
+      await ensureProfileContext({
+        personalKnowledgeClient,
+        profileContextEntry,
+      })
+
+      const sourceDocument = await loadRuntimePersonalDocument({
+        personalKnowledgeClient,
+        profileContextEntry,
+        documentId: parsedDocumentId.recordId,
+      })
+      const sourceDocumentRef = buildSourceDocumentRef(sourceDocument)
+      const baseInput = {
+        tenantId: profileContextEntry.tenantId,
+        userId: profileContextEntry.userId,
+        sourceDocumentRef,
+        profileVersion: profileContextEntry.profileVersion,
+        modelProfile: env.personalQueryModelProfile,
+        saveTarget: {
+          subspace: "wiki",
+        },
+      }
+
+      if (input.operation === "summarize") {
+        const response = await personalKnowledgeClient.summarizePersonalDocumentToWiki({
+          ...baseInput,
+          summaryStyle: input.summaryStyle,
+        })
+
+        return response?.document ?? response
+      }
+
+      if (input.operation === "rewrite") {
+        const response = await personalKnowledgeClient.rewritePersonalDocumentToWiki({
+          ...baseInput,
+          rewriteGoal: input.rewriteGoal,
+        })
+
+        return response?.document ?? response
+      }
+
+      if (input.operation === "structure") {
+        const response = await personalKnowledgeClient.structurePersonalDocumentToWiki({
+          ...baseInput,
+          structureTemplate: input.structureTemplate,
+        })
+
+        return response?.document ?? response
+      }
+
+      throw createValidationError("Unsupported personal wiki generation operation.", {
+        operation: input.operation,
+      })
+    },
+
+    async suggestPersonalWikiLinks({ userContext, documentId, input }) {
+      const profileContextEntry = resolveWritableProfileContext({
+        env,
+        profileContextCatalog,
+        userContext,
+      })
+      const parsedDocumentId = parsePersonalLayerDocumentId(documentId)
+
+      if (parsedDocumentId.layer !== "personal_wiki") {
+        throw createValidationError(
+          "Wiki link suggestions require a `personal_wiki` document.",
+        )
+      }
+
+      await ensureProfileContext({
+        personalKnowledgeClient,
+        profileContextEntry,
+      })
+
+      const targetDocument = await loadRuntimePersonalDocument({
+        personalKnowledgeClient,
+        profileContextEntry,
+        documentId: parsedDocumentId.recordId,
+      })
+
+      return personalKnowledgeClient.suggestPersonalWikiLinks({
+        tenantId: profileContextEntry.tenantId,
+        userId: profileContextEntry.userId,
+        wikiDocumentId: targetDocument.document_id,
+        wikiDocumentVersion: targetDocument.version,
+        profileVersion: profileContextEntry.profileVersion,
+        modelProfile: env.personalQueryModelProfile,
+        maxSuggestions: input.maxSuggestions,
+      })
+    },
+
+    async attachPersonalWikiLinks({ userContext, documentId, input }) {
+      const profileContextEntry = resolveWritableProfileContext({
+        env,
+        profileContextCatalog,
+        userContext,
+      })
+      const parsedDocumentId = parsePersonalLayerDocumentId(documentId)
+
+      if (parsedDocumentId.layer !== "personal_wiki") {
+        throw createValidationError(
+          "Wiki link attachment requires a `personal_wiki` document.",
+        )
+      }
+
+      return personalKnowledgeClient.attachPersonalWikiLinks({
+        tenantId: profileContextEntry.tenantId,
+        userId: profileContextEntry.userId,
+        wikiDocumentId: parsedDocumentId.recordId,
+        wikiDocumentVersion: input.wikiDocumentVersion,
+        attachments: input.attachments,
+      })
     },
   }
 }

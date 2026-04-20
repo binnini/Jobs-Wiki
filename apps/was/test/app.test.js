@@ -328,6 +328,91 @@ test("personal document CRUD and asset registration round-trip through the works
   })
 })
 
+test("personal raw-to-wiki generation and wiki link actions stay within the personal layer", async () => {
+  await withApp(async (app) => {
+    const createRawResponse = await invokeApp(app, {
+      method: "POST",
+      url: "/api/documents",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        layer: "personal_raw",
+        title: "Research draft",
+        bodyMarkdown: "# Research draft\n\nShared notes reorganized for personal prep.",
+      },
+    })
+    const rawDocumentId = createRawResponse.body.item.documentRef.objectId
+
+    const summarizeResponse = await invokeApp(app, {
+      method: "POST",
+      url: `/api/documents/${encodeURIComponent(rawDocumentId)}/summarize`,
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {},
+    })
+
+    assert.equal(summarizeResponse.status, 200)
+    assert.equal(summarizeResponse.body.operation, "summarize")
+    const wikiDocumentId = summarizeResponse.body.item.documentRef.objectId
+    assert.match(wikiDocumentId, /^personal_wiki:/)
+
+    const workspaceAfterGeneration = await invokeApp(app, {
+      url: "/api/workspace",
+    })
+    assert.equal(
+      workspaceAfterGeneration.body.navigation.sections[2].items.some(
+        (item) => item.objectRef.objectId === wikiDocumentId,
+      ),
+      true,
+    )
+
+    const suggestResponse = await invokeApp(app, {
+      method: "POST",
+      url: `/api/documents/${encodeURIComponent(wikiDocumentId)}/suggest-links`,
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        maxSuggestions: 2,
+      },
+    })
+    assert.equal(suggestResponse.status, 200)
+    assert.equal(suggestResponse.body.suggestions.length, 2)
+
+    const wikiDetail = await invokeApp(app, {
+      url: `/api/documents/${encodeURIComponent(wikiDocumentId)}`,
+    })
+    const wikiVersionBeforeAttach = wikiDetail.body.item.metadata.version
+
+    const attachResponse = await invokeApp(app, {
+      method: "POST",
+      url: `/api/documents/${encodeURIComponent(wikiDocumentId)}/attach-links`,
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        wikiDocumentVersion: wikiVersionBeforeAttach,
+        attachments: suggestResponse.body.suggestions.map((item) => ({
+          layer: item.layer,
+          id: item.id,
+        })),
+      },
+    })
+    assert.equal(attachResponse.status, 200)
+    assert.equal(attachResponse.body.attached.length, 2)
+
+    const wikiDetailAfterAttach = await invokeApp(app, {
+      url: `/api/documents/${encodeURIComponent(wikiDocumentId)}`,
+    })
+    assert.equal(
+      wikiDetailAfterAttach.body.item.metadata.version,
+      wikiVersionBeforeAttach + 1,
+    )
+  })
+})
+
 test("GET /api/opportunities returns filter-aware pagination and card-complete list items", async () => {
   await withApp(async (app) => {
     const firstPage = await invokeApp(app, {

@@ -38,6 +38,10 @@ function buildMockState() {
   }
 }
 
+function getNowStamp(minutesOffset = 0) {
+  return new Date(Date.parse("2026-04-20T06:00:00.000Z") + minutesOffset * 60_000).toISOString()
+}
+
 function getPersonalSectionId(layer) {
   return layer === "personal_wiki" ? "personal_wiki" : "personal_raw"
 }
@@ -99,8 +103,13 @@ function createMockDocumentRecord({
   version = 1,
   status = "active",
   updatedAt,
+  sourceProvider,
+  sourceId,
+  tags,
+  relatedObjects = [],
 }) {
-  const tags = ["personal", layer === "personal_wiki" ? "wiki" : "raw"]
+  const normalizedTags =
+    tags ?? ["personal", layer === "personal_wiki" ? "wiki" : "raw"]
 
   return {
     documentId,
@@ -111,23 +120,47 @@ function createMockDocumentRecord({
     summary: bodyMarkdown.slice(0, 140) || `${title} 문서입니다.`,
     metadata: {
       source: {
-        provider: assetRefs.length ? "stratawiki_personal_asset" : "stratawiki_personal",
-        sourceId: documentId,
+        provider:
+          sourceProvider ??
+          (assetRefs.length ? "stratawiki_personal_asset" : "stratawiki_personal"),
+        sourceId: sourceId ?? documentId,
         fetchedAt: updatedAt,
       },
       updatedAt,
-      tags,
+      tags: normalizedTags,
       version,
       assetRefs,
       status,
     },
-    relatedObjects: [],
+    relatedObjects,
     sync: {
       visibility: "applied",
       version: "mock-v1",
       visibleAt: updatedAt,
     },
   }
+}
+
+function buildGenerationBody(operation, sourceRecord) {
+  const label =
+    operation === "summarize"
+      ? "요약"
+      : operation === "rewrite"
+        ? "재작성"
+        : "구조화"
+  return `# ${sourceRecord.title} ${label}\n\n${sourceRecord.summary}\n\n이 문서는 personal/raw 소스를 바탕으로 personal/wiki에 생성되었습니다.`
+}
+
+function buildGenerationTitle(operation, sourceTitle) {
+  if (operation === "summarize") {
+    return `${sourceTitle} 요약`
+  }
+
+  if (operation === "rewrite") {
+    return `${sourceTitle} 재작성 노트`
+  }
+
+  return `${sourceTitle} 구조화 노트`
 }
 
 export function createMockReadAuthorityAdapter() {
@@ -337,6 +370,100 @@ export function createMockReadAuthorityAdapter() {
       state.assets.set(input.storageRef, asset)
 
       return clone(asset)
+    },
+
+    async generatePersonalWikiDocumentRecord({ documentId, input }) {
+      const sourceRecord = findDocumentRecord(state, documentId)
+      const recordId = `pwiki_mock_${String(state.nextDocumentSequence).padStart(3, "0")}`
+      state.nextDocumentSequence += 1
+      const generatedDocumentId = `personal_wiki:${recordId}`
+      const updatedAt = getNowStamp(15)
+      const record = createMockDocumentRecord({
+        documentId: generatedDocumentId,
+        layer: "personal_wiki",
+        title: buildGenerationTitle(input.operation, sourceRecord.title),
+        bodyMarkdown: buildGenerationBody(input.operation, sourceRecord),
+        assetRefs: sourceRecord.metadata?.assetRefs ?? [],
+        updatedAt,
+        sourceProvider: "jobs_wiki_generation",
+        sourceId: generatedDocumentId,
+        tags: ["personal", "wiki", input.operation],
+      })
+
+      state.documentDetails[generatedDocumentId] = record
+      upsertWorkspaceNavigationItem(state, record)
+
+      return {
+        document_id: recordId,
+        subspace: "wiki",
+        kind: input.operation === "summarize" ? "wiki_summary" : "wiki_note",
+        version: 1,
+        title: record.title,
+        body_markdown: record.bodyMarkdown,
+        source_document_ref: {
+          document_id: documentId.split(":").slice(1).join(":"),
+          subspace: "raw",
+          version: sourceRecord.metadata?.version ?? 1,
+          kind: "raw_document",
+          asset_refs: sourceRecord.metadata?.assetRefs ?? [],
+        },
+        asset_refs: sourceRecord.metadata?.assetRefs ?? [],
+        anchors: [],
+        updated_at: updatedAt,
+        created_at: updatedAt,
+        status: "active",
+      }
+    },
+
+    async suggestPersonalWikiLinksRecord({ documentId, input }) {
+      const wikiRecord = findDocumentRecord(state, documentId)
+      return {
+        status: "ok",
+        wiki_document_id: documentId.split(":").slice(1).join(":"),
+        wiki_document_version: wikiRecord.metadata?.version ?? 1,
+        suggestions: [
+          {
+            layer: "fact",
+            id: "fact:job:1",
+            reason: "preserved from the raw source document",
+            confidence: 0.98,
+          },
+          {
+            layer: "interpretation",
+            id: "interp:published:1",
+            reason: "matches the wiki summary language",
+            confidence: 0.91,
+          },
+        ].slice(0, input.maxSuggestions ?? 10),
+      }
+    },
+
+    async attachPersonalWikiLinksRecord({ documentId, input }) {
+      const wikiRecord = findDocumentRecord(state, documentId)
+
+      if (input.wikiDocumentVersion !== wikiRecord.metadata?.version) {
+        throw createConflictError("Personal wiki document version mismatch.", {
+          resource: "personal_wiki_document",
+          documentId,
+          expectedVersion: input.wikiDocumentVersion,
+          currentVersion: wikiRecord.metadata?.version,
+        })
+      }
+
+      wikiRecord.metadata.version += 1
+      wikiRecord.metadata.updatedAt = getNowStamp(20)
+      wikiRecord.relatedObjects = (input.attachments ?? []).map((attachment) => ({
+        objectId: attachment.id,
+        objectKind: attachment.layer === "fact" ? "fact" : "document",
+        title: attachment.id,
+      }))
+
+      return {
+        status: "ok",
+        wiki_document_id: documentId.split(":").slice(1).join(":"),
+        wiki_document_version: wikiRecord.metadata.version,
+        attached: input.attachments ?? [],
+      }
     },
   }
 }

@@ -132,6 +132,26 @@ export function loadEnv(overrides = {}) {
       rawEnv.STRATAWIKI_REGISTER_PERSONAL_ASSET_TOOL ??
       rawEnv.registerPersonalAssetTool ??
       "register_personal_asset",
+    summarizePersonalDocumentToWikiTool:
+      rawEnv.STRATAWIKI_SUMMARIZE_PERSONAL_DOCUMENT_TO_WIKI_TOOL ??
+      rawEnv.summarizePersonalDocumentToWikiTool ??
+      "summarize_personal_document_to_wiki",
+    rewritePersonalDocumentToWikiTool:
+      rawEnv.STRATAWIKI_REWRITE_PERSONAL_DOCUMENT_TO_WIKI_TOOL ??
+      rawEnv.rewritePersonalDocumentToWikiTool ??
+      "rewrite_personal_document_to_wiki",
+    structurePersonalDocumentToWikiTool:
+      rawEnv.STRATAWIKI_STRUCTURE_PERSONAL_DOCUMENT_TO_WIKI_TOOL ??
+      rawEnv.structurePersonalDocumentToWikiTool ??
+      "structure_personal_document_to_wiki",
+    suggestPersonalWikiLinksTool:
+      rawEnv.STRATAWIKI_SUGGEST_PERSONAL_WIKI_LINKS_TOOL ??
+      rawEnv.suggestPersonalWikiLinksTool ??
+      "suggest_personal_wiki_links",
+    attachPersonalWikiLinksTool:
+      rawEnv.STRATAWIKI_ATTACH_PERSONAL_WIKI_LINKS_TOOL ??
+      rawEnv.attachPersonalWikiLinksTool ??
+      "attach_personal_wiki_links",
     getInterpretationRecordTool:
       rawEnv.STRATAWIKI_GET_INTERPRETATION_RECORD_TOOL ??
       rawEnv.getInterpretationRecordTool ??

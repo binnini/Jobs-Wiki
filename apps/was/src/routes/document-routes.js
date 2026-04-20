@@ -1,16 +1,47 @@
 import { deleteDocumentService } from "../services/delete-document-service.js"
 import { createDocumentService } from "../services/create-document-service.js"
+import { attachPersonalWikiLinksService } from "../services/attach-personal-wiki-links-service.js"
+import { generatePersonalWikiDocumentService } from "../services/generate-personal-wiki-document-service.js"
 import { mapDocumentDetail } from "../mappers/document-detail-mapper.js"
 import { getDocumentDetailService } from "../services/get-document-detail-service.js"
 import { registerPersonalAssetService } from "../services/register-personal-asset-service.js"
+import { suggestPersonalWikiLinksService } from "../services/suggest-personal-wiki-links-service.js"
 import { updateDocumentService } from "../services/update-document-service.js"
 import {
+  validateAttachWikiLinksRequest,
   validateCreateDocumentRequest,
   validateDeleteDocumentRequest,
   validateDocumentId,
+  validateGenerateWikiRequest,
   validateRegisterAssetRequest,
+  validateSuggestWikiLinksRequest,
   validateUpdateDocumentRequest,
 } from "../validators/document-validator.js"
+
+function mapPersonalWikiGenerationResult(result) {
+  return {
+    item: mapDocumentDetail({
+      documentId: `personal_wiki:${result.document_id}`,
+      title: result.title,
+      layer: "personal_wiki",
+      writable: true,
+      bodyMarkdown: result.body_markdown ?? "",
+      summary: result.body_markdown ?? null,
+      metadata: {
+        source: {
+          provider: "jobs_wiki_generation",
+          sourceId: result.document_id,
+        },
+        updatedAt: result.updated_at ?? result.created_at,
+        version: result.version,
+        assetRefs: result.asset_refs ?? [],
+        status: result.status,
+      },
+      relatedObjects: [],
+    }).item,
+    sourceDocumentRef: result.source_document_ref ?? null,
+  }
+}
 
 export function createDocumentRoutes({ adapters }) {
   return [
@@ -79,6 +110,84 @@ export function createDocumentRoutes({ adapters }) {
       },
     },
     {
+      method: "POST",
+      path: "/api/documents/:documentId/summarize",
+      name: "summarizeDocumentToWiki",
+      async handler(context) {
+        const documentId = validateDocumentId(context.params.documentId)
+        const input = validateGenerateWikiRequest({
+          ...(await context.readJsonBody()),
+          operation: "summarize",
+        })
+        const result = await generatePersonalWikiDocumentService({
+          personalDocument: adapters.personalDocument,
+          userContext: context.userContext,
+          documentId,
+          input,
+        })
+
+        return {
+          status: 200,
+          body: {
+            operation: "summarize",
+            ...mapPersonalWikiGenerationResult(result),
+          },
+        }
+      },
+    },
+    {
+      method: "POST",
+      path: "/api/documents/:documentId/rewrite",
+      name: "rewriteDocumentToWiki",
+      async handler(context) {
+        const documentId = validateDocumentId(context.params.documentId)
+        const input = validateGenerateWikiRequest({
+          ...(await context.readJsonBody()),
+          operation: "rewrite",
+        })
+        const result = await generatePersonalWikiDocumentService({
+          personalDocument: adapters.personalDocument,
+          userContext: context.userContext,
+          documentId,
+          input,
+        })
+
+        return {
+          status: 200,
+          body: {
+            operation: "rewrite",
+            ...mapPersonalWikiGenerationResult(result),
+          },
+        }
+      },
+    },
+    {
+      method: "POST",
+      path: "/api/documents/:documentId/structure",
+      name: "structureDocumentToWiki",
+      async handler(context) {
+        const documentId = validateDocumentId(context.params.documentId)
+        const input = validateGenerateWikiRequest({
+          ...(await context.readJsonBody()),
+          operation: "structure",
+        })
+        const result = await generatePersonalWikiDocumentService({
+          personalDocument: adapters.personalDocument,
+          userContext: context.userContext,
+          documentId,
+          input,
+        })
+
+        return {
+          status: 200,
+          body: {
+            operation: "structure",
+            ...mapPersonalWikiGenerationResult(result),
+          },
+        }
+      },
+    },
+    {
       method: "GET",
       path: "/api/documents/:documentId",
       name: "getDocumentDetail",
@@ -134,6 +243,54 @@ export function createDocumentRoutes({ adapters }) {
             },
             relatedObjects: [],
           }),
+        }
+      },
+    },
+    {
+      method: "POST",
+      path: "/api/documents/:documentId/suggest-links",
+      name: "suggestDocumentWikiLinks",
+      async handler(context) {
+        const documentId = validateDocumentId(context.params.documentId)
+        const input = validateSuggestWikiLinksRequest(await context.readJsonBody())
+        const result = await suggestPersonalWikiLinksService({
+          personalDocument: adapters.personalDocument,
+          userContext: context.userContext,
+          documentId,
+          input,
+        })
+
+        return {
+          status: 200,
+          body: {
+            documentId,
+            wikiDocumentVersion: result.wiki_document_version ?? null,
+            suggestions: result.suggestions ?? [],
+          },
+        }
+      },
+    },
+    {
+      method: "POST",
+      path: "/api/documents/:documentId/attach-links",
+      name: "attachDocumentWikiLinks",
+      async handler(context) {
+        const documentId = validateDocumentId(context.params.documentId)
+        const input = validateAttachWikiLinksRequest(await context.readJsonBody())
+        const result = await attachPersonalWikiLinksService({
+          personalDocument: adapters.personalDocument,
+          userContext: context.userContext,
+          documentId,
+          input,
+        })
+
+        return {
+          status: 200,
+          body: {
+            documentId,
+            wikiDocumentVersion: result.wiki_document_version ?? null,
+            attached: result.attached ?? result.attachments ?? [],
+          },
         }
       },
     },
