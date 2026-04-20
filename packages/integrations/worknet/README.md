@@ -7,12 +7,12 @@
 - low-level WorkNet API layer
 - domain-facing normalized recruiting layer
 
-- [src/types.ts](/home/yebin/projects/Jobs-Wiki/packages/integrations/worknet/src/types.ts): 외부 응답 중심 타입 정의
-- [src/adapter.ts](/home/yebin/projects/Jobs-Wiki/packages/integrations/worknet/src/adapter.ts): 외부 연동 어댑터 인터페이스
-- [src/client.ts](/home/yebin/projects/Jobs-Wiki/packages/integrations/worknet/src/client.ts): 실제 WorkNet 클라이언트
-- [src/mappers.ts](/home/yebin/projects/Jobs-Wiki/packages/integrations/worknet/src/mappers.ts): XML -> 내부 타입 매핑 함수
-- [src/xml.ts](/home/yebin/projects/Jobs-Wiki/packages/integrations/worknet/src/xml.ts): XML 탐색 유틸리티
-- [src/recruiting.ts](/home/yebin/projects/Jobs-Wiki/packages/integrations/worknet/src/recruiting.ts): 채용 도메인 normalized provider
+- [src/types.ts](./src/types.ts): 외부 응답 중심 타입 정의
+- [src/adapter.ts](./src/adapter.ts): 외부 연동 어댑터 인터페이스
+- [src/client.ts](./src/client.ts): 실제 WorkNet 클라이언트
+- [src/mappers.ts](./src/mappers.ts): XML -> 내부 타입 매핑 함수
+- [src/xml.ts](./src/xml.ts): XML 탐색 유틸리티
+- [src/recruiting.ts](./src/recruiting.ts): 채용 도메인 normalized provider
 
 이 디렉터리의 역할은 다음과 같습니다.
 
@@ -56,8 +56,8 @@ normalized layer는 채용 도메인 기준의 의미 있는 payload를 제공�
 
 테스트는 두 층으로 분리합니다.
 
-- 스모크 테스트: [tests/worknet/smoke.mjs](/home/yebin/projects/Jobs-Wiki/tests/worknet/smoke.mjs)
-- 매퍼 단위 테스트: [test/mappers.test.ts](/home/yebin/projects/Jobs-Wiki/packages/integrations/worknet/test/mappers.test.ts)
-- provider 단위 테스트: [test/recruiting-provider.test.ts](/home/yebin/projects/Jobs-Wiki/packages/integrations/worknet/test/recruiting-provider.test.ts)
+- 스모크 테스트: [tests/worknet/smoke.mjs](../../../tests/worknet/smoke.mjs)
+- 매퍼 단위 테스트: [test/mappers.test.ts](./test/mappers.test.ts)
+- provider 단위 테스트: [test/recruiting-provider.test.ts](./test/recruiting-provider.test.ts)
 
 WAS가 최종적으로 프론트엔드에 노출할 서비스 계약은 backend 쪽에 둡니다.

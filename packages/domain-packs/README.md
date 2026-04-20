@@ -11,4 +11,4 @@
 
 관련 공식 문서:
 
-- [docs/domain/recruiting-domain-pack.md](/Users/yebin/workSpace/Jobs-Wiki/docs/domain/recruiting-domain-pack.md:1)
+- [docs/domain/recruiting-domain-pack.md](../../docs/domain/recruiting-domain-pack.md)
