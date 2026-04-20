@@ -2063,11 +2063,7 @@ const CreatePersonalDocumentModal = ({
       <div className="w-full max-w-2xl rounded-sm border border-slate-200 bg-white p-8 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <Label className="text-indigo-600">personal create</Label>
-            <h2 className="text-2xl font-bold text-slate-900">{titleLabel}</h2>
-            <p className="mt-2 text-sm font-medium text-slate-600">
-              shared shell은 그대로 두고, 현재 personal layer에만 새 writable 문서를 추가합니다.
-            </p>
+            <h2 className="text-lg font-bold text-slate-900">{titleLabel}</h2>
           </div>
           <button
             type="button"
@@ -3480,24 +3476,6 @@ const DocumentDetailView = ({
           className="border-rose-200 bg-rose-50 text-rose-900"
         />
       ) : null}
-      <InlineNotice
-        title={
-          isSharedLayer(detail.layer)
-            ? "shared read-only boundary"
-            : "personal workspace boundary"
-        }
-        message={
-          isSharedLayer(detail.layer)
-            ? "현재 sync 표시는 shared reference projection의 마지막 확인 상태입니다. personal에 저장된 것을 뜻하지 않습니다."
-            : "현재 sync 표시는 이 personal projection의 마지막 확인 상태입니다. shared가 갱신된 것처럼 해석하면 안 되며, 이 화면은 writable boundary만 정직하게 보여줍니다."
-        }
-        className={
-          isSharedLayer(detail.layer)
-            ? "border-slate-200 bg-slate-50 text-slate-900"
-            : "border-emerald-200 bg-emerald-50 text-emerald-900"
-        }
-      />
-
       <header className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div>
@@ -3527,12 +3505,6 @@ const DocumentDetailView = ({
                 {detail.summary}
               </p>
             ) : null}
-            <div className="mt-5 rounded-sm border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium leading-relaxed text-slate-700 shadow-sm">
-              {buildLayerBoundaryCopy({
-                layer: detail.layer,
-                writable: detail.writable,
-              })}
-            </div>
           </div>
 
           <div className="flex shrink-0 flex-wrap gap-3">
@@ -3559,21 +3531,8 @@ const DocumentDetailView = ({
                   <Trash2 size={14} className="mr-2 inline-flex" />
                   {isDeleting ? "삭제 중..." : "삭제"}
                 </button>
-                <div className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm">
-                  personal writable boundary
-                </div>
               </>
-            ) : (
-              <div className="rounded-sm border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600 shadow-sm">
-                shared 문서는 직접 수정하지 않습니다
-              </div>
-            )}
-            <button
-              onClick={() => onOpenAsk(detail)}
-              className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
-            >
-              Ask로 열기
-            </button>
+            ) : null}
           </div>
         </div>
       </header>
