@@ -670,14 +670,15 @@ function mapPersonalDocument(parsedDocumentId, record) {
   }
 }
 
-function mapPersonalWorkspaceItem(record) {
+function mapPersonalWorkspaceItem(record, { subspace } = {}) {
   const recordId = record?.document_id ?? record?.id
 
   if (typeof recordId !== "string" || recordId.trim() === "") {
     return undefined
   }
 
-  const layer = record?.subspace === "wiki" ? "personal_wiki" : "personal_raw"
+  const resolvedSubspace = subspace ?? record?.subspace
+  const layer = resolvedSubspace === "wiki" ? "personal_wiki" : "personal_raw"
 
   return {
     objectId: `${layer}:${recordId}`,
@@ -725,9 +726,13 @@ async function listPersonalWorkspaceItems({
 
   return {
     personalRawItems:
-      (rawResponse?.items ?? []).map(mapPersonalWorkspaceItem).filter(Boolean),
+      (rawResponse?.items ?? [])
+        .map((item) => mapPersonalWorkspaceItem(item, { subspace: "raw" }))
+        .filter(Boolean),
     personalWikiItems:
-      (wikiResponse?.items ?? []).map(mapPersonalWorkspaceItem).filter(Boolean),
+      (wikiResponse?.items ?? [])
+        .map((item) => mapPersonalWorkspaceItem(item, { subspace: "wiki" }))
+        .filter(Boolean),
   }
 }
 
@@ -784,16 +789,17 @@ async function loadDocumentDetail({
     }
 
     const response =
-      parsedDocumentId.recordId.startsWith("personal:")
-        ? await personalKnowledgeClient.getPersonalRecord({
-            tenantId: profileContextEntry.tenantId,
-            userId: profileContextEntry.userId,
-            personalId: parsedDocumentId.recordId,
-          })
-        : await personalKnowledgeClient.getPersonalDocument({
+      /^personal:(raw|wiki):/.test(parsedDocumentId.recordId) ||
+      !parsedDocumentId.recordId.startsWith("personal:")
+        ? await personalKnowledgeClient.getPersonalDocument({
             tenantId: profileContextEntry.tenantId,
             userId: profileContextEntry.userId,
             documentId: parsedDocumentId.recordId,
+          })
+        : await personalKnowledgeClient.getPersonalRecord({
+            tenantId: profileContextEntry.tenantId,
+            userId: profileContextEntry.userId,
+            personalId: parsedDocumentId.recordId,
           })
 
     return mapPersonalDocument(
