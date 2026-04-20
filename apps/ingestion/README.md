@@ -26,8 +26,14 @@
   - 수동 실행 옵션 파싱
 - `src/jobs/manual-run.js`
   - CLI entrypoint
+- `src/jobs/fetch-worknet-source-payloads.js`
+  - WorkNet source ref/payload fetch, pagination window, fetch success/failure summary baseline
+- `src/jobs/map-worknet-payloads-to-proposal-batches.js`
+  - normalized payload -> recruiting proposal batch mapping stage와 fact/relation summary baseline
 - `src/jobs/run-worknet-ingestion.js`
-  - WorkNet fetch -> proposal batch -> StrataWiki validate/ingest workflow
+  - fetch/map stage를 재사용해 proposal batch validate/ingest workflow 실행
+- `src/clients/stratawiki-write-client.js`
+  - StrataWiki HTTP-first dual-mode write client와 normalized write failure envelope
 - `src/clients/index.js`
   - WorkNet provider + StrataWiki dual-mode client bootstrap
 
@@ -148,6 +154,9 @@ npm start -- --source worknet --dry-run
 - `--mode backfill`은 page window 를 순차 실행하면서 aggregation summary 를 만듭니다.
 - retry 는 attempt 수와 delay 로 조정할 수 있습니다.
 - 각 실행 결과는 JSON summary 파일로 저장됩니다.
+- 실패 summary는 `error.code`, `error.retryable`, `error.transport`, `error.operation`을 함께 남깁니다.
+- scheduled/backfill success summary는 `retryPolicy`와 실행 window 정보를 함께 남깁니다.
+- retry exhaustion failure summary는 `retry`와 `context`를 함께 남겨 어느 cycle/page에서 실패했는지 추적할 수 있습니다.
 - `INGEST_RUN_SUMMARY_DIR`가 없으면 시스템 temp 아래
   `jobs-wiki-ingestion-runs/`를 기본 저장 위치로 사용합니다.
 - Jobs-Wiki는 StrataWiki DB에 직접 접근하지 않습니다.
@@ -192,3 +201,38 @@ $STRATAWIKI_CLI_WRAPPER call validate_domain_proposal_batch --args-file /tmp/pro
 ```bash
 $STRATAWIKI_CLI_WRAPPER call ingest_domain_proposal_batch --args-file /tmp/proposal-batch.json
 ```
+
+## Ops Runbook
+
+주기 실행 기준선:
+
+```bash
+INGEST_DRY_RUN=true \
+INGEST_SCHEDULE_CYCLES=3 \
+INGEST_SCHEDULE_INTERVAL_MS=60000 \
+npm run ingest:worknet:schedule
+```
+
+backfill 기준선:
+
+```bash
+INGEST_DRY_RUN=false \
+WORKNET_BACKFILL_START_PAGE=1 \
+WORKNET_BACKFILL_PAGES=5 \
+WORKNET_FETCH_SIZE=20 \
+npm run ingest:worknet:backfill
+```
+
+retry 튜닝:
+
+```bash
+INGEST_MAX_ATTEMPTS=3 \
+INGEST_RETRY_DELAY_MS=2000 \
+npm run ingest:worknet:schedule
+```
+
+run summary 확인:
+
+- 기본 저장 위치: `${TMPDIR:-/tmp}/jobs-wiki-ingestion-runs/`
+- 커스텀 저장 위치: `INGEST_RUN_SUMMARY_DIR=/path/to/runs`
+- scheduled/backfill 실패 시 `retry`, `context`, `error.code`를 먼저 확인합니다.

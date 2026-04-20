@@ -30,35 +30,50 @@ export async function runWorknetBackfill({
       maxAttempts,
     })
 
-    const execution = await retry(
-      ({ attempt }) =>
-        runIngestion({
-          env,
-          logger,
-          dryRun,
-          sourceId,
-          runId: `${runId}-page-${fetchPage}`,
-          clients,
-          fetchPage,
-          fetchSize,
-          attempt,
-        }),
-      {
-        maxAttempts,
-        delayMs: retryDelayMs,
-        onRetry: ({ attempt, nextAttempt, error, delayMs }) => {
-          logger.info("ingestion.worknet.backfill.retry_scheduled", {
-            runId,
+    let execution
+
+    try {
+      execution = await retry(
+        ({ attempt }) =>
+          runIngestion({
+            env,
+            logger,
+            dryRun,
             sourceId,
+            runId: `${runId}-page-${fetchPage}`,
+            clients,
             fetchPage,
+            fetchSize,
             attempt,
-            nextAttempt,
-            retryDelayMs: delayMs,
-            message: error.message,
-          })
+          }),
+        {
+          maxAttempts,
+          delayMs: retryDelayMs,
+          onRetry: ({ attempt, nextAttempt, error, delayMs }) => {
+            logger.info("ingestion.worknet.backfill.retry_scheduled", {
+              runId,
+              sourceId,
+              fetchPage,
+              attempt,
+              nextAttempt,
+              retryDelayMs: delayMs,
+              message: error.message,
+            })
+          },
         },
-      },
-    )
+      )
+    } catch (error) {
+      error.context = {
+        ...(error.context ?? {}),
+        mode: "backfill",
+        fetchPage,
+        startPage,
+        pages,
+        fetchSize,
+        sourceId,
+      }
+      throw error
+    }
 
     pageReports.push({
       page: fetchPage,
@@ -73,6 +88,15 @@ export async function runWorknetBackfill({
     sourceId,
     mode: dryRun ? "backfill_dry_run" : "backfill_apply",
     status: dryRun ? "validated" : "ingested",
+    backfill: {
+      startPage,
+      pages,
+      fetchSize,
+    },
+    retryPolicy: {
+      maxAttempts,
+      delayMs: retryDelayMs,
+    },
     summary: {
       pagesProcessed: pageReports.length,
       fetchedSources: pageReports.reduce(

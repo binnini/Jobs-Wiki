@@ -59,6 +59,10 @@ test("runScheduledIngestion retries and aggregates cycle summaries", async () =>
   })
 
   assert.equal(summary.mode, "scheduled_dry_run")
+  assert.equal(summary.schedule.cycles, 2)
+  assert.equal(summary.schedule.intervalMs, 25)
+  assert.equal(summary.retryPolicy.maxAttempts, 3)
+  assert.equal(summary.retryPolicy.delayMs, 10)
   assert.equal(summary.summary.cyclesCompleted, 2)
   assert.equal(summary.summary.fetchedSources, 2)
   assert.equal(summary.cycles.length, 2)
@@ -109,6 +113,11 @@ test("runWorknetBackfill aggregates sequential page windows", async () => {
   })
 
   assert.equal(summary.mode, "backfill_apply")
+  assert.equal(summary.backfill.startPage, 2)
+  assert.equal(summary.backfill.pages, 3)
+  assert.equal(summary.backfill.fetchSize, 10)
+  assert.equal(summary.retryPolicy.maxAttempts, 2)
+  assert.equal(summary.retryPolicy.delayMs, 1)
   assert.equal(summary.summary.pagesProcessed, 3)
   assert.equal(summary.summary.fetchedSources, 9)
   assert.equal(summary.summary.ingestedBatches, 3)

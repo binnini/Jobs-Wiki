@@ -1,13 +1,5 @@
-import { createHash } from "node:crypto"
-import { createStratawikiRecruitingProposalBatch } from "../mappers/stratawiki-domain-proposal-batch.js"
-
-function hashValue(value) {
-  return createHash("sha256").update(String(value)).digest("hex").slice(0, 12)
-}
-
-function createBatchId({ runId, sourceId }) {
-  return `jobs-wiki-${runId}-${hashValue(sourceId)}`
-}
+import { fetchWorknetSourcePayloads } from "./fetch-worknet-source-payloads.js"
+import { mapWorknetPayloadsToProposalBatches } from "./map-worknet-payloads-to-proposal-batches.js"
 
 function summarizeValidation(validationResult) {
   return {
@@ -54,14 +46,6 @@ export async function runWorknetIngestion({
     )
   }
 
-  if (!env.worknetKeys.employment) {
-    throw new Error(
-      "Missing WorkNet employment auth key. Set EMPLOYMENT_INFO or WORKNET_EMPLOYMENT_AUTH_KEY before running WorkNet ingestion.",
-    )
-  }
-
-  await clients.stratawiki.assertWriteRuntimeConfig()
-
   logger.info("ingestion.worknet.started", {
     runId,
     sourceId,
@@ -71,41 +55,28 @@ export async function runWorknetIngestion({
     attempt,
   })
 
-  const sourcePage = await clients.worknetRecruiting.listRecruitingSources({
-    authKey: env.worknetKeys.employment,
-    page: fetchPage,
-    size: fetchSize,
-    sortBy: "posted_at",
-    sortDirection: "DESC",
+  const fetchResult = await fetchWorknetSourcePayloads({
+    env,
+    logger,
+    sourceId,
+    runId,
+    clients,
+    fetchPage,
+    fetchSize,
+    attempt,
+  })
+  await clients.stratawiki.assertWriteRuntimeConfig()
+  const mappingResult = mapWorknetPayloadsToProposalBatches({
+    env,
+    logger,
+    runId,
+    fetchResult,
   })
 
-  const sourceRefs = sourcePage.items ?? []
-
-  const batchReports = []
-  let totalFactProposals = 0
-  let totalRelationProposals = 0
-
-  for (const sourceRef of sourceRefs) {
-    const payload = await clients.worknetRecruiting.getRecruitingSource({
-      authKey: env.worknetKeys.employment,
-      sourceId: sourceRef.sourceId,
-    })
-
-    const batchId = createBatchId({
-      runId,
-      sourceId: sourceRef.sourceId,
-    })
-    const batchPayload = createStratawikiRecruitingProposalBatch(payload, {
-      batchId,
-      packVersion:
-        env.stratawikiRecruitingPackVersion ?? undefined,
-    })
-
-    totalFactProposals += batchPayload.batch.facts.length
-    totalRelationProposals += batchPayload.batch.relations.length
-
+  for (const proposalBatch of mappingResult.proposalBatches) {
+    const { sourceRef, batchId, batch } = proposalBatch
     const validation = await clients.stratawiki.validateDomainProposalBatch({
-      batch: batchPayload.batch,
+      batch,
       requestId: `jobs-wiki-validate-${batchId}`,
       idempotencyKey: `jobs-wiki-validate:${batchId}`,
     })
@@ -121,7 +92,7 @@ export async function runWorknetIngestion({
     let ingest = null
     if (!dryRun) {
       ingest = await clients.stratawiki.ingestDomainProposalBatch({
-        batch: batchPayload.batch,
+        batch,
         requestId: `jobs-wiki-ingest-${batchId}`,
         idempotencyKey: `jobs-wiki-ingest:${batchId}`,
       })
@@ -135,17 +106,25 @@ export async function runWorknetIngestion({
       }
     }
 
-    batchReports.push({
-      sourceId: sourceRef.sourceId,
-      batchId,
-      title: sourceRef.title,
-      companyName: sourceRef.companyName,
-      factProposalCount: batchPayload.batch.facts.length,
-      relationProposalCount: batchPayload.batch.relations.length,
-      validation: summarizeValidation(validation),
-      ingest: ingest ? summarizeIngest(ingest) : null,
-    })
+    const batchReport = mappingResult.batchReports.find(
+      (report) => report.batchId === batchId,
+    )
+
+    batchReport.validation = summarizeValidation(validation)
+    batchReport.ingest = ingest ? summarizeIngest(ingest) : null
   }
+
+  const sourceRefs = fetchResult.sourceRefs
+  const batchReports = mappingResult.batchReports.map((report) => ({
+    sourceId: report.sourceId,
+    batchId: report.batchId,
+    title: report.title,
+    companyName: report.companyName,
+    factProposalCount: report.factProposalCount,
+    relationProposalCount: report.relationProposalCount,
+    validation: report.validation,
+    ingest: report.ingest,
+  }))
 
   return {
     runId,
@@ -167,17 +146,19 @@ export async function runWorknetIngestion({
       {
         name: "fetch",
         status: "completed",
-        fetched: sourceRefs.length,
-        page: sourcePage.page,
-        size: sourcePage.size,
-        total: sourcePage.total,
+        listed: fetchResult.summary.listedSources,
+        fetched: fetchResult.summary.fetchedSources,
+        failed: fetchResult.summary.failedSources,
+        page: fetchResult.fetchWindow.page,
+        size: fetchResult.fetchWindow.size,
+        total: fetchResult.summary.totalAvailableSources,
       },
       {
         name: "map_proposals",
         status: "completed",
-        batches: batchReports.length,
-        facts: totalFactProposals,
-        relations: totalRelationProposals,
+        batches: mappingResult.summary.mappedBatches,
+        facts: mappingResult.summary.factProposalCount,
+        relations: mappingResult.summary.relationProposalCount,
       },
       {
         name: "write_authority",
@@ -188,12 +169,15 @@ export async function runWorknetIngestion({
       },
     ],
     summary: {
-      fetchedSources: sourceRefs.length,
+      listedSources: fetchResult.summary.listedSources,
+      fetchedSources: fetchResult.summary.fetchedSources,
+      failedSources: fetchResult.summary.failedSources,
       validatedBatches: batchReports.length,
       ingestedBatches: dryRun ? 0 : batchReports.length,
-      factProposalCount: totalFactProposals,
-      relationProposalCount: totalRelationProposals,
+      factProposalCount: mappingResult.summary.factProposalCount,
+      relationProposalCount: mappingResult.summary.relationProposalCount,
     },
+    sources: fetchResult.sourceReports,
     batches: batchReports,
     env: {
       nodeEnv: env.nodeEnv,

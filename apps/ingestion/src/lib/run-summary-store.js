@@ -64,7 +64,16 @@ export function buildFailureRunSummary({
     error: {
       name: error?.name ?? "Error",
       message: error?.message ?? "Unknown ingestion failure",
+      code: error?.code ?? "unknown_failure",
+      retryable: Boolean(error?.retryable),
+      status: error?.status ?? null,
+      transport: error?.transport ?? null,
+      operation: error?.operation ?? null,
     },
+    retry: error?.retry,
+    context: error?.context,
+    fetchSummary: error?.fetchSummary,
+    sourceReports: error?.sourceReports,
     env: env
       ? {
           nodeEnv: env.nodeEnv,

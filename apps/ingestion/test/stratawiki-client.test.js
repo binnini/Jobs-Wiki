@@ -1,11 +1,14 @@
 import test from "node:test"
 import assert from "node:assert/strict"
 import { StratawikiHttpError } from "../../../packages/integrations/stratawiki-http/client.js"
-import { createStratawikiClient } from "../src/clients/stratawiki-client.js"
+import {
+  StratawikiWriteError,
+  createStratawikiWriteClient,
+} from "../src/clients/stratawiki-write-client.js"
 
 test("dual-mode ingestion client prefers HTTP proposal endpoints in auto mode", async () => {
   const calls = []
-  const client = createStratawikiClient(
+  const client = createStratawikiWriteClient(
     {
       stratawikiBaseUrl: "http://127.0.0.1:8080",
       stratawikiIntegrationMode: "auto",
@@ -68,7 +71,7 @@ test("dual-mode ingestion client prefers HTTP proposal endpoints in auto mode", 
 
 test("dual-mode ingestion client falls back to wrapper when HTTP is temporarily unavailable", async () => {
   const calls = []
-  const client = createStratawikiClient(
+  const client = createStratawikiWriteClient(
     {
       stratawikiBaseUrl: "http://127.0.0.1:8080",
       stratawikiIntegrationMode: "auto",
@@ -107,4 +110,33 @@ test("dual-mode ingestion client falls back to wrapper when HTTP is temporarily 
 
   assert.equal(result.ok, true)
   assert.equal(calls[0].name, "validate_domain_proposal_batch")
+})
+
+test("write client normalizes runtime configuration failures", async () => {
+  const client = createStratawikiWriteClient(
+    {
+      stratawikiIntegrationMode: "wrapper",
+      stratawikiCliWrapper: "/tmp/fake-wrapper",
+    },
+    {
+      cliClient: {
+        wrapperPath: "/tmp/fake-wrapper",
+        async assertWriteRuntimeConfig() {
+          throw new Error("Missing required env: JOBS_WIKI_STRATAWIKI_DOMAIN_PACK_PATHS.")
+        },
+      },
+    },
+  )
+
+  await assert.rejects(
+    () => client.assertWriteRuntimeConfig(),
+    (error) => {
+      assert.equal(error instanceof StratawikiWriteError, true)
+      assert.equal(error.code, "configuration_invalid")
+      assert.equal(error.retryable, false)
+      assert.equal(error.transport, "wrapper")
+      assert.equal(error.operation, "assert_write_runtime_config")
+      return true
+    },
+  )
 })

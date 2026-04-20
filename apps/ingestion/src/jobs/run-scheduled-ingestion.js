@@ -35,33 +35,47 @@ export async function runScheduledIngestion({
       dryRun,
     })
 
-    const execution = await retry(
-      ({ attempt }) =>
-        runIngestion({
-          env,
-          logger,
-          dryRun,
-          sourceId,
-          runId: `${runId}-cycle-${cycleNumber}`,
-          clients,
-          attempt,
-        }),
-      {
-        maxAttempts,
-        delayMs: retryDelayMs,
-        onRetry: ({ attempt, nextAttempt, error, delayMs }) => {
-          logger.info("ingestion.worknet.scheduled.retry_scheduled", {
-            runId,
+    let execution
+
+    try {
+      execution = await retry(
+        ({ attempt }) =>
+          runIngestion({
+            env,
+            logger,
+            dryRun,
             sourceId,
-            cycleNumber,
+            runId: `${runId}-cycle-${cycleNumber}`,
+            clients,
             attempt,
-            nextAttempt,
-            retryDelayMs: delayMs,
-            message: error.message,
-          })
+          }),
+        {
+          maxAttempts,
+          delayMs: retryDelayMs,
+          onRetry: ({ attempt, nextAttempt, error, delayMs }) => {
+            logger.info("ingestion.worknet.scheduled.retry_scheduled", {
+              runId,
+              sourceId,
+              cycleNumber,
+              attempt,
+              nextAttempt,
+              retryDelayMs: delayMs,
+              message: error.message,
+            })
+          },
         },
-      },
-    )
+      )
+    } catch (error) {
+      error.context = {
+        ...(error.context ?? {}),
+        mode: "scheduled",
+        cycleNumber,
+        cycles,
+        intervalMs,
+        sourceId,
+      }
+      throw error
+    }
 
     cycleReports.push({
       cycle: cycleNumber,
@@ -80,6 +94,14 @@ export async function runScheduledIngestion({
     sourceId,
     mode: dryRun ? "scheduled_dry_run" : "scheduled_apply",
     status: dryRun ? "validated" : "ingested",
+    schedule: {
+      cycles,
+      intervalMs,
+    },
+    retryPolicy: {
+      maxAttempts,
+      delayMs: retryDelayMs,
+    },
     summary: {
       cyclesCompleted: cycleReports.length,
       fetchedSources: cycleReports.reduce(

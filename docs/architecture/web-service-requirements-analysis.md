@@ -23,14 +23,15 @@ status: draft
 - `StrataWiki`
   - domain pack, proposal ingestion, canonical fact/relation write, schema governance까지 준비된 external knowledge backend
 - `Jobs-Wiki`
-  - product docs, WorkNet integration, recruiting domain pack, proposal mapper, fixture/test 자산까지 준비된 web-service-centered repo
-- 아직 비어 있는 부분
-  - 실제 `WAS`
-  - 실제 `frontend`
-  - 실제 `ingestion app`
-  - `Jobs-Wiki apps/*`에서 `StrataWiki`를 호출하는 runtime adapter
+  - product docs, WorkNet integration, recruiting domain pack, proposal mapper, fixture/test 자산 위에
+    `apps/was`, `apps/frontend`, `apps/ingestion` baseline runtime 이 올라온 web-service-centered repo
+- 아직 더 좁혀야 하는 부분
+  - MVP contract hardening
+  - production-grade scheduling / backfill policy
+  - `Jobs-Wiki apps/*`의 StrataWiki transport 규칙 고정
 
-즉, 현재는 "설계와 integration foundation은 갖춰졌지만, 제품 runtime은 아직 시작 전"인 상태로 보는 것이 맞습니다.
+즉, 현재는 "설계와 integration foundation만 있는 상태"는 아니고,
+"baseline runtime 은 올라왔지만 contract 와 운영 규칙을 계속 고정해야 하는 상태"로 보는 편이 맞습니다.
 
 ## Project Requirement Analysis
 
@@ -198,14 +199,20 @@ canonical write authority는 계속 `StrataWiki`에 있다는 점입니다.
 
 ### 3. Ingestion App
 
-현재 `apps/ingestion`도 README만 있고 runtime orchestration은 없습니다.
+현재 `apps/ingestion`은 실행 가능한 runtime baseline 을 가집니다.
 
-구현이 필요한 항목:
+이미 구현된 baseline:
 
-- source fetch orchestration
-- retry/backfill/scheduling
-- WorkNet source -> recruiting proposal pipeline trigger
-- ingest status / failure handling
+- 수동 실행 CLI entrypoint
+- env loader / logger / run summary persistence
+- dry-run / apply / scheduled / backfill 실행 모드
+- WorkNet source -> recruiting proposal -> StrataWiki validate/ingest orchestration
+
+추가로 더 고도화가 필요한 항목:
+
+- production scheduling / backfill 운영 정책
+- 장기 실행 daemon 또는 queue 연동
+- failure triage 와 observability 확장
 
 ### 4. WAS <-> StrataWiki Transport Contract
 
@@ -336,9 +343,9 @@ canonical write authority는 계속 `StrataWiki`에 있다는 점입니다.
 | StrataWiki integration foundation | Ready | domain pack / proposal ingestion / governance 완료 |
 | WorkNet source integration | Ready | normalized provider와 tests 존재 |
 | Recruiting domain semantics | Ready | pack + mapper + fixture 존재 |
-| WAS runtime | Not started | app 코드 없음 |
-| Frontend runtime | Not started | app 코드 없음 |
-| Ingestion runtime | Not started | orchestration 코드 없음 |
+| WAS runtime | Baseline ready | `apps/was` app, route, test baseline 존재 |
+| Frontend runtime | Baseline ready | `apps/frontend` Vite app baseline 존재 |
+| Ingestion runtime | Baseline ready | `apps/ingestion` 실행 엔트리와 orchestration 코드 존재 |
 | MVP endpoint contract | Partial | candidate 문서는 충분하나 buildable contract는 아직 |
 | Opportunity-centric projection | Partial | 필요성은 높지만 명시 contract는 아직 약함 |
 | Auth / ops / caching | Partial | 방향 문서는 있으나 실행 규칙은 아직 얇음 |
