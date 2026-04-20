@@ -104,6 +104,137 @@ test("GET /api/workspace/summary returns a mock workspace summary projection", a
   })
 })
 
+test("GET /api/workspace returns layered shell navigation with active projection", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      url: "/api/workspace",
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(response.body.projection, "workspace")
+    assert.equal(response.body.navigation.sections.length, 3)
+    assert.deepEqual(response.body.navigation.sections[0], {
+      sectionId: "shared",
+      label: "shared",
+      items: [
+        {
+          objectRef: {
+            objectId: "report:baseline",
+            objectKind: "report",
+            title: "기본 리포트",
+          },
+          kind: "report",
+          layer: "shared",
+          path: "/workspace",
+          active: true,
+        },
+        {
+          objectRef: {
+            objectId: "calendar:applications",
+            objectKind: "calendar",
+            title: "지원 일정",
+          },
+          kind: "calendar",
+          layer: "shared",
+          path: "/calendar",
+        },
+        {
+          objectRef: {
+            objectId: "shared:interp:market-trend-jp-backend",
+            objectKind: "document",
+            title: "일본 백엔드 채용 트렌드",
+          },
+          kind: "document",
+          layer: "shared",
+          path: "/documents/shared%3Ainterp%3Amarket-trend-jp-backend",
+        },
+        {
+          objectRef: {
+            objectId: "opportunity:backend_platform",
+            objectKind: "opportunity",
+            title: "Backend Platform Engineer",
+          },
+          kind: "opportunity",
+          layer: "shared",
+          path: "/opportunities/opp_backend_platform",
+        },
+        {
+          objectRef: {
+            objectId: "opportunity:report_runtime",
+            objectKind: "opportunity",
+            title: "Report Runtime Engineer",
+          },
+          kind: "opportunity",
+          layer: "shared",
+          path: "/opportunities/opp_report_runtime",
+        },
+      ],
+    })
+    assert.deepEqual(response.body.navigation.sections[1], {
+      sectionId: "personal_raw",
+      label: "personal/raw",
+      items: [
+        {
+          objectRef: {
+            objectId: "personal_raw:personal:resume-v3",
+            objectKind: "document",
+            title: "이력서_v3 작업본",
+          },
+          kind: "document",
+          layer: "personal_raw",
+          path: "/documents/personal_raw%3Apersonal%3Aresume-v3",
+        },
+      ],
+    })
+    assert.deepEqual(response.body.navigation.sections[2], {
+      sectionId: "personal_wiki",
+      label: "personal/wiki",
+      items: [
+        {
+          objectRef: {
+            objectId: "personal_wiki:personal:backend-application-strategy",
+            objectKind: "document",
+            title: "Backend 지원 전략 노트",
+          },
+          kind: "document",
+          layer: "personal_wiki",
+          path: "/documents/personal_wiki%3Apersonal%3Abackend-application-strategy",
+        },
+      ],
+    })
+    assert.deepEqual(response.body.activeProjection, {
+      projection: "report",
+      objectRef: {
+        objectId: "report:baseline",
+        objectKind: "report",
+        title: "기본 리포트",
+      },
+    })
+  })
+})
+
+test("GET /api/documents/:documentId returns shared and personal document projections", async () => {
+  await withApp(async (app) => {
+    const sharedResponse = await invokeApp(app, {
+      url: "/api/documents/shared%3Ainterp%3Amarket-trend-jp-backend",
+    })
+    const personalResponse = await invokeApp(app, {
+      url: "/api/documents/personal_raw%3Apersonal%3Aresume-v3",
+    })
+
+    assert.equal(sharedResponse.status, 200)
+    assert.equal(sharedResponse.body.projection, "document")
+    assert.equal(sharedResponse.body.item.layer, "shared")
+    assert.equal(sharedResponse.body.item.writable, false)
+    assert.equal(sharedResponse.body.item.surface.title, "일본 백엔드 채용 트렌드")
+
+    assert.equal(personalResponse.status, 200)
+    assert.equal(personalResponse.body.item.layer, "personal_raw")
+    assert.equal(personalResponse.body.item.writable, true)
+    assert.equal(personalResponse.body.item.metadata.source.provider, "upload")
+  })
+})
+
 test("GET /api/opportunities returns filter-aware pagination and card-complete list items", async () => {
   await withApp(async (app) => {
     const firstPage = await invokeApp(app, {
@@ -356,6 +487,32 @@ test("POST /api/workspace/ask returns an opportunity-scoped answer and excludes 
       ["opp_report_runtime", "opp_product_data"],
     )
     assert.equal(response.body.relatedDocuments.length, 2)
+    assert.equal(response.body.activeContext.contextType, "opportunity")
+  })
+})
+
+test("POST /api/workspace/ask returns a document-scoped answer when documentId is provided", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      method: "POST",
+      url: "/api/workspace/ask",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        question: "이 문서를 기준으로 다음 액션을 정리해 줘.",
+        documentId: "personal_raw:personal:resume-v3",
+      },
+    })
+
+    assert.equal(response.status, 200)
+    assert.equal(response.body.activeContext.contextType, "document")
+    assert.equal(
+      response.body.activeContext.documentRef.objectId,
+      "personal_raw:personal:resume-v3",
+    )
+    assert.equal(response.body.answer.markdown.includes("Document focus"), true)
+    assert.equal(response.body.relatedDocuments.length >= 1, true)
   })
 })
 

@@ -4,6 +4,36 @@ import { createStratawikiAskAdapter } from "../src/adapters/ask/stratawiki-ask-a
 
 function createReadAuthorityStub() {
   return {
+    async getDocumentDetail({ documentId }) {
+      if (documentId === "personal_raw:personal:resume-v3") {
+        return {
+          documentId,
+          title: "이력서_v3 작업본",
+          layer: "personal_raw",
+          writable: true,
+          summary: "Node.js API 최적화 경험과 컨테이너 배포 경험이 있음",
+          bodyMarkdown:
+            "## 경험 요약\n\n- Node.js API 최적화 경험\n- Docker 기반 배포 경험",
+          relatedObjects: [
+            {
+              objectId: "job_posting:159436",
+              objectKind: "opportunity",
+              title: "2026년 제1회 공무직 신입사원 채용(버스운전원 등)",
+            },
+          ],
+          sync: {
+            visibility: "applied",
+            version: "personal:v1",
+            visibleAt: "2026-04-19T00:36:20.000Z",
+          },
+        }
+      }
+
+      throw Object.assign(new Error("document not found"), {
+        code: "not_found",
+      })
+    },
+
     async getWorkspaceSummary() {
       return {
         profileSnapshot: {
@@ -183,6 +213,26 @@ test("real ask adapter builds an opportunity-scoped answer from live detail evid
   assert.equal(result.evidence.length, 1)
   assert.equal(result.relatedOpportunities.length, 1)
   assert.equal(result.relatedOpportunities[0].opportunityId, "opp_job_posting_159423")
+  assert.equal(result.relatedDocuments.length, 1)
+})
+
+test("real ask adapter builds a document-scoped answer from the current document projection", async () => {
+  const adapter = createStratawikiAskAdapter({
+    readAuthority: createReadAuthorityStub(),
+    now: () => new Date("2026-04-19T01:07:00.000Z"),
+  })
+
+  const result = await adapter.askWorkspace({
+    question: "이 문서를 기준으로 어떤 강점을 더 강조해야 하나요?",
+    documentId: "personal_raw:personal:resume-v3",
+  })
+
+  assert.equal(result.sync.visibility, "applied")
+  assert.equal(result.answer.answerId, "ans_20260419010700")
+  assert.equal(result.answer.markdown.includes("Document focus"), true)
+  assert.equal(result.activeContext.contextType, "document")
+  assert.equal(result.activeContext.documentId, "personal_raw:personal:resume-v3")
+  assert.equal(result.evidence.length, 1)
   assert.equal(result.relatedDocuments.length, 1)
 })
 

@@ -87,6 +87,14 @@ export function getWorkspaceSummary() {
   return request("/api/workspace/summary")
 }
 
+export function getWorkspace() {
+  return request("/api/workspace")
+}
+
+export function getDocumentDetail(documentId) {
+  return request(`/api/documents/${encodeURIComponent(documentId)}`)
+}
+
 export function getWorkspaceSync({ commandId } = {}) {
   const searchParams = new URLSearchParams()
 
@@ -101,6 +109,7 @@ export function getWorkspaceSync({ commandId } = {}) {
 export function askWorkspace({
   question,
   opportunityId,
+  documentId,
   save,
   userContextHeaders,
 } = {}) {
@@ -110,6 +119,7 @@ export function askWorkspace({
     body: {
       question,
       ...(opportunityId ? { opportunityId } : {}),
+      ...(documentId ? { documentId } : {}),
       ...(save !== undefined ? { save } : {}),
     },
   })

@@ -1,7 +1,9 @@
 import { mapAskWorkspace } from "../mappers/ask-workspace-mapper.js"
+import { mapWorkspace } from "../mappers/workspace-mapper.js"
 import { mapWorkspaceSummary } from "../mappers/workspace-summary-mapper.js"
 import { mapWorkspaceSync } from "../mappers/workspace-sync-mapper.js"
 import { askWorkspaceService } from "../services/ask-workspace-service.js"
+import { getWorkspaceService } from "../services/get-workspace-service.js"
 import { getWorkspaceSyncService } from "../services/get-workspace-sync-service.js"
 import { getWorkspaceSummaryService } from "../services/get-workspace-summary-service.js"
 import {
@@ -11,6 +13,22 @@ import {
 
 export function createWorkspaceRoutes({ adapters }) {
   return [
+    {
+      method: "GET",
+      path: "/api/workspace",
+      name: "getWorkspace",
+      async handler(context) {
+        const result = await getWorkspaceService({
+          readAuthority: adapters.readAuthority,
+          userContext: context.userContext,
+        })
+
+        return {
+          status: 200,
+          body: mapWorkspace(result),
+        }
+      },
+    },
     {
       method: "GET",
       path: "/api/workspace/summary",

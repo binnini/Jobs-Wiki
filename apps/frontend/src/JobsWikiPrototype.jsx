@@ -35,7 +35,9 @@ import {
 import {
   askWorkspace,
   getCalendar,
+  getDocumentDetail,
   getOpportunityDetail,
+  getWorkspace,
   getWorkspaceSync,
   getWorkspaceSummary,
   triggerWorknetIngestion,
@@ -137,11 +139,41 @@ const COMMAND_STATUS_META = {
 };
 
 const SYNC_PROJECTION_LABELS = {
+  workspace: "워크스페이스",
   workspace_summary: "기본 리포트",
   opportunity_list: "추천 공고",
   opportunity_detail: "공고 상세",
   calendar: "지원 일정",
   ask: "심층 분석",
+};
+
+const WORKSPACE_LAYER_META = {
+  shared: {
+    subtitle: "shared reference / read-only",
+    emptyLabel: "공유 해석 레이어가 준비되면 여기에서 읽습니다.",
+  },
+  personal_raw: {
+    subtitle: "personal working notes",
+    emptyLabel: "개인 raw 문서가 아직 없습니다.",
+  },
+  personal_wiki: {
+    subtitle: "personal knowledge artifacts",
+    emptyLabel: "개인 wiki 문서가 아직 없습니다.",
+  },
+};
+
+const WORKSPACE_KIND_LABELS = {
+  report: "리포트",
+  calendar: "캘린더",
+  opportunity: "공고",
+  document: "문서",
+  ask: "분석",
+};
+
+const DOCUMENT_LAYER_LABELS = {
+  shared: "shared",
+  personal_raw: "personal/raw",
+  personal_wiki: "personal/wiki",
 };
 
 const DEFAULT_INGESTION_SOURCE_ID = "worknet.recruiting";
@@ -223,26 +255,40 @@ function readAppRoute(location = window.location) {
   const searchParams = new URLSearchParams(location.search);
 
   if (normalizedPathname === "/" || normalizedPathname === "/onboarding") {
-    return { view: "onboarding", opportunityId: null };
+    return { view: "onboarding", opportunityId: null, documentId: null };
   }
 
   if (normalizedPathname === "/review") {
-    return { view: "extraction", opportunityId: null };
+    return { view: "extraction", opportunityId: null, documentId: null };
   }
 
-  if (normalizedPathname === "/report") {
-    return { view: "report", opportunityId: null };
+  if (
+    normalizedPathname === "/workspace" ||
+    normalizedPathname === "/report"
+  ) {
+    return { view: "workspace", opportunityId: null, documentId: null };
   }
 
   if (normalizedPathname === "/ask") {
     return {
       view: "ask",
       opportunityId: trimOptionalQueryParam(searchParams.get("opportunityId")),
+      documentId: trimOptionalQueryParam(searchParams.get("documentId")),
     };
   }
 
   if (normalizedPathname === "/calendar") {
-    return { view: "calendar", opportunityId: null };
+    return { view: "calendar", opportunityId: null, documentId: null };
+  }
+
+  const documentMatch = normalizedPathname.match(/^\/documents\/([^/]+)$/);
+
+  if (documentMatch) {
+    return {
+      view: "document",
+      opportunityId: null,
+      documentId: decodeURIComponent(documentMatch[1]),
+    };
   }
 
   const opportunityMatch = normalizedPathname.match(
@@ -253,28 +299,36 @@ function readAppRoute(location = window.location) {
     return {
       view: "detail",
       opportunityId: decodeURIComponent(opportunityMatch[1]),
+      documentId: null,
     };
   }
 
-  return { view: "onboarding", opportunityId: null };
+  return { view: "onboarding", opportunityId: null, documentId: null };
 }
 
-function buildAppPath(view, opportunityId = null) {
+function buildAppPath(view, opportunityId = null, documentId = null) {
   switch (view) {
     case "onboarding":
       return "/onboarding";
     case "extraction":
       return "/review";
+    case "workspace":
     case "report":
-      return "/report";
+      return "/workspace";
     case "detail":
       return opportunityId
         ? `/opportunities/${encodeURIComponent(opportunityId)}`
-        : "/report";
+        : "/workspace";
+    case "document":
+      return documentId
+        ? `/documents/${encodeURIComponent(documentId)}`
+        : "/workspace";
     case "ask": {
       const searchParams = new URLSearchParams();
 
-      if (opportunityId) {
+      if (documentId) {
+        searchParams.set("documentId", documentId);
+      } else if (opportunityId) {
         searchParams.set("opportunityId", opportunityId);
       }
 
@@ -293,7 +347,11 @@ function writeAppRoute(route, { replace = false } = {}) {
     return;
   }
 
-  const nextUrl = buildAppPath(route.view, route.opportunityId);
+  const nextUrl = buildAppPath(
+    route.view,
+    route.opportunityId,
+    route.documentId,
+  );
   const currentUrl = `${window.location.pathname}${window.location.search}`;
 
   if (currentUrl === nextUrl) {
@@ -411,6 +469,143 @@ function mapWorkspaceSyncResponse(response) {
   };
 }
 
+function mapWorkspaceNavigationResponse(response) {
+  return {
+    sync: response?.sync ?? null,
+    activeProjection: response?.activeProjection ?? null,
+    sections: Array.isArray(response?.navigation?.sections)
+      ? response.navigation.sections.map((section) => ({
+          sectionId: section.sectionId,
+          label: section.label,
+          items: Array.isArray(section.items)
+            ? section.items.map((item) => ({
+                objectRef: item.objectRef ?? null,
+                title:
+                  item.objectRef?.title ??
+                  item.title ??
+                  "제목 없음",
+                kind: item.kind ?? item.objectRef?.objectKind ?? "document",
+                layer: item.layer ?? section.sectionId,
+                path: item.path ?? null,
+                active: Boolean(item.active),
+              }))
+            : [],
+        }))
+      : [],
+  };
+}
+
+function getWorkspaceItemIcon(kind) {
+  switch (kind) {
+    case "report":
+      return FileText;
+    case "calendar":
+      return CalIcon;
+    case "opportunity":
+      return Briefcase;
+    case "document":
+      return FileCode;
+    case "ask":
+      return Search;
+    default:
+      return Bookmark;
+  }
+}
+
+function getWorkspaceItemKindLabel(kind) {
+  return WORKSPACE_KIND_LABELS[kind] ?? "항목";
+}
+
+function buildWorkspaceActiveContext({
+  currentView,
+  currentPath,
+  currentDocumentId,
+  activeOpportunityContext,
+  activeDocumentContext,
+  workspaceNavigation,
+}) {
+  const activeNavigationItem = workspaceNavigation.sections
+    .flatMap((section) => section.items ?? [])
+    .find((item) => item.path === currentPath)
+
+  if (currentView === "ask") {
+    if (activeDocumentContext) {
+      return {
+        kind: "ask",
+        projectionLabel: "심층 분석",
+        title: activeDocumentContext.title,
+        description:
+          activeDocumentContext.layer === "shared"
+            ? "shared 문서를 기준으로 Ask 컨텍스트를 유지하며 답변과 근거를 문서 surface에 고정합니다."
+            : "personal 문서를 기준으로 Ask 컨텍스트를 유지하며 결과는 읽기 전용으로 보여줍니다.",
+        layer: activeDocumentContext.layer ?? null,
+      };
+    }
+
+    return {
+      kind: "ask",
+      projectionLabel: "심층 분석",
+      title: activeOpportunityContext?.title ?? "워크스페이스 전체 분석",
+      description: activeOpportunityContext?.company
+        ? `${activeOpportunityContext.company} 공고를 기준으로 Ask 컨텍스트를 유지합니다.`
+        : "선택한 공고 없이 현재 워크스페이스 전체를 기준으로 분석합니다.",
+      layer: activeOpportunityContext ? "shared" : null,
+    };
+  }
+
+  if (currentView === "detail") {
+    return {
+      kind: "opportunity",
+      projectionLabel: "공고 상세",
+      title:
+        activeOpportunityContext?.title ??
+        activeNavigationItem?.title ??
+        "선택한 공고",
+      description: activeOpportunityContext?.company
+        ? `${activeOpportunityContext.company} 공고 상세를 읽는 중입니다.`
+        : "선택한 공고의 상세 projection을 보고 있습니다.",
+      layer: activeNavigationItem?.layer ?? "shared",
+    };
+  }
+
+  if (currentView === "document") {
+    return {
+      kind: "document",
+      projectionLabel: "문서 상세",
+      title:
+        activeNavigationItem?.title ??
+        currentDocumentId ??
+        "선택한 문서",
+      description:
+        activeNavigationItem?.layer === "shared"
+          ? "shared 문서를 읽는 중이며 직접 수정은 열리지 않습니다."
+          : "personal 문서를 읽는 중이며 이 레이어에서 편집 affordance가 열립니다.",
+      layer: activeNavigationItem?.layer ?? null,
+    };
+  }
+
+  if (activeNavigationItem) {
+    return {
+      kind: activeNavigationItem.kind,
+      projectionLabel: getWorkspaceItemKindLabel(activeNavigationItem.kind),
+      title: activeNavigationItem.title,
+      description:
+        activeNavigationItem.kind === "calendar"
+          ? "시간축 기준으로 현재 지원 일정을 탐색합니다."
+          : "워크스페이스 메인 shell에서 현재 projection을 보고 있습니다.",
+      layer: activeNavigationItem.layer,
+    };
+  }
+
+  return {
+    kind: "report",
+    projectionLabel: "리포트",
+    title: "기본 리포트",
+    description: "워크스페이스 메인 shell에서 기본 리포트를 보고 있습니다.",
+    layer: "shared",
+  };
+}
+
 function normalizeOpportunityContext(job) {
   if (!job) {
     return null;
@@ -464,6 +659,101 @@ function normalizeOpportunityContext(job) {
     sourceUrl: job.sourceUrl ?? job.metadata?.source?.sourceUrl ?? null,
     employmentType:
       job.employmentType ?? job.metadata?.employmentType ?? null,
+  };
+}
+
+function normalizeDocumentContext(document) {
+  if (!document) {
+    return null;
+  }
+
+  const documentId =
+    document.documentId ??
+    document.id ??
+    document.objectRef?.objectId ??
+    null;
+
+  if (!documentId) {
+    return null;
+  }
+
+  return {
+    documentId,
+    title:
+      document.title ??
+      document.documentRef?.title ??
+      document.objectRef?.title ??
+      "문서",
+    layer: document.layer ?? null,
+    writable: document.writable ?? false,
+    summary: document.summary ?? document.excerpt ?? null,
+  };
+}
+
+function formatDocumentLayerLabel(layer) {
+  return DOCUMENT_LAYER_LABELS[layer] ?? layer ?? "document";
+}
+
+function isSharedLayer(layer) {
+  return layer === "shared";
+}
+
+function formatWritableAffordanceLabel({ layer, writable }) {
+  if (isSharedLayer(layer) || writable === false) {
+    return "read-only";
+  }
+
+  return "personal writable";
+}
+
+function getWritableBadgeClassName({ layer, writable }) {
+  if (isSharedLayer(layer) || writable === false) {
+    return "border-slate-200 bg-slate-100 text-slate-600";
+  }
+
+  return "border-emerald-200 bg-emerald-50 text-emerald-700";
+}
+
+function buildLayerBoundaryCopy({ layer, writable }) {
+  if (isSharedLayer(layer) || writable === false) {
+    return "shared reference 문서입니다. 이 화면에서는 상위 authority를 수정하지 않으며, 읽기 전용 boundary만 보여줍니다.";
+  }
+
+  if (layer === "personal_raw") {
+    return "personal/raw 작업 문서입니다. 수정/삭제 authority는 이 personal 레이어에만 한정되며 shared를 바꾸는 의미가 아닙니다.";
+  }
+
+  if (layer === "personal_wiki") {
+    return "personal/wiki 문서입니다. 이 레이어의 편집 가능 경계만 보여주며, shared interpretation이 갱신된 것처럼 표시하지 않습니다.";
+  }
+
+  return "현재 문서의 writable boundary를 이 레이어 기준으로만 표시합니다.";
+}
+
+function getDocumentLayerBadgeClassName(layer) {
+  if (layer === "shared") {
+    return "border-slate-200 bg-slate-100 text-slate-700";
+  }
+
+  if (layer === "personal_wiki") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+
+  return "border-amber-200 bg-amber-50 text-amber-700";
+}
+
+function mapDocumentResponse(response) {
+  const item = response?.item ?? {};
+
+  return {
+    documentId: item.documentRef?.objectId ?? null,
+    title: item.documentRef?.title ?? item.surface?.title ?? "문서",
+    layer: item.layer ?? "shared",
+    writable: Boolean(item.writable),
+    bodyMarkdown: item.surface?.bodyMarkdown ?? "",
+    summary: item.surface?.summary ?? null,
+    metadata: item.metadata ?? null,
+    relatedObjects: Array.isArray(item.relatedObjects) ? item.relatedObjects : [],
   };
 }
 
@@ -532,21 +822,70 @@ function mapAskEvidenceItem(item) {
   };
 }
 
+function mapAskRelatedDocument(item) {
+  return normalizeDocumentContext({
+    documentId: item.documentRef?.objectId ?? null,
+    title: item.documentRef?.title ?? "문서",
+    layer: item.role ?? null,
+    excerpt: item.excerpt ?? null,
+  });
+}
+
+function mapAskActiveContext(activeContext) {
+  if (!activeContext?.contextType) {
+    return null;
+  }
+
+  if (activeContext.contextType === "document") {
+    return {
+      contextType: "document",
+      ...normalizeDocumentContext({
+        documentId: activeContext.documentRef?.objectId ?? null,
+        title: activeContext.documentRef?.title ?? activeContext.title,
+        layer: activeContext.layer ?? null,
+      }),
+    };
+  }
+
+  if (activeContext.contextType === "opportunity") {
+    return {
+      contextType: "opportunity",
+      ...normalizeOpportunityContext({
+        opportunityId: activeContext.opportunityRef?.opportunityId ?? null,
+        title: activeContext.opportunityRef?.title ?? activeContext.title,
+      }),
+    };
+  }
+
+  return {
+    contextType: "workspace",
+    title: activeContext.title ?? "워크스페이스 전체 분석",
+  };
+}
+
 function mapAskResponse(response) {
   return {
     answerText: response.answer?.markdown ?? "",
     answerId: response.answer?.answerId ?? null,
     generatedAt: response.answer?.generatedAt ?? null,
     sync: response.sync ?? null,
+    activeContext: mapAskActiveContext(response.activeContext),
     evidence: (response.evidence ?? []).map(mapAskEvidenceItem),
     relatedOpportunities: (response.relatedOpportunities ?? []).map(
       mapSummaryOpportunity,
+    ),
+    relatedDocuments: (response.relatedDocuments ?? []).map(
+      mapAskRelatedDocument,
     ),
   };
 }
 
 function createRouteOpportunityContext(opportunityId) {
   return normalizeOpportunityContext({ opportunityId });
+}
+
+function createRouteDocumentContext(documentId) {
+  return normalizeDocumentContext({ documentId });
 }
 
 function buildHeroHeadline(summary) {
@@ -1072,6 +1411,165 @@ const WorkspaceSyncPanel = ({
           <Zap size={14} className="mr-2" />
           {isTriggering ? "WorkNet 갱신 요청 중..." : "WorkNet 수동 갱신"}
         </button>
+      </div>
+    </div>
+  );
+};
+
+const WorkspaceNavigationSection = ({
+  section,
+  currentPath,
+  onNavigatePath,
+}) => {
+  const layerMeta = WORKSPACE_LAYER_META[section.sectionId] ?? {
+    subtitle: "workspace",
+    emptyLabel: "표시할 항목이 아직 없습니다.",
+  };
+
+  return (
+    <div className="space-y-2">
+      <div className="px-3">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+          {section.label}
+        </div>
+        <div className="mt-1 text-[11px] font-medium text-slate-400">
+          {layerMeta.subtitle}
+        </div>
+      </div>
+
+      {section.items.length ? (
+        <div className="space-y-1">
+          {section.items.map((item) => {
+            const Icon = getWorkspaceItemIcon(item.kind);
+            const isActive =
+              Boolean(item.path) && item.path === currentPath;
+            const isDisabled = !item.path;
+
+            return (
+              <button
+                key={`${section.sectionId}-${item.objectRef?.objectId ?? item.title}`}
+                type="button"
+                disabled={isDisabled}
+                onClick={() => {
+                  if (item.path) {
+                    onNavigatePath(item.path);
+                  }
+                }}
+                className={`w-full rounded-sm border px-3 py-3 text-left transition-all ${
+                  isActive
+                    ? "border-indigo-500 bg-indigo-600 text-white shadow-sm"
+                    : "border-transparent text-slate-200 hover:border-slate-700 hover:bg-slate-800 hover:text-white"
+                } ${
+                  isDisabled
+                    ? "cursor-not-allowed opacity-60 hover:border-transparent hover:bg-transparent hover:text-slate-300"
+                    : ""
+                }`}
+              >
+                <div className="flex items-start gap-3">
+                  <div
+                    className={`mt-0.5 rounded-sm p-1.5 ${
+                      isActive ? "bg-white/15" : "bg-slate-800"
+                    }`}
+                  >
+                    <Icon size={15} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-bold">
+                      {item.title}
+                    </div>
+                    <div
+                      className={`mt-1 text-[11px] font-medium uppercase tracking-wide ${
+                        isActive ? "text-indigo-100" : "text-slate-400"
+                      }`}
+                    >
+                      {getWorkspaceItemKindLabel(item.kind)} /{" "}
+                      {formatDocumentLayerLabel(item.layer)} /{" "}
+                      {formatWritableAffordanceLabel({
+                        layer: item.layer,
+                        writable: !isSharedLayer(item.layer),
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="rounded-sm border border-dashed border-slate-800 bg-slate-900/60 px-3 py-3 text-xs font-medium leading-relaxed text-slate-500">
+          {layerMeta.emptyLabel}
+        </div>
+      )}
+    </div>
+  );
+};
+
+const WorkspaceActiveContextCard = ({
+  context,
+  onOpenWorkspace,
+  onOpenAsk,
+}) => {
+  const Icon = getWorkspaceItemIcon(context.kind);
+
+  return (
+    <div className="mb-8 rounded-sm border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
+        <div className="flex items-start gap-4">
+          <div className="rounded-sm bg-slate-900 p-3 text-white shadow-sm">
+            <Icon size={20} strokeWidth={1.8} />
+          </div>
+          <div>
+            <div className="text-[11px] font-bold uppercase tracking-[0.24em] text-slate-500">
+              Current Active Context
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <span className="rounded-sm border border-slate-200 bg-slate-100 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-slate-600">
+                {context.projectionLabel}
+              </span>
+              {context.layer ? (
+                <>
+                  <span className="rounded-sm border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-indigo-700">
+                    {formatDocumentLayerLabel(context.layer)}
+                  </span>
+                  <span
+                    className={`rounded-sm border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${getWritableBadgeClassName({
+                      layer: context.layer,
+                      writable: !isSharedLayer(context.layer),
+                    })}`}
+                  >
+                    {formatWritableAffordanceLabel({
+                      layer: context.layer,
+                      writable: !isSharedLayer(context.layer),
+                    })}
+                  </span>
+                </>
+              ) : null}
+            </div>
+            <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
+              {context.title}
+            </h1>
+            <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
+              {context.description}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={onOpenWorkspace}
+            className="rounded-sm border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+          >
+            workspace 홈
+          </button>
+          <button
+            type="button"
+            onClick={onOpenAsk}
+            className="rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-2 text-sm font-bold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100"
+          >
+            Ask로 열기
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -2003,13 +2501,354 @@ const OpportunityDetailView = ({
   );
 };
 
+const DocumentDetailView = ({
+  documentId,
+  onBack,
+  onOpenAsk,
+}) => {
+  const [documentResponse, setDocumentResponse] = useState(null);
+  const [error, setError] = useState(null);
+  const [refreshError, setRefreshError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const requestIdRef = useRef(0);
+
+  const loadDocument = async ({ preserveData = false } = {}) => {
+    if (!documentId) {
+      setIsLoading(false);
+      return;
+    }
+
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
+
+    if (preserveData) {
+      setIsRefreshing(true);
+      setRefreshError(null);
+    } else {
+      setIsLoading(true);
+      setError(null);
+    }
+
+    try {
+      const response = await getDocumentDetail(documentId);
+
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      setDocumentResponse(response);
+      setError(null);
+      setRefreshError(null);
+    } catch (requestError) {
+      if (requestId !== requestIdRef.current) {
+        return;
+      }
+
+      const normalizedError =
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "문서 상세를 불러오지 못했습니다.",
+            });
+
+      if (preserveData) {
+        setRefreshError(normalizedError);
+      } else {
+        setError(normalizedError);
+      }
+    } finally {
+      if (requestId === requestIdRef.current) {
+        setIsLoading(false);
+        setIsRefreshing(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    setDocumentResponse(null);
+    setError(null);
+    setRefreshError(null);
+    setIsLoading(true);
+    setIsRefreshing(false);
+
+    if (!documentId) {
+      setIsLoading(false);
+      return undefined;
+    }
+
+    loadDocument();
+
+    return () => {
+      requestIdRef.current += 1;
+    };
+  }, [documentId]);
+
+  if (!documentId) {
+    return (
+      <RetryPanel
+        title="선택된 문서가 없습니다"
+        message="워크스페이스에서 문서를 선택한 뒤 상세 화면으로 이동해 주세요."
+        onRetry={onBack}
+        retryLabel="워크스페이스로 돌아가기"
+      />
+    );
+  }
+
+  if (isLoading && !documentResponse) {
+    return <DetailLoadingView />;
+  }
+
+  if (error?.code === "not_found" && !documentResponse) {
+    return (
+      <RetryPanel
+        title="문서를 찾을 수 없습니다"
+        message="선택한 documentId에 해당하는 문서가 더 이상 없거나 접근할 수 없습니다."
+        onRetry={onBack}
+        retryLabel="워크스페이스로 돌아가기"
+      />
+    );
+  }
+
+  if (error && !documentResponse) {
+    return (
+      <RetryPanel
+        title="문서 상세를 불러오지 못했습니다"
+        message={error.message}
+        onRetry={() => loadDocument()}
+        secondaryAction={
+          <button
+            onClick={onBack}
+            className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm"
+          >
+            워크스페이스로 돌아가기
+          </button>
+        }
+      />
+    );
+  }
+
+  const detail = mapDocumentResponse(documentResponse);
+  const syncMeta = getSyncMeta(documentResponse.sync);
+  const updatedAt = formatKoreanDateTime(detail.metadata?.updatedAt);
+  const tags = detail.metadata?.tags ?? [];
+
+  return (
+    <div className="mx-auto max-w-5xl space-y-12 animate-in slide-in-from-right-4 duration-500">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
+        <button
+          onClick={onBack}
+          className="flex items-center text-sm font-bold text-slate-600 transition-colors hover:text-slate-900"
+        >
+          <ArrowLeft size={16} className="mr-2" />
+          워크스페이스로 돌아가기
+        </button>
+        <div className="flex items-center gap-3">
+          {syncMeta?.badgeLabel ? (
+            <div
+              className={`rounded-sm border px-3 py-1.5 text-xs font-bold shadow-sm ${syncMeta.badgeClassName}`}
+            >
+              {syncMeta.badgeLabel}
+            </div>
+          ) : null}
+          <button
+            onClick={() => loadDocument({ preserveData: Boolean(documentResponse) })}
+            disabled={isRefreshing}
+            className="flex items-center rounded-sm border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
+          >
+            <RefreshCw
+              size={16}
+              className={`mr-2 ${isRefreshing ? "animate-spin" : ""}`}
+            />
+            새로고침
+          </button>
+          <div className="text-xs font-bold text-slate-400">
+            문서 ID: {documentId}
+          </div>
+        </div>
+      </div>
+
+      <SyncNotice sync={documentResponse.sync} refreshError={refreshError} />
+      <InlineNotice
+        title={
+          isSharedLayer(detail.layer)
+            ? "shared read-only boundary"
+            : "personal workspace boundary"
+        }
+        message={
+          isSharedLayer(detail.layer)
+            ? "현재 sync 표시는 shared reference projection의 마지막 확인 상태입니다. personal에 저장된 것을 뜻하지 않습니다."
+            : "현재 sync 표시는 이 personal projection의 마지막 확인 상태입니다. shared가 갱신된 것처럼 해석하면 안 되며, 이 화면은 writable boundary만 정직하게 보여줍니다."
+        }
+        className={
+          isSharedLayer(detail.layer)
+            ? "border-slate-200 bg-slate-50 text-slate-900"
+            : "border-emerald-200 bg-emerald-50 text-emerald-900"
+        }
+      />
+
+      <header className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
+          <div>
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <span
+                className={`rounded-sm border px-3 py-1 text-xs font-bold shadow-sm ${getDocumentLayerBadgeClassName(detail.layer)}`}
+              >
+                {formatDocumentLayerLabel(detail.layer)}
+              </span>
+              <span
+                className={`rounded-sm border px-3 py-1 text-xs font-bold shadow-sm ${getWritableBadgeClassName({
+                  layer: detail.layer,
+                  writable: detail.writable,
+                })}`}
+              >
+                {formatWritableAffordanceLabel({
+                  layer: detail.layer,
+                  writable: detail.writable,
+                })}
+              </span>
+            </div>
+            <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-slate-900">
+              {detail.title}
+            </h1>
+            {detail.summary ? (
+              <p className="mt-5 max-w-3xl text-base font-medium leading-relaxed text-slate-600">
+                {detail.summary}
+              </p>
+            ) : null}
+            <div className="mt-5 rounded-sm border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium leading-relaxed text-slate-700 shadow-sm">
+              {buildLayerBoundaryCopy({
+                layer: detail.layer,
+                writable: detail.writable,
+              })}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 flex-wrap gap-3">
+            {detail.writable ? (
+              <>
+                <button
+                  disabled
+                  className="cursor-not-allowed rounded-sm border border-slate-200 bg-slate-100 px-5 py-3 text-sm font-bold text-slate-500 shadow-sm"
+                >
+                  수정 연결 예정
+                </button>
+                <button
+                  disabled
+                  className="cursor-not-allowed rounded-sm border border-rose-100 bg-rose-50/60 px-5 py-3 text-sm font-bold text-rose-500 shadow-sm"
+                >
+                  삭제 연결 예정
+                </button>
+                <div className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm">
+                  personal 문서 경계만 표시 중
+                </div>
+              </>
+            ) : (
+              <div className="rounded-sm border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600 shadow-sm">
+                shared 문서는 직접 수정하지 않습니다
+              </div>
+            )}
+            <button
+              onClick={() => onOpenAsk(detail)}
+              className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
+            >
+              Ask로 열기
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <div className="grid grid-cols-1 gap-10 md:grid-cols-12">
+        <div className="space-y-8 md:col-span-8">
+          <section className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
+            <Label>문서 본문</Label>
+            <StructuredResponse
+              text={
+                detail.bodyMarkdown ||
+                detail.summary ||
+                "표시할 문서 본문이 아직 없습니다."
+              }
+            />
+          </section>
+        </div>
+
+        <div className="space-y-8 md:col-span-4">
+          <Panel>
+            <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
+              문서 메타데이터
+            </h3>
+            <div className="space-y-4 text-sm font-medium text-slate-700">
+              <div>
+                <Label className="mb-1">Source</Label>
+                <div>
+                  {detail.metadata?.source?.provider ??
+                    "출처 정보 없음"}
+                </div>
+              </div>
+              <div>
+                <Label className="mb-1">Updated</Label>
+                <div>{updatedAt ?? "업데이트 시각 없음"}</div>
+              </div>
+              <div>
+                <Label className="mb-1">Tags</Label>
+                {tags.length ? (
+                  <div className="flex flex-wrap gap-2">
+                    {tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-sm border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-bold text-slate-700"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <div>표시할 태그가 없습니다.</div>
+                )}
+              </div>
+            </div>
+          </Panel>
+
+          <Panel>
+            <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
+              연관 객체
+            </h3>
+            {detail.relatedObjects.length ? (
+              <div className="space-y-3">
+                {detail.relatedObjects.map((object) => (
+                  <div
+                    key={object.objectId}
+                    className="rounded-sm border border-slate-200 bg-slate-50 p-4 shadow-sm"
+                  >
+                    <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
+                      {object.objectKind}
+                    </div>
+                    <div className="mt-1 text-sm font-bold text-slate-900">
+                      {object.title ?? object.objectId}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-sm font-medium text-slate-500">
+                연결된 객체가 아직 없습니다.
+              </div>
+            )}
+          </Panel>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ContextPanel = ({
-  job,
+  activeContext,
   profileSnapshot,
-  isLoadingJob = false,
+  isLoadingContext = false,
   contextError = null,
 }) => {
   const profile = normalizeProfileSnapshot(profileSnapshot);
+  const contextType = activeContext?.contextType ?? "workspace";
 
   return (
     <Panel>
@@ -2028,37 +2867,57 @@ const ContextPanel = ({
           </div>
         </div>
         <div>
-          <Label className="mb-1">분석 대상 공고</Label>
-          {job ? (
+          <Label className="mb-1">현재 Ask 기준</Label>
+          {contextType === "opportunity" ? (
             <div className="space-y-3 rounded-sm border border-indigo-100 bg-indigo-50 p-4 shadow-sm">
               <div>
                 <div className="mb-1 text-xs font-bold text-indigo-900">
-                  {job.company}
+                  {activeContext.company ?? "공고 컨텍스트"}
                 </div>
                 <div className="text-sm font-bold text-indigo-700">
-                  {job.title}
+                  {activeContext.title}
                 </div>
               </div>
-              {job.summary ? (
+              {activeContext.summary ? (
                 <p className="text-sm font-medium leading-relaxed text-indigo-950/80">
-                  {job.summary}
+                  {activeContext.summary}
                 </p>
               ) : null}
-              {job.deadline || job.urgency ? (
+              {activeContext.deadline || activeContext.urgency ? (
                 <div className="flex flex-wrap gap-3 text-[11px] font-bold text-indigo-800/70">
-                  {job.deadline ? <span>마감 {job.deadline}</span> : null}
-                  {job.urgency ? <span>{job.urgency}</span> : null}
+                  {activeContext.deadline ? <span>마감 {activeContext.deadline}</span> : null}
+                  {activeContext.urgency ? <span>{activeContext.urgency}</span> : null}
                 </div>
               ) : null}
+            </div>
+          ) : contextType === "document" ? (
+            <div className="space-y-3 rounded-sm border border-amber-200 bg-amber-50 p-4 shadow-sm">
+              <div className="flex flex-wrap items-center gap-2">
+                <span
+                  className={`rounded-sm border px-2 py-0.5 text-[11px] font-bold ${getDocumentLayerBadgeClassName(activeContext.layer)}`}
+                >
+                  {formatDocumentLayerLabel(activeContext.layer)}
+                </span>
+                <span className="text-xs font-bold text-amber-900">
+                  문서 컨텍스트
+                </span>
+              </div>
+              <div className="text-sm font-bold text-amber-900">
+                {activeContext.title}
+              </div>
+              <p className="text-sm font-medium leading-relaxed text-amber-950/80">
+                {activeContext.summary ??
+                  "현재 문서를 기준으로 답변, 근거, 연관 객체를 정리합니다."}
+              </p>
             </div>
           ) : (
             <div className="rounded-sm border border-slate-200 bg-slate-50 p-3 text-center text-sm font-bold text-slate-600">
-              전체 프로필 기반 분석 (지정 공고 없음)
+              전체 워크스페이스 기반 분석 (지정 문서/공고 없음)
             </div>
           )}
-          {isLoadingJob ? (
+          {isLoadingContext ? (
             <p className="mt-3 text-xs font-bold text-slate-500">
-              선택 공고의 컨텍스트를 보강하는 중입니다.
+              현재 컨텍스트를 보강하는 중입니다.
             </p>
           ) : null}
           {contextError ? (
@@ -2079,6 +2938,51 @@ const ContextPanel = ({
               </span>
             ))}
           </div>
+        </div>
+      </div>
+    </Panel>
+  );
+};
+
+const AskActiveContextBanner = ({ activeContext }) => {
+  if (!activeContext || activeContext.contextType === "workspace") {
+    return null;
+  }
+
+  const isDocument = activeContext.contextType === "document";
+  const badgeClassName = isDocument
+    ? getDocumentLayerBadgeClassName(activeContext.layer)
+    : "border-indigo-200 bg-indigo-50 text-indigo-700";
+
+  return (
+    <Panel
+      className={
+        isDocument ? "border-amber-200 bg-amber-50/50" : "border-indigo-200 bg-indigo-50/50"
+      }
+    >
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <Label className={isDocument ? "text-amber-700" : "text-indigo-700"}>
+            active context
+          </Label>
+          <h3 className="text-lg font-bold text-slate-900">
+            {activeContext.title}
+          </h3>
+          <p className="mt-2 text-sm font-medium leading-relaxed text-slate-700">
+            {isDocument
+              ? "현재 답변은 이 문서 projection을 기준으로 정리하며, shared와 personal 경계를 유지한 채 근거와 연관 객체를 함께 보여줍니다."
+              : "현재 답변은 이 공고를 기준으로 정리하며, 근거와 연관 객체를 같은 컨텍스트 아래에서 묶어 보여줍니다."}
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <span className={`rounded-sm border px-2.5 py-1 text-[11px] font-bold shadow-sm ${badgeClassName}`}>
+            {isDocument
+              ? formatDocumentLayerLabel(activeContext.layer)
+              : "opportunity"}
+          </span>
+          <span className="rounded-sm border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
+            grounded answer
+          </span>
         </div>
       </div>
     </Panel>
@@ -2229,6 +3133,68 @@ const RelatedOpportunitiesPanel = ({
   );
 };
 
+const RelatedDocumentsPanel = ({
+  currentDocument,
+  relatedDocuments,
+  onOpenDocument,
+  onSwitch,
+  isSwitching = false,
+}) => {
+  const visibleDocuments = (relatedDocuments ?? []).filter(
+    (document) => document.documentId !== currentDocument?.documentId,
+  );
+
+  if (visibleDocuments.length === 0) {
+    return null;
+  }
+
+  return (
+    <Panel>
+      <h3 className="mb-4 flex items-center border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
+        <FileCode size={16} className="mr-2 text-slate-500" />
+        연관 문서
+      </h3>
+      <div className="space-y-4">
+        {visibleDocuments.map((document) => (
+          <div
+            key={document.documentId}
+            className="rounded-sm border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-slate-400"
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <h4 className="text-sm font-bold text-slate-800">
+                {document.title}
+              </h4>
+              <span
+                className={`rounded-sm border px-2 py-0.5 text-[11px] font-bold ${getDocumentLayerBadgeClassName(document.layer)}`}
+              >
+                {formatDocumentLayerLabel(document.layer)}
+              </span>
+            </div>
+            <p className="mb-4 text-xs font-medium leading-relaxed text-slate-600">
+              {document.summary ?? "연결된 문서 요약이 아직 준비되지 않았습니다."}
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => onOpenDocument(document)}
+                className="rounded-sm border border-slate-200 bg-slate-50 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100"
+              >
+                문서 열기
+              </button>
+              <button
+                onClick={() => onSwitch(document)}
+                disabled={isSwitching}
+                className="rounded-sm border border-amber-200 bg-amber-50 py-2 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                이 문서로 다시 분석
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </Panel>
+  );
+};
+
 const FollowUpPanel = ({ hasJob, onSelect }) => (
   <Panel>
     <h3 className="mb-4 flex items-center border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
@@ -2282,24 +3248,27 @@ const FollowUpPanel = ({ hasJob, onSelect }) => (
   </Panel>
 );
 
-function buildAskWelcomeText(activeJob) {
-  if (activeJob) {
-    return `**${activeJob.company}**의 **${activeJob.title}** 공고를 기준으로 심층 분석을 시작할 준비가 되었습니다. 질문을 보내면 실제 WAS 응답을 기준으로 답변, 근거, 연관 공고를 함께 보여줍니다.`;
+function buildAskWelcomeText(activeContext) {
+  if (activeContext?.contextType === "document") {
+    return `**${activeContext.title}** 문서를 기준으로 심층 분석을 시작할 준비가 되었습니다. 질문을 보내면 현재 문서에 grounded된 답변과 함께 근거, 연관 문서, 연관 공고를 함께 보여줍니다.`;
+  }
+
+  if (activeContext?.contextType === "opportunity") {
+    return `**${activeContext.company ?? "선택한 회사"}**의 **${activeContext.title}** 공고를 기준으로 심층 분석을 시작할 준비가 되었습니다. 질문을 보내면 실제 WAS 응답을 기준으로 답변, 근거, 연관 공고를 함께 보여줍니다.`;
   }
 
   return "현재 전체 프로필을 기준으로 심층 분석 워크스페이스가 활성화되었습니다. 특정 공고 없이도 지원 전략, 역량 보완, 우선순위 질문을 바로 보낼 수 있습니다.";
 }
 
 const AskWorkspaceView = ({
-  activeJob,
+  activeContext,
   profileSnapshot,
   initialPrompt = "",
   onContextChange,
   onOpenJob,
+  onOpenDocument,
 }) => {
-  const [contextJob, setContextJob] = useState(() =>
-    activeJob ? normalizeOpportunityContext(activeJob) : null,
-  );
+  const [contextState, setContextState] = useState(() => activeContext ?? null);
   const [contextError, setContextError] = useState(null);
   const [isLoadingContext, setIsLoadingContext] = useState(false);
   const [input, setInput] = useState(() => initialPrompt ?? "");
@@ -2314,17 +3283,21 @@ const AskWorkspaceView = ({
   const contextRequestIdRef = useRef(0);
 
   useEffect(() => {
-    setContextJob(activeJob ? normalizeOpportunityContext(activeJob) : null);
+    setContextState(activeContext ?? null);
     setContextError(null);
-  }, [activeJob]);
+  }, [activeContext]);
 
   useEffect(() => {
-    const opportunityId = activeJob?.opportunityId ?? null;
-    const shouldHydrate =
-      Boolean(opportunityId) &&
-      (!activeJob?.company || !activeJob?.summary);
+    const shouldHydrateOpportunity =
+      contextState?.contextType === "opportunity" &&
+      Boolean(contextState?.opportunityId) &&
+      (!contextState?.company || !contextState?.summary);
+    const shouldHydrateDocument =
+      contextState?.contextType === "document" &&
+      Boolean(contextState?.documentId) &&
+      (!contextState?.layer || !contextState?.title);
 
-    if (!shouldHydrate) {
+    if (!shouldHydrateOpportunity && !shouldHydrateDocument) {
       setIsLoadingContext(false);
       return undefined;
     }
@@ -2333,13 +3306,23 @@ const AskWorkspaceView = ({
     contextRequestIdRef.current = requestId;
     setIsLoadingContext(true);
 
-    getOpportunityDetail(opportunityId)
-      .then((response) => {
+    const request = shouldHydrateDocument
+      ? getDocumentDetail(contextState.documentId).then((response) => ({
+          contextType: "document",
+          ...mapDocumentResponse(response),
+        }))
+      : getOpportunityDetail(contextState.opportunityId).then((response) => ({
+          contextType: "opportunity",
+          ...mapDetailOpportunity(response),
+        }));
+
+    request
+      .then((nextContext) => {
         if (requestId !== contextRequestIdRef.current) {
           return;
         }
 
-        setContextJob(mapDetailOpportunity(response));
+        setContextState(nextContext);
         setContextError(null);
       })
       .catch((requestError) => {
@@ -2351,7 +3334,9 @@ const AskWorkspaceView = ({
           requestError instanceof WasClientError
             ? requestError
             : new WasClientError({
-                message: "선택한 공고 컨텍스트를 보강하지 못했습니다.",
+                message: shouldHydrateDocument
+                  ? "선택한 문서 컨텍스트를 보강하지 못했습니다."
+                  : "선택한 공고 컨텍스트를 보강하지 못했습니다.",
               });
 
         setContextError(normalizedError);
@@ -2365,7 +3350,7 @@ const AskWorkspaceView = ({
     return () => {
       contextRequestIdRef.current += 1;
     };
-  }, [activeJob]);
+  }, [contextState]);
 
   useEffect(() => {
     if (scrollRef.current) {
@@ -2375,7 +3360,7 @@ const AskWorkspaceView = ({
 
   const submitQuestion = async (
     rawQuestion,
-    { contextOverride = contextJob, switchingContext = false } = {},
+    { contextOverride = contextState, switchingContext = false } = {},
   ) => {
     const normalizedQuestion = rawQuestion.trim();
 
@@ -2397,14 +3382,27 @@ const AskWorkspaceView = ({
     try {
       const response = await askWorkspace({
         question: normalizedQuestion,
-        opportunityId: contextOverride?.opportunityId,
+        opportunityId:
+          contextOverride?.contextType === "opportunity"
+            ? contextOverride.opportunityId
+            : undefined,
+        documentId:
+          contextOverride?.contextType === "document"
+            ? contextOverride.documentId
+            : undefined,
       });
 
       if (requestId !== requestIdRef.current) {
         return;
       }
 
-      setAskResult(mapAskResponse(response));
+      const nextAskResult = mapAskResponse(response);
+
+      setAskResult(nextAskResult);
+      if (nextAskResult.activeContext) {
+        setContextState(nextAskResult.activeContext);
+        onContextChange(nextAskResult.activeContext);
+      }
       setInitialError(null);
       setSubmitError(null);
     } catch (requestError) {
@@ -2443,19 +3441,24 @@ const AskWorkspaceView = ({
     }
 
     submitQuestion(submittedQuestion, {
-      contextOverride: contextJob,
+      contextOverride: contextState,
       switchingContext: false,
     });
   };
 
-  const handleSwitchContext = (job) => {
-    const nextContext = normalizeOpportunityContext(job);
+  const handleSwitchContext = (context) => {
+    const nextContext =
+      context?.documentId != null
+        ? { contextType: "document", ...normalizeDocumentContext(context) }
+        : context?.opportunityId != null
+          ? { contextType: "opportunity", ...normalizeOpportunityContext(context) }
+          : null;
 
     if (!nextContext) {
       return;
     }
 
-    setContextJob(nextContext);
+    setContextState(nextContext);
     setContextError(null);
     onContextChange(nextContext);
 
@@ -2481,6 +3484,7 @@ const AskWorkspaceView = ({
 
   const currentEvidence = askResult?.evidence ?? [];
   const relatedJobs = askResult?.relatedOpportunities ?? [];
+  const relatedDocuments = askResult?.relatedDocuments ?? [];
   const currentSync = askResult?.sync ?? null;
   const generatedAt = formatKoreanDateTime(askResult?.generatedAt);
 
@@ -2493,7 +3497,7 @@ const AskWorkspaceView = ({
               메인 분석 패널
             </h2>
             <p className="mt-1 text-sm font-medium text-slate-600">
-              실제 WAS Ask projection을 기준으로 답변, 근거, 연관 공고를 함께 읽습니다.
+              실제 WAS Ask projection을 기준으로 답변, 근거, 연관 문서와 공고를 함께 읽습니다.
             </p>
           </div>
           {generatedAt ? (
@@ -2510,11 +3514,12 @@ const AskWorkspaceView = ({
         >
           <div className="mx-auto max-w-3xl space-y-8">
             <SyncNotice sync={currentSync} refreshError={submitError} />
+            <AskActiveContextBanner activeContext={contextState} />
 
             {isSwitchingContext ? (
               <InlineNotice
-                title="새 공고 컨텍스트로 같은 질문을 다시 분석하는 중입니다"
-                message="현재 화면은 유지하고, 새 공고 기준의 답변이 준비되면 갱신합니다."
+                title="새 컨텍스트로 같은 질문을 다시 분석하는 중입니다"
+                message="현재 화면은 유지하고, 새 기준의 답변이 준비되면 갱신합니다."
                 className="border-sky-200 bg-sky-50 text-sky-900"
               />
             ) : null}
@@ -2529,7 +3534,7 @@ const AskWorkspaceView = ({
             ) : (
               <Panel className="border-dashed bg-slate-50">
                 <Label className="mb-3 text-indigo-600">Welcome</Label>
-                <StructuredResponse text={buildAskWelcomeText(contextJob)} />
+                <StructuredResponse text={buildAskWelcomeText(contextState)} />
               </Panel>
             )}
 
@@ -2589,20 +3594,34 @@ const AskWorkspaceView = ({
 
       <div className="custom-scrollbar flex w-[420px] flex-shrink-0 flex-col gap-6 overflow-y-auto pr-2 pb-8">
         <ContextPanel
-          job={contextJob}
+          activeContext={contextState}
           profileSnapshot={profileSnapshot}
-          isLoadingJob={isLoadingContext}
+          isLoadingContext={isLoadingContext}
           contextError={contextError}
         />
         <EvidencePanel evidence={currentEvidence} />
+        <RelatedDocumentsPanel
+          currentDocument={
+            contextState?.contextType === "document" ? contextState : null
+          }
+          relatedDocuments={relatedDocuments}
+          onOpenDocument={onOpenDocument}
+          onSwitch={handleSwitchContext}
+          isSwitching={isSwitchingContext}
+        />
         <RelatedOpportunitiesPanel
-          currentJob={contextJob}
+          currentJob={
+            contextState?.contextType === "opportunity" ? contextState : null
+          }
           relatedJobs={relatedJobs}
           onOpenJob={onOpenJob}
           onSwitch={handleSwitchContext}
           isSwitching={isSwitchingContext}
         />
-        <FollowUpPanel hasJob={!!contextJob} onSelect={handleSend} />
+        <FollowUpPanel
+          hasJob={contextState?.contextType === "opportunity"}
+          onSelect={handleSend}
+        />
       </div>
     </div>
   );
@@ -3004,7 +4023,7 @@ const CalendarView = ({ onOpenJob, onOpenReport, onOpenAsk }) => {
 export default function JobsWikiPrototype() {
   const [currentRoute, setCurrentRoute] = useState(() =>
     typeof window === "undefined"
-      ? { view: "onboarding", opportunityId: null }
+      ? { view: "onboarding", opportunityId: null, documentId: null }
       : readAppRoute(window.location),
   );
   const [activeOpportunityContext, setActiveOpportunityContext] = useState(() =>
@@ -3012,10 +4031,21 @@ export default function JobsWikiPrototype() {
       ? null
       : createRouteOpportunityContext(readAppRoute(window.location).opportunityId),
   );
+  const [activeDocumentContext, setActiveDocumentContext] = useState(() =>
+    typeof window === "undefined" || !readAppRoute(window.location).documentId
+      ? null
+      : createRouteDocumentContext(readAppRoute(window.location).documentId),
+  );
   const [askComposerSeed, setAskComposerSeed] = useState("");
   const [shellProfileSnapshot, setShellProfileSnapshot] = useState(() =>
     normalizeProfileSnapshot(),
   );
+  const [workspaceNavigation, setWorkspaceNavigation] = useState(() =>
+    mapWorkspaceNavigationResponse(null),
+  );
+  const [workspaceNavigationError, setWorkspaceNavigationError] = useState(null);
+  const [isLoadingWorkspaceNavigation, setIsLoadingWorkspaceNavigation] =
+    useState(true);
   const [workspaceSyncState, setWorkspaceSyncState] = useState(() =>
     mapWorkspaceSyncResponse(null),
   );
@@ -3024,9 +4054,58 @@ export default function JobsWikiPrototype() {
   const [isRefreshingWorkspaceSync, setIsRefreshingWorkspaceSync] = useState(false);
   const [isTriggeringWorkspaceSync, setIsTriggeringWorkspaceSync] = useState(false);
   const [activeWorkspaceCommandId, setActiveWorkspaceCommandId] = useState(null);
+  const workspaceRequestIdRef = useRef(0);
   const syncRequestIdRef = useRef(0);
   const currentView = currentRoute.view;
+  const currentPath = buildAppPath(
+    currentRoute.view,
+    currentRoute.opportunityId,
+    currentRoute.documentId,
+  );
   const displayProfileSnapshot = normalizeProfileSnapshot(shellProfileSnapshot);
+  const activeShellContext = buildWorkspaceActiveContext({
+    currentView,
+    currentPath,
+    currentDocumentId: currentRoute.documentId,
+    activeOpportunityContext,
+    activeDocumentContext,
+    workspaceNavigation,
+  });
+
+  const loadWorkspaceNavigation = async () => {
+    const requestId = workspaceRequestIdRef.current + 1;
+    workspaceRequestIdRef.current = requestId;
+    setIsLoadingWorkspaceNavigation(true);
+    setWorkspaceNavigationError(null);
+
+    try {
+      const response = await getWorkspace();
+
+      if (requestId !== workspaceRequestIdRef.current) {
+        return;
+      }
+
+      setWorkspaceNavigation(mapWorkspaceNavigationResponse(response));
+      setWorkspaceNavigationError(null);
+    } catch (requestError) {
+      if (requestId !== workspaceRequestIdRef.current) {
+        return;
+      }
+
+      const normalizedError =
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "workspace navigation을 불러오지 못했습니다.",
+            });
+
+      setWorkspaceNavigationError(normalizedError);
+    } finally {
+      if (requestId === workspaceRequestIdRef.current) {
+        setIsLoadingWorkspaceNavigation(false);
+      }
+    }
+  };
 
   const loadWorkspaceSync = async ({
     commandId = activeWorkspaceCommandId,
@@ -3114,6 +4193,27 @@ export default function JobsWikiPrototype() {
     }
   };
 
+  const navigateToPath = (path, { replace = false } = {}) => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    const nextUrl = new URL(path, window.location.origin);
+    const nextRoute = readAppRoute(nextUrl);
+    const nextLocation = `${nextUrl.pathname}${nextUrl.search}`;
+    const currentLocation = `${window.location.pathname}${window.location.search}`;
+
+    setAskComposerSeed("");
+    setCurrentRoute(nextRoute);
+
+    if (currentLocation === nextLocation) {
+      return;
+    }
+
+    const method = replace ? "replaceState" : "pushState";
+    window.history[method]({}, "", nextLocation);
+  };
+
   useEffect(() => {
     const handlePopState = () => {
       const nextRoute = readAppRoute(window.location);
@@ -3142,6 +4242,14 @@ export default function JobsWikiPrototype() {
 
     return () => {
       isSubscribed = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    loadWorkspaceNavigation();
+
+    return () => {
+      workspaceRequestIdRef.current += 1;
     };
   }, []);
 
@@ -3207,8 +4315,19 @@ export default function JobsWikiPrototype() {
 
   useEffect(() => {
     if (currentView === "ask") {
+      if (currentRoute.documentId) {
+        setActiveDocumentContext((current) =>
+          current?.documentId === currentRoute.documentId
+            ? current
+            : createRouteDocumentContext(currentRoute.documentId),
+        );
+        setActiveOpportunityContext(null);
+        return;
+      }
+
       if (!currentRoute.opportunityId) {
         setActiveOpportunityContext(null);
+        setActiveDocumentContext(null);
         return;
       }
 
@@ -3217,6 +4336,7 @@ export default function JobsWikiPrototype() {
           ? current
           : createRouteOpportunityContext(currentRoute.opportunityId),
       );
+      setActiveDocumentContext(null);
       return;
     }
 
@@ -3226,25 +4346,60 @@ export default function JobsWikiPrototype() {
           ? current
           : createRouteOpportunityContext(currentRoute.opportunityId),
       );
+      setActiveDocumentContext(null);
     }
-  }, [currentRoute.opportunityId, currentView]);
+
+    if (currentView === "document" && currentRoute.documentId) {
+      setActiveDocumentContext((current) =>
+        current?.documentId === currentRoute.documentId
+          ? current
+          : createRouteDocumentContext(currentRoute.documentId),
+      );
+      setActiveOpportunityContext(null);
+    }
+  }, [currentRoute.documentId, currentRoute.opportunityId, currentView]);
 
   const navigateTo = (view, context = undefined, options = {}) => {
-    const normalizedContext =
-      context === undefined ? undefined : normalizeOpportunityContext(context);
+    const normalizedOpportunityContext =
+      view === "ask" || view === "detail"
+        ? context === undefined
+          ? undefined
+          : normalizeOpportunityContext(context)
+        : undefined;
+    const normalizedDocumentContext =
+      view === "ask" || view === "document"
+        ? context === undefined
+          ? undefined
+          : normalizeDocumentContext(context)
+        : undefined;
     const nextRoute = {
       view,
       opportunityId:
         view === "ask" || view === "detail"
-          ? normalizedContext?.opportunityId ?? null
+          ? normalizedDocumentContext?.documentId
+            ? null
+            : normalizedOpportunityContext?.opportunityId ?? null
+          : null,
+      documentId:
+        view === "ask" || view === "document"
+          ? normalizedDocumentContext?.documentId ?? null
           : null,
     };
 
     if (context !== undefined) {
-      if (view === "ask" && !normalizedContext) {
+      if (view === "ask" && !normalizedOpportunityContext && !normalizedDocumentContext) {
         setActiveOpportunityContext(null);
-      } else if (normalizedContext) {
-        setActiveOpportunityContext(normalizedContext);
+        setActiveDocumentContext(null);
+      } else if (normalizedOpportunityContext) {
+        setActiveOpportunityContext(normalizedOpportunityContext);
+        setActiveDocumentContext(null);
+      } else if (normalizedDocumentContext) {
+        setActiveDocumentContext(normalizedDocumentContext);
+        setActiveOpportunityContext(null);
+      } else if (view === "detail") {
+        setActiveDocumentContext(null);
+      } else if (view === "document") {
+        setActiveOpportunityContext(null);
       }
     }
 
@@ -3254,12 +4409,13 @@ export default function JobsWikiPrototype() {
   };
 
   const openJobDetail = (job) => navigateTo("detail", job);
-  const openAsk = (job = null, options = {}) =>
-    navigateTo("ask", job, options);
+  const openDocument = (document) => navigateTo("document", document);
+  const openAsk = (context = null, options = {}) =>
+    navigateTo("ask", context, options);
 
   const renderMainContent = () => {
     switch (currentView) {
-      case "report":
+      case "workspace":
         return (
           <BaselineReportView
             onJobClick={openJobDetail}
@@ -3272,25 +4428,40 @@ export default function JobsWikiPrototype() {
         return (
           <OpportunityDetailView
             opportunityContext={activeOpportunityContext}
-            onBack={() => navigateTo("report")}
+            onBack={() => navigateTo("workspace")}
+            onOpenAsk={openAsk}
+          />
+        );
+      case "document":
+        return (
+          <DocumentDetailView
+            documentId={currentRoute.documentId}
+            onBack={() => navigateTo("workspace")}
             onOpenAsk={openAsk}
           />
         );
       case "ask":
         return (
           <AskWorkspaceView
-            activeJob={activeOpportunityContext}
+            activeContext={
+              activeDocumentContext
+                ? { contextType: "document", ...activeDocumentContext }
+                : activeOpportunityContext
+                  ? { contextType: "opportunity", ...activeOpportunityContext }
+                  : null
+            }
             profileSnapshot={displayProfileSnapshot}
             initialPrompt={askComposerSeed}
-            onContextChange={(job) => navigateTo("ask", job)}
+            onContextChange={(context) => navigateTo("ask", context)}
             onOpenJob={openJobDetail}
+            onOpenDocument={openDocument}
           />
         );
       case "calendar":
         return (
           <CalendarView
             onOpenJob={openJobDetail}
-            onOpenReport={() => navigateTo("report")}
+            onOpenReport={() => navigateTo("workspace")}
             onOpenAsk={openAsk}
           />
         );
@@ -3325,7 +4496,7 @@ export default function JobsWikiPrototype() {
             <OnboardingView onNext={() => navigateTo("extraction")} />
           )}
           {currentView === "extraction" && (
-            <ExtractionReviewView onNext={() => navigateTo("report")} />
+            <ExtractionReviewView onNext={() => navigateTo("workspace")} />
           )}
         </main>
       </div>
@@ -3337,7 +4508,7 @@ export default function JobsWikiPrototype() {
       <aside className="flex w-64 flex-shrink-0 flex-col border-r border-slate-800 bg-slate-900 text-slate-300">
         <div className="mb-4 border-b border-slate-800/50 px-6 py-8">
           <button
-            onClick={() => navigateTo("report")}
+            onClick={() => navigateTo("workspace")}
             className="flex items-center text-2xl font-extrabold tracking-tighter text-white transition-colors hover:text-indigo-200"
           >
             <span className="mr-3 flex h-7 w-7 items-center justify-center rounded-sm bg-indigo-600 text-xs font-bold text-white shadow-sm">
@@ -3347,53 +4518,63 @@ export default function JobsWikiPrototype() {
           </button>
         </div>
 
-        <nav className="flex-1 space-y-2 px-4">
-          <div className="mb-3 mt-4 pl-3 text-xs font-bold uppercase tracking-widest text-slate-500">
-            분석 및 탐색
+        <nav className="flex-1 space-y-6 overflow-y-auto px-4 pb-4">
+          <div className="mt-4 px-3">
+            <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+              Workspace
+            </div>
+            <div className="mt-1 text-sm font-bold text-white">
+              layered navigation shell
+            </div>
           </div>
-          <button
-            onClick={() => navigateTo("report")}
-            className={`w-full rounded-sm px-4 py-3 text-left text-sm font-bold transition-all ${
-              currentView === "report" || currentView === "detail"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            <span className="flex items-center">
-              <FileText size={18} className="mr-3 opacity-90" />
-              기본 분석 리포트
-            </span>
-          </button>
-          <button
-            onClick={() => openAsk(activeOpportunityContext)}
-            className={`mb-8 w-full rounded-sm px-4 py-3 text-left text-sm font-bold transition-all ${
-              currentView === "ask"
-                ? "bg-indigo-600 text-white shadow-sm"
-                : "hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            <span className="flex items-center">
-              <Search size={18} className="mr-3 opacity-90" />
-              심층 분석 워크스페이스
-            </span>
-          </button>
 
-          <div className="mb-3 mt-8 pl-3 text-xs font-bold uppercase tracking-widest text-slate-500">
-            관리 및 저장
+          {isLoadingWorkspaceNavigation && !workspaceNavigation.sections.length ? (
+            <div className="space-y-3 px-3">
+              <div className="h-3 w-24 animate-pulse rounded bg-slate-800" />
+              <div className="h-16 animate-pulse rounded-sm bg-slate-800" />
+              <div className="h-16 animate-pulse rounded-sm bg-slate-800" />
+              <div className="h-16 animate-pulse rounded-sm bg-slate-800" />
+            </div>
+          ) : null}
+
+          {workspaceNavigationError && !workspaceNavigation.sections.length ? (
+            <div className="rounded-sm border border-amber-300/30 bg-amber-400/10 px-3 py-3 text-xs font-medium leading-relaxed text-amber-100">
+              {workspaceNavigationError.message}
+            </div>
+          ) : null}
+
+          {workspaceNavigation.sections.map((section) => (
+            <WorkspaceNavigationSection
+              key={section.sectionId}
+              section={section}
+              currentPath={currentPath}
+              onNavigatePath={navigateToPath}
+            />
+          ))}
+
+          <div className="space-y-2 border-t border-slate-800/70 pt-5">
+            <div className="px-3 text-[11px] font-bold uppercase tracking-widest text-slate-500">
+              Workspace Tools
+            </div>
+            <button
+              onClick={() =>
+                openAsk(
+                  activeDocumentContext ??
+                    activeOpportunityContext,
+                )
+              }
+              className={`w-full rounded-sm border px-3 py-3 text-left text-sm font-bold transition-all ${
+                currentView === "ask"
+                  ? "border-indigo-500 bg-indigo-600 text-white shadow-sm"
+                  : "border-transparent text-slate-200 hover:border-slate-700 hover:bg-slate-800 hover:text-white"
+              }`}
+            >
+              <span className="flex items-center">
+                <Search size={18} className="mr-3 opacity-90" />
+                심층 분석 워크스페이스
+              </span>
+            </button>
           </div>
-          <button
-            onClick={() => navigateTo("calendar")}
-            className={`w-full rounded-sm px-4 py-3 text-left text-sm font-bold transition-all ${
-              currentView === "calendar"
-                ? "bg-slate-700 text-white shadow-sm"
-                : "hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            <span className="flex items-center">
-              <CalIcon size={18} className="mr-3 opacity-90" />
-              지원 일정 관리
-            </span>
-          </button>
 
           <WorkspaceSyncPanel
             syncState={workspaceSyncState}
@@ -3433,6 +4614,21 @@ export default function JobsWikiPrototype() {
               border-radius: 10px;
             }
           `}</style>
+          <WorkspaceActiveContextCard
+            context={activeShellContext}
+            onOpenWorkspace={() => navigateTo("workspace")}
+            onOpenAsk={() =>
+              openAsk(
+                currentView === "detail"
+                  ? activeOpportunityContext
+                  : currentView === "document"
+                    ? activeDocumentContext
+                    : currentView === "ask"
+                      ? activeDocumentContext ?? activeOpportunityContext
+                      : null,
+              )
+            }
+          />
           {renderMainContent()}
         </div>
       </main>

@@ -9,6 +9,7 @@ import { createRequestContext } from "./http/request.js"
 import { sendJson } from "./http/response.js"
 import { createAdminRoutes } from "./routes/admin-routes.js"
 import { createCalendarRoutes } from "./routes/calendar-routes.js"
+import { createDocumentRoutes } from "./routes/document-routes.js"
 import { createOpportunityRoutes } from "./routes/opportunity-routes.js"
 import { createWorkspaceRoutes } from "./routes/workspace-routes.js"
 
@@ -103,6 +104,7 @@ export function createApp({ env: providedEnv } = {}) {
   }
   const routes = [
     ...createWorkspaceRoutes({ adapters }),
+    ...createDocumentRoutes({ adapters }),
     ...createOpportunityRoutes({ adapters }),
     ...createCalendarRoutes({ adapters }),
     ...createAdminRoutes({ adapters }),

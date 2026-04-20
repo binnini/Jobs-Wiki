@@ -174,6 +174,39 @@ function createAdapter(overrides = {}) {
     },
     queryJson: createQueryJsonStub(overrides),
     now: () => new Date("2026-04-19T00:00:00.000Z"),
+    personalKnowledgeClient:
+      overrides.personalKnowledgeClient ??
+      {
+        async getInterpretationRecord({ interpretationId }) {
+          return {
+            record: {
+              id: interpretationId,
+              title: "해석 문서",
+              summary: "shared interpretation summary",
+            },
+          }
+        },
+        async getFactRecord({ factId }) {
+          return {
+            record: {
+              id: factId,
+              attributes: {
+                title: "fact document",
+                summary: "fact summary",
+              },
+            },
+          }
+        },
+        async getPersonalRecord({ personalId }) {
+          return {
+            record: {
+              id: personalId,
+              title: "personal note",
+              summary: "personal summary",
+            },
+          }
+        },
+      },
   })
 }
 
@@ -226,6 +259,52 @@ test("real read adapter returns a fallback workspace summary when personal conte
   assert.equal(summary.recommendedOpportunities.length, 2)
   assert.equal(summary.marketBrief.notableCompanies[0], "인천교통공사")
   assert.equal(summary.skillsGap.recommendedToStrengthen.includes("Provision personal profile context"), true)
+})
+
+test("real read adapter builds workspace shell navigation without guessing personal documents", async () => {
+  const adapter = createAdapter()
+  const workspace = await adapter.getWorkspace()
+
+  assert.equal(workspace.sections.length, 3)
+  assert.equal(workspace.sections[0].items[0].path, "/workspace")
+  assert.equal(workspace.sections[0].items[1].path, "/calendar")
+  assert.equal(workspace.sections[0].items[2].kind, "opportunity")
+  assert.match(workspace.sections[0].items[2].path, /^\/opportunities\//)
+  assert.deepEqual(workspace.sections[1], {
+    sectionId: "personal_raw",
+    label: "personal/raw",
+    items: [],
+  })
+  assert.deepEqual(workspace.sections[2], {
+    sectionId: "personal_wiki",
+    label: "personal/wiki",
+    items: [],
+  })
+  assert.deepEqual(workspace.activeProjection, {
+    projection: "report",
+    objectId: "report:baseline",
+  })
+})
+
+test("real read adapter resolves wrapped shared and personal document ids", async () => {
+  const adapter = createAdapter()
+  const shared = await adapter.getDocumentDetail({
+    documentId: "shared:interp:published:1",
+  })
+  const personal = await adapter.getDocumentDetail({
+    userContext: {
+      workspaceId: "workspace_demo",
+      profileId: "profile_demo_backend",
+    },
+    documentId: "personal_raw:personal:1",
+  })
+
+  assert.equal(shared.layer, "shared")
+  assert.equal(shared.writable, false)
+  assert.equal(shared.title, "해석 문서")
+  assert.equal(personal.layer, "personal_raw")
+  assert.equal(personal.writable, true)
+  assert.equal(personal.title, "personal note")
 })
 
 test("real read adapter returns time-sorted calendar records", async () => {

@@ -106,9 +106,9 @@ export const opportunityDetailsFixture = {
     ],
     relatedDocuments: [
       {
-        documentObjectId: "document:note:adapter_boundary",
-        documentObjectKind: "note",
-        documentTitle: "Adapter Boundary Note",
+        documentObjectId: "shared:interp:market-trend-jp-backend",
+        documentObjectKind: "document",
+        documentTitle: "일본 백엔드 채용 트렌드",
         role: "interpretation",
         excerpt: "Keep raw provider structure below the adapter boundary.",
       },
@@ -175,9 +175,9 @@ export const opportunityDetailsFixture = {
     ],
     relatedDocuments: [
       {
-        documentObjectId: "document:note:report_runtime",
-        documentObjectKind: "note",
-        documentTitle: "Report Runtime Note",
+        documentObjectId: "personal_wiki:personal:backend-application-strategy",
+        documentObjectKind: "document",
+        documentTitle: "Backend 지원 전략 노트",
         role: "interpretation",
         excerpt: "Keep report projection logic explicit and reusable across summary and list endpoints.",
       },
@@ -238,9 +238,9 @@ export const opportunityDetailsFixture = {
     ],
     relatedDocuments: [
       {
-        documentObjectId: "document:note:report_first",
-        documentObjectKind: "note",
-        documentTitle: "Report-first MVP note",
+        documentObjectId: "shared:interp:market-trend-jp-backend",
+        documentObjectKind: "document",
+        documentTitle: "일본 백엔드 채용 트렌드",
         role: "fact",
         excerpt: "Report blocks are the main surface in the current MVP baseline.",
       },

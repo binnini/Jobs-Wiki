@@ -1,5 +1,12 @@
 import { spawnSync } from "node:child_process"
 import {
+  createStratawikiPersonalKnowledgeClient,
+} from "../ask/stratawiki-personal-knowledge-client.js"
+import {
+  loadProfileContextCatalog,
+  resolveProfileContextEntry,
+} from "../ask/profile-context-catalog.js"
+import {
   createNotFoundError,
   createTemporarilyUnavailableError,
   createUnknownFailureError,
@@ -509,6 +516,275 @@ function buildWorkspaceSummaryRecord(readModel, userContext) {
   }
 }
 
+function parseWorkspaceDocumentId(documentId) {
+  if (typeof documentId !== "string") {
+    return undefined
+  }
+
+  const separatorIndex = documentId.indexOf(":")
+
+  if (separatorIndex < 0) {
+    return undefined
+  }
+
+  const layer = documentId.slice(0, separatorIndex)
+  const recordId = documentId.slice(separatorIndex + 1)
+
+  if (!recordId) {
+    return undefined
+  }
+
+  if (!["shared", "personal_raw", "personal_wiki"].includes(layer)) {
+    return undefined
+  }
+
+  return {
+    layer,
+    recordId,
+  }
+}
+
+function compactOptionalObject(value) {
+  if (!value) {
+    return undefined
+  }
+
+  const compactedValue = compactObject(value)
+  return Object.keys(compactedValue).length > 0 ? compactedValue : undefined
+}
+
+function buildMarkdownBody({ title, summary, attributes }) {
+  const sections = []
+
+  if (summary) {
+    sections.push(summary)
+  }
+
+  if (attributes?.requirements_text) {
+    sections.push(`## Requirements\n${trimText(attributes.requirements_text, 1200)}`)
+  }
+
+  if (attributes?.selection_process_text) {
+    sections.push(
+      `## Selection Process\n${trimText(attributes.selection_process_text, 1200)}`,
+    )
+  }
+
+  if (sections.length === 0 && title) {
+    sections.push(title)
+  }
+
+  return sections.filter(Boolean).join("\n\n")
+}
+
+function mapSharedInterpretationDocument(parsedDocumentId, record) {
+  const title = record?.title ?? parsedDocumentId.recordId
+  const summary = trimText(record?.summary, 280)
+
+  return {
+    documentId: `shared:${record.id}`,
+    title,
+    layer: "shared",
+    writable: false,
+    bodyMarkdown: buildMarkdownBody({
+      title,
+      summary,
+    }),
+    summary,
+    metadata: compactOptionalObject({
+      source: {
+        provider: "stratawiki",
+        sourceId: record?.id,
+      },
+      updatedAt: record?.updated_at,
+      tags: record?.tags,
+    }),
+    relatedObjects: undefined,
+  }
+}
+
+function mapSharedFactDocument(parsedDocumentId, record) {
+  const title =
+    record?.attributes?.title ??
+    record?.attributes?.name ??
+    parsedDocumentId.recordId
+  const summary = extractFactExcerpt(record)
+
+  return {
+    documentId: `shared:${record.id}`,
+    title,
+    layer: "shared",
+    writable: false,
+    bodyMarkdown: buildMarkdownBody({
+      title,
+      summary,
+      attributes: record?.attributes,
+    }),
+    summary,
+    metadata: compactOptionalObject({
+      source: {
+        provider: "stratawiki",
+        sourceId: record?.id,
+      },
+      updatedAt: record?.updated_at,
+      tags: record?.tags,
+    }),
+    relatedObjects: undefined,
+  }
+}
+
+function mapPersonalDocument(parsedDocumentId, record) {
+  const title = record?.title ?? parsedDocumentId.recordId
+  const summary = trimText(record?.summary, 280)
+
+  return {
+    documentId: `${parsedDocumentId.layer}:${record.id}`,
+    title,
+    layer: parsedDocumentId.layer,
+    writable: true,
+    bodyMarkdown: buildMarkdownBody({
+      title,
+      summary,
+      attributes: record?.attributes,
+    }),
+    summary,
+    metadata: compactOptionalObject({
+      source: {
+        provider: "stratawiki_personal",
+        sourceId: record?.id,
+      },
+      updatedAt: record?.updated_at,
+      tags: record?.tags,
+    }),
+    relatedObjects: undefined,
+  }
+}
+
+async function loadDocumentDetail({
+  documentId,
+  userContext,
+  env,
+  personalKnowledgeClient,
+  profileContextCatalog,
+}) {
+  const parsedDocumentId = parseWorkspaceDocumentId(documentId)
+
+  if (!parsedDocumentId) {
+    throw createNotFoundError("document not found", {
+      documentId,
+    })
+  }
+
+  if (parsedDocumentId.layer === "shared") {
+    if (parsedDocumentId.recordId.startsWith("interp:")) {
+      const response = await personalKnowledgeClient.getInterpretationRecord({
+        interpretationId: parsedDocumentId.recordId,
+      })
+
+      return mapSharedInterpretationDocument(
+        parsedDocumentId,
+        response?.record ?? response,
+      )
+    }
+
+    if (parsedDocumentId.recordId.startsWith("fact:")) {
+      const response = await personalKnowledgeClient.getFactRecord({
+        factId: parsedDocumentId.recordId,
+      })
+
+      return mapSharedFactDocument(parsedDocumentId, response?.record ?? response)
+    }
+  }
+
+  if (
+    parsedDocumentId.layer === "personal_raw" ||
+    parsedDocumentId.layer === "personal_wiki"
+  ) {
+    if (!parsedDocumentId.recordId.startsWith("personal:")) {
+      throw createNotFoundError("document not found", {
+        documentId,
+      })
+    }
+
+    const profileContextEntry = resolveProfileContextEntry({
+      catalog: profileContextCatalog,
+      userContext,
+      domain: env.readDomain ?? "recruiting",
+    })
+
+    if (!profileContextEntry) {
+      throw createNotFoundError("document not found", {
+        documentId,
+      })
+    }
+
+    const response = await personalKnowledgeClient.getPersonalRecord({
+      tenantId: profileContextEntry.tenantId,
+      userId: profileContextEntry.userId,
+      personalId: parsedDocumentId.recordId,
+    })
+
+    return mapPersonalDocument(parsedDocumentId, response?.record ?? response)
+  }
+
+  throw createNotFoundError("document not found", {
+    documentId,
+  })
+}
+
+function buildWorkspaceRecord(readModel) {
+  return {
+    sections: [
+      {
+        sectionId: "shared",
+        label: "shared",
+        items: [
+          {
+            objectId: "report:baseline",
+            objectKind: "report",
+            title: "기본 리포트",
+            kind: "report",
+            layer: "shared",
+            path: "/workspace",
+            active: true,
+          },
+          {
+            objectId: "calendar:applications",
+            objectKind: "calendar",
+            title: "지원 일정",
+            kind: "calendar",
+            layer: "shared",
+            path: "/calendar",
+          },
+          ...readModel.opportunityItems.slice(0, 3).map((item) => ({
+            objectId: item.objectId,
+            objectKind: "opportunity",
+            title: item.title,
+            kind: "opportunity",
+            layer: "shared",
+            path: `/opportunities/${encodeURIComponent(item.opportunityId)}`,
+          })),
+        ],
+      },
+      {
+        sectionId: "personal_raw",
+        label: "personal/raw",
+        items: [],
+      },
+      {
+        sectionId: "personal_wiki",
+        label: "personal/wiki",
+        items: [],
+      },
+    ],
+    activeProjection: {
+      projection: "report",
+      objectId: "report:baseline",
+    },
+    sync: readModel.sync,
+  }
+}
+
 async function queryJsonWithPsql({ psqlBin, connectionString, sql }) {
   const result = spawnSync(
     psqlBin,
@@ -680,8 +956,21 @@ export function createStratawikiReadAuthorityAdapter({
   env = {},
   queryJson = queryJsonWithPsql,
   now = () => new Date(),
+  personalKnowledgeClient = createStratawikiPersonalKnowledgeClient({ env }),
 } = {}) {
+  const profileContextCatalog = loadProfileContextCatalog(env.profileContextCatalogPath)
+
   return {
+    async getWorkspace() {
+      const readModel = await loadReadModel({
+        env,
+        queryJson,
+        now: now(),
+      })
+
+      return buildWorkspaceRecord(readModel)
+    },
+
     async getWorkspaceSummary({ userContext } = {}) {
       const readModel = await loadReadModel({
         env,
@@ -690,6 +979,23 @@ export function createStratawikiReadAuthorityAdapter({
       })
 
       return buildWorkspaceSummaryRecord(readModel, userContext)
+    },
+
+    async getDocumentDetail({ documentId, userContext } = {}) {
+      const documentRecord = await loadDocumentDetail({
+        documentId,
+        userContext,
+        env,
+        personalKnowledgeClient,
+        profileContextCatalog,
+      })
+
+      return {
+        ...documentRecord,
+        sync: {
+          visibility: "unknown",
+        },
+      }
     },
 
     async listOpportunities({ query } = {}) {
