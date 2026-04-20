@@ -1,5 +1,74 @@
 # Jobs-Wiki
 
+현재 구현 기준은 report-first MVP입니다. frontend는 WAS만 호출하고, 기본 리포트와 공고 상세, Ask, Calendar 흐름을 우선합니다.
+
+핵심 문서 진입점:
+
+- [docs/README.md](docs/README.md)
+- [docs/product/mvp-requirements-baseline.md](docs/product/mvp-requirements-baseline.md)
+- [docs/api/mvp-api-baseline.md](docs/api/mvp-api-baseline.md)
+- [docs/operations/non-functional-requirements.md](docs/operations/non-functional-requirements.md)
+
+## Current MVP Run
+
+1. WAS 실행
+
+   ```bash
+   npm run start:was
+   ```
+
+   기본 주소는 `http://127.0.0.1:4310` 이고, 루트 스크립트는 기본적으로 `WAS_DATA_MODE=real` 로 실행됩니다.
+   mock runtime 이 필요하면 `WAS_DATA_MODE=mock npm run start:was` 처럼 명시적으로 덮어씁니다.
+
+2. frontend 실행
+
+   ```bash
+   npm run dev:frontend
+   ```
+
+   Vite dev server는 기본적으로 `/api` 와 `/health` 를 `http://127.0.0.1:4310` 으로 프록시합니다.
+   다른 WAS 주소를 쓰려면 `WAS_PROXY_TARGET=http://host:port npm run dev:frontend` 를 사용합니다.
+
+3. 확인할 MVP route
+
+   - `/onboarding`
+   - `/review`
+   - `/report`
+   - `/opportunities/:opportunityId`
+   - `/ask`
+   - `/calendar`
+
+## Current MVP Verification
+
+- 전체 최소 smoke:
+
+  ```bash
+  npm run verify:mvp
+  ```
+
+- live integration smoke:
+
+  ```bash
+  npm run smoke:live
+  ```
+
+- StrataWiki HTTP smoke:
+
+  ```bash
+  npm run smoke:http
+  ```
+
+- 수동 WorkNet 갱신:
+  - frontend sync 패널은 `POST /api/admin/ingestions/worknet/:sourceId` 를 사용합니다.
+  - 이 경로는 현재 runtime 에 `STRATAWIKI_COMMAND_SUBMIT_TOOL`, `STRATAWIKI_COMMAND_STATUS_TOOL` 이 실제로 노출되어 있어야 동작합니다.
+
+- 런타임 확인:
+
+  ```bash
+  curl http://127.0.0.1:4310/health
+  curl http://127.0.0.1:4310/api/workspace/summary
+  ```
+
 ## Directory Layout
 
 ```text
@@ -42,6 +111,8 @@ dev-wiki/       # 개발 중 작업 노트와 실험 기록, gitignored
 - Ingestion은 WAS와 분리된 별도 계층으로 다룹니다.
 - WAS는 ingestion을 직접 수행하지 않습니다.
 - WAS가 할 수 있는 것은 필요 시 ingestion job을 좁은 경계로 요청하는 것뿐입니다.
+- StrataWiki integration 은 현재 HTTP/REST 우선, wrapper rollback path 를 함께 유지하는 dual-mode 입니다.
+- resource-specific HTTP endpoint 가 있는 경우 Jobs-Wiki 는 generic tool bridge 보다 해당 endpoint 를 우선 사용합니다.
 
 ## Docs Policy
 
@@ -52,8 +123,8 @@ dev-wiki/       # 개발 중 작업 노트와 실험 기록, gitignored
 
 WorkNet 같은 third-party는 역할별로 분리하는 편이 좋습니다.
 
-- 문서: [docs/third-party/worknet](/home/yebin/projects/Jobs-Wiki/docs/third-party/worknet)
-- 외부 연동 코드: [packages/integrations/worknet](/home/yebin/projects/Jobs-Wiki/packages/integrations/worknet)
-- serving 계층 소비자: [apps/was](/home/yebin/projects/Jobs-Wiki/apps/was)
-- ingestion 계층 소비자: [apps/ingestion](/home/yebin/projects/Jobs-Wiki/apps/ingestion)
-- 실호출 테스트: [tests/worknet](/home/yebin/projects/Jobs-Wiki/tests/worknet)
+- 문서: [docs/third-party/worknet/README.md](docs/third-party/worknet/README.md)
+- 외부 연동 코드: [packages/integrations/worknet/README.md](packages/integrations/worknet/README.md)
+- serving 계층 소비자: [apps/was/README.md](apps/was/README.md)
+- ingestion 계층 소비자: [apps/ingestion/README.md](apps/ingestion/README.md)
+- 실호출 테스트: [tests/worknet/README.md](tests/worknet/README.md)

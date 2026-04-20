@@ -5,7 +5,7 @@ schema governance fixture 세트를 둡니다.
 
 기본 진입점:
 
-- manifest: [recruiting-golden-fixtures.json](/Users/yebin/workSpace/Jobs-Wiki/tests/domain-packs/fixtures/recruiting-golden-fixtures.json:1)
+- manifest: [recruiting-golden-fixtures.json](./recruiting-golden-fixtures.json)
 
 현재 fixture 종류:
 

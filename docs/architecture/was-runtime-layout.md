@@ -19,8 +19,15 @@ status: draft
 
 ## Scope
 
-현재 MVP 우선 endpoint를 기준으로 합니다.
+현재 문서는 두 층을 함께 설명합니다.
 
+- workspace-first target runtime shape
+- 현재 구현된 recruiting vertical slice
+
+target endpoint:
+
+- `GET /api/workspace`
+- `GET /api/documents/{documentId}`
 - `GET /api/workspace/summary`
 - `POST /api/workspace/ask`
 - `GET /api/opportunities`
@@ -32,7 +39,8 @@ status: draft
 - auth/session runtime
 - command status full family
 - ingest orchestration runtime
-- graph/tree/document full read runtime
+- graph/tree full read runtime
+- full personal authoring runtime
 
 ## Layout Principles
 
@@ -58,7 +66,7 @@ status: draft
 
 ## Proposed Directory Layout
 
-현재 기준 첫 runtime layout은 아래처럼 두는 것이 가장 안전합니다.
+target runtime layout은 아래처럼 두는 것이 가장 안전합니다.
 
 ```text
 apps/was/
@@ -75,14 +83,18 @@ apps/was/
       response.js
     routes/
       workspace-routes.js
+      document-routes.js
       opportunity-routes.js
       calendar-routes.js
     validators/
       workspace-validator.js
+      document-validator.js
       opportunity-validator.js
       calendar-validator.js
     services/
+      get-workspace-service.js
       get-workspace-summary-service.js
+      get-document-detail-service.js
       ask-workspace-service.js
       list-opportunities-service.js
       get-opportunity-detail-service.js
@@ -114,11 +126,36 @@ apps/was/
       ask.js
       calendar.js
     fixtures/
+      workspace.fixture.js
       workspace-summary.fixture.js
       opportunities.fixture.js
       ask.fixture.js
       calendar.fixture.js
 ```
+
+## Current Implementation Reality
+
+현재 실제 구현은 위 target layout보다 더 좁습니다.
+
+- 구현됨
+  - `workspace-routes.js`
+  - `opportunity-routes.js`
+  - `calendar-routes.js`
+  - `admin-routes.js`
+  - `get-workspace-summary-service.js`
+  - `ask-workspace-service.js`
+  - `list-opportunities-service.js`
+  - `get-opportunity-detail-service.js`
+  - `get-calendar-service.js`
+  - read-authority / ask / command-facade adapter
+- 아직 없음
+  - `get-workspace-service.js`
+  - `document-routes.js`
+  - `get-document-detail-service.js`
+  - personal document CRUD / summarize / rewrite / link service
+
+즉 현재는 `recruiting vertical read slice + ask + admin trigger`가 구현 현실이고,
+workspace-first target에서 요구하는 generic document/personal authoring runtime은 follow-up입니다.
 
 ## Layer Responsibilities
 
@@ -161,7 +198,21 @@ apps/was/
 - external adapter를 직접 호출하지 않습니다.
 - route file 하나가 너무 많은 endpoint family를 가지지 않도록 합니다.
 
-현재 family 기준:
+target family 기준:
+
+- `workspace-routes.js`
+  - `/api/workspace`
+  - `/api/workspace/summary`
+  - `/api/workspace/ask`
+- `document-routes.js`
+  - `/api/documents/:documentId`
+- `opportunity-routes.js`
+  - `/api/opportunities`
+  - `/api/opportunities/:opportunityId`
+- `calendar-routes.js`
+  - `/api/calendar`
+
+현재 구현 family 기준:
 
 - `workspace-routes.js`
   - `/api/workspace/summary`
@@ -171,6 +222,8 @@ apps/was/
   - `/api/opportunities/:opportunityId`
 - `calendar-routes.js`
   - `/api/calendar`
+- `admin-routes.js`
+  - `/api/admin/ingestions/worknet/:sourceId`
 
 ## 4. `validators/*`
 
@@ -183,7 +236,10 @@ apps/was/
 현재 MVP 기준:
 
 - `workspace-validator`
+  - workspace shell query
   - ask request body
+- `document-validator`
+  - `documentId`
 - `opportunity-validator`
   - `opportunityId`, list query
 - `calendar-validator`
@@ -204,10 +260,14 @@ apps/was/
 
 예시:
 
+- `get-workspace-service`
+  - shared/personal directory navigation 조합
 - `get-workspace-summary-service`
   - profile snapshot + recommended opportunities + market brief 조합
+- `get-document-detail-service`
+  - shared read-only detail 또는 personal writable detail 반환
 - `ask-workspace-service`
-  - question + optional opportunity context 처리
+  - question + optional document/opportunity context 처리
 - `get-opportunity-detail-service`
   - opportunity + company + qualification + evidence 조합
 
@@ -238,7 +298,7 @@ apps/was/
 현재 구분:
 
 - `read-authority`
-  - summary, opportunity, calendar read
+  - workspace shell, summary, shared document, opportunity, calendar read
 - `ask`
   - ask analysis result 생성
 - `command-facade`
@@ -248,6 +308,7 @@ apps/was/
 
 - route에서 adapter를 직접 사용하지 않습니다.
 - adapter interface는 mock과 real 구현이 동일해야 합니다.
+- shared read와 personal write는 서로 다른 adapter family로 유지하는 편이 안전합니다.
 
 ## 8. `domain/*`
 
@@ -273,6 +334,22 @@ apps/was/
 - fixture는 API final shape보다 adapter/service input 모델에 가깝게 두는 편이 낫습니다.
 
 ## Request Flow
+
+## `GET /api/workspace`
+
+권장 흐름:
+
+1. route
+2. service
+3. read authority adapter
+4. service compose
+5. mapper
+6. response
+
+메모:
+
+- target endpoint입니다.
+- 현재 구현에는 아직 없습니다.
 
 ## `GET /api/workspace/summary`
 
@@ -328,6 +405,23 @@ workspace-routes
 4. read authority adapter
 5. mapper
 6. response
+
+## `GET /api/documents/{documentId}`
+
+권장 흐름:
+
+1. route
+2. validator
+3. service
+4. read authority adapter
+5. service layer가 layer/writable 판단
+6. mapper
+7. response
+
+메모:
+
+- target endpoint입니다.
+- 현재 구현에는 아직 없습니다.
 
 ## Error Handling Placement
 
@@ -424,6 +518,14 @@ adapter 호출 단위 latency는 남기는 편이 좋습니다.
 8. real adapter skeleton
 9. route integration test
 
+현재 구현 현실을 반영한 build order는 아래처럼 보는 편이 맞습니다.
+
+1. summary / ask / opportunity / calendar read slice
+2. workspace shell
+3. document detail
+4. personal document actions
+5. graph / search follow-up
+
 ## Relationship to Other Docs
 
 이 문서는 아래 문서와 함께 봅니다.
@@ -432,4 +534,3 @@ adapter 호출 단위 latency는 남기는 편이 좋습니다.
 - `docs/api/was-mvp-contract.md`
 - `docs/api/mvp-api-baseline.md`
 - `docs/architecture/was-adapter-contract.md`
-

@@ -16,8 +16,8 @@ WorkNet 외부 API를 이 시스템 관점에서 어떻게 해석하는지 정�
 
 ## References
 
-- [WorkNet Reference](/home/yebin/projects/Jobs-Wiki/docs/third-party/worknet/reference.md)
-- [WorkNet Raw](/home/yebin/projects/Jobs-Wiki/docs/third-party/worknet/raw.md)
+- [WorkNet Reference](../third-party/worknet/reference.md)
+- [WorkNet Raw](../third-party/worknet/raw.md)
 
 ## Internal Mapping
 

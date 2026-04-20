@@ -2,8 +2,8 @@
 
 고용24 WorkNet OPEN-API 관련 문서를 보관하는 디렉터리입니다.
 
-- [reference.md](/home/yebin/projects/Jobs-Wiki/docs/third-party/worknet/reference.md): 개발용으로 정제한 레퍼런스
-- [raw.md](/home/yebin/projects/Jobs-Wiki/docs/third-party/worknet/raw.md): 원문 스크랩 보존본
+- [reference.md](./reference.md): 개발용으로 정제한 레퍼런스
+- [raw.md](./raw.md): 원문 스크랩 보존본
 
 권장 원칙:
 
