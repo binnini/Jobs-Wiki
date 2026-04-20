@@ -65,14 +65,15 @@ workspace-first 제품 방향에 맞춰 다시 고정합니다.
 3. `POST /api/documents`
 4. `PATCH /api/documents/{documentId}`
 5. `DELETE /api/documents/{documentId}`
-6. `GET /api/workspace/summary`
-7. `POST /api/workspace/ask`
-8. `POST /api/documents/{documentId}/summarize`
-9. `POST /api/documents/{documentId}/rewrite`
-10. `POST /api/documents/{documentId}/link`
-11. `GET /api/opportunities`
-12. `GET /api/opportunities/{opportunityId}`
-13. `GET /api/calendar`
+6. `POST /api/assets`
+7. `GET /api/workspace/summary`
+8. `POST /api/workspace/ask`
+9. `POST /api/documents/{documentId}/summarize`
+10. `POST /api/documents/{documentId}/rewrite`
+11. `POST /api/documents/{documentId}/link`
+12. `GET /api/opportunities`
+13. `GET /api/opportunities/{opportunityId}`
+14. `GET /api/calendar`
 
 운영/동기화 보조 endpoint:
 
@@ -90,7 +91,7 @@ workspace-first 제품 방향에 맞춰 다시 고정합니다.
 - `POST /api/admin/ingestions/worknet/{sourceId}`
 
 즉 `GET /api/workspace`, `GET /api/documents/{documentId}`, personal CRUD,
-wiki generation endpoint는 새 workspace-first MVP 기준에서 추가로 맞춰가야 할 target endpoint입니다.
+asset registration, wiki generation endpoint는 새 workspace-first MVP 기준에서 추가로 맞춰가야 할 target endpoint입니다.
 
 ## Shared Rules
 
@@ -176,6 +177,7 @@ type WorkspaceShellResponse = {
 - 현재 구현에서는 `/api/workspace/summary`가 workspace shell의 일부 역할을 대신합니다.
 - `shared`는 read-only입니다.
 - `personal_raw`, `personal_wiki`는 writable personal directory입니다.
+- upstream 관점에서는 shared read와 personal write를 다른 resource family로 보는 편이 맞습니다.
 
 ### 2. `GET /api/documents/{documentId}`
 
@@ -219,12 +221,13 @@ type DocumentDetailResponse = {
 역할:
 
 - personal layer 문서 생성
-- markdown 문서 생성 또는 PDF 업로드 entry
+- markdown 문서 생성 entry
 
 현재 규칙:
 
 - target layer는 `personal_raw` 또는 `personal_wiki`만 허용합니다.
 - `shared`로의 직접 생성은 허용하지 않습니다.
+- PDF는 first-wave에서 `POST /api/assets`로 등록한 뒤 문서에 연결하는 편이 안전합니다.
 
 ### 4. `PATCH /api/documents/{documentId}`
 
@@ -246,6 +249,20 @@ type DocumentDetailResponse = {
 현재 규칙:
 
 - `shared` 문서 삭제는 허용하지 않습니다.
+
+### 6.5.5 `POST /api/assets`
+
+역할:
+
+- user-scoped binary asset registration
+- PDF 같은 파일을 personal document에 연결하기 위한 선행 단계
+
+현재 규칙:
+
+- shared asset이라는 개념은 두지 않습니다.
+- asset은 user scope로만 등록합니다.
+- binary upload transport는 first-wave에서 WAS concern일 수 있지만,
+  asset authority는 upstream personal asset contract를 따릅니다.
 
 ### 6. `GET /api/workspace/summary`
 
@@ -351,6 +368,7 @@ type AskWorkspaceResponse = {
 
 - 이 세 action의 결과는 항상 personal layer에 기록됩니다.
 - 이 action은 상위 Fact/Interpretation layer를 직접 수정하지 않습니다.
+- shared 기반 generation도 저장 target은 personal 뿐입니다.
 
 ### 11. `GET /api/opportunities`
 
@@ -525,6 +543,8 @@ type OpportunityEvidenceItem = {
   - `POST /api/documents`
   - `PATCH /api/documents/{documentId}`
   - `DELETE /api/documents/{documentId}`
+- `Personal Asset Registration`
+  - `POST /api/assets`
 - `기본 리포트`
   - `GET /api/workspace/summary`
 - `Ask Workspace`
@@ -561,18 +581,20 @@ type OpportunityEvidenceItem = {
 5. `GET /api/calendar`
 6. `GET /api/workspace`
 7. `GET /api/documents/{documentId}`
-8. `POST /api/documents`
-9. `PATCH /api/documents/{documentId}`
-10. `DELETE /api/documents/{documentId}`
-11. `POST /api/documents/{documentId}/summarize`
-12. `POST /api/documents/{documentId}/rewrite`
-13. `POST /api/documents/{documentId}/link`
+8. `POST /api/assets`
+9. `POST /api/documents`
+10. `PATCH /api/documents/{documentId}`
+11. `DELETE /api/documents/{documentId}`
+12. `POST /api/documents/{documentId}/summarize`
+13. `POST /api/documents/{documentId}/rewrite`
+14. `POST /api/documents/{documentId}/link`
 
 이 순서를 쓰는 이유:
 
 - 현재 구현 자산이 report/opportunity/ask/calendar에 집중되어 있기 때문입니다.
 - workspace-first MVP로 가더라도 기존 구현을 shell과 projection으로 재배치하는 편이 안전합니다.
 - personal authoring과 wiki generation은 새로 추가된 MVP 기능이므로, 기존 read slice를 감싼 뒤 붙이는 편이 안전합니다.
+- PDF 같은 binary asset은 first-wave에서 asset registration을 먼저 도입하는 편이 transport와 authority를 분리하기 쉽습니다.
 
 ## Out of Scope for This Slice
 

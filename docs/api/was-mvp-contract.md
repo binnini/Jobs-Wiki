@@ -76,6 +76,7 @@ workspace-first MVP 기준으로 좁게 고정합니다.
 - `POST /api/documents`
 - `PATCH /api/documents/{documentId}`
 - `DELETE /api/documents/{documentId}`
+- `POST /api/assets`
 - `POST /api/documents/{documentId}/summarize`
 - `POST /api/documents/{documentId}/rewrite`
 - `POST /api/documents/{documentId}/link`
@@ -101,6 +102,7 @@ type KnowledgeObjectRef = {
 - `workspace`는 최소한 `shared`, `personal/raw`, `personal/wiki`를 구분할 수 있어야 합니다.
 - `shared`는 read-only입니다.
 - `personal`만 writable입니다.
+- WAS는 shared read와 personal write를 서로 다른 upstream responsibility로 다루는 편이 맞습니다.
 
 ### Projection Sync State
 
@@ -275,11 +277,14 @@ type OpportunityDetailResponse = {
 - MVP에서는 relation full graph보다 `surface`, `summary`, `relatedObjects`를 우선 구현
 - shared 문서는 read-only
 - personal 문서는 writable
+- shared document read는 StrataWiki shared rendered-page read를 감싼 결과로 이해합니다.
+- personal document read/write는 StrataWiki personal document resource를 감싼 결과로 이해합니다.
 
 ### 6.5 `POST /api/documents`
 
 - personal/raw 또는 personal/wiki 문서 생성
-- PDF 업로드 또는 markdown create 진입점
+- markdown create 진입점
+- PDF는 first-wave에서 `POST /api/assets`로 asset registration 후 document에 연결하는 편이 맞습니다.
 
 ### 6.6 `PATCH /api/documents/{documentId}`
 
@@ -290,6 +295,12 @@ type OpportunityDetailResponse = {
 
 - personal 문서 삭제
 - shared 문서는 삭제 불가
+
+### 6.75 `POST /api/assets`
+
+- user-scoped binary asset 등록
+- first-wave에서는 PDF upload transport 자체보다 asset registration을 우선합니다.
+- 성공 시 `assetId`를 반환하고 이후 `POST /api/documents` 또는 `PATCH /api/documents/{documentId}`에서 연결합니다.
 
 ### 6.8 `POST /api/documents/{documentId}/summarize`
 
@@ -307,6 +318,7 @@ type OpportunityDetailResponse = {
 
 - 결과는 항상 personal layer에 기록
 - shared와 상위 layer는 직접 수정하지 않음
+- shared를 바탕으로 생성한 결과도 저장 target은 personal 뿐입니다.
 
 ### 7. `GET /api/calendar`
 
@@ -364,6 +376,8 @@ MVP 최소 concern:
 
 - optional ingest trigger
 - 이후 command status / refresh hint 확장
+- personal asset binary upload transport는 first-wave에서 WAS concern일 수 있으나,
+  등록 이후의 authority는 StrataWiki personal asset/document contract를 따릅니다.
 
 ## Implementation Order
 
