@@ -410,8 +410,31 @@ test("POST /api/admin/ingestions/worknet/:sourceId returns an accepted command e
     assert.equal(response.status, 202)
     assert.deepEqual(response.body, {
       commandId: "mock-command-worknet.recruiting",
+      status: "accepted",
       acceptedAt: "2026-04-18T09:00:00.000Z",
+      projectionStates: [
+        {
+          projection: "workspace_summary",
+          visibility: "pending",
+        },
+      ],
     })
+  })
+})
+
+test("POST /api/admin/ingestions/worknet/:sourceId accepts an explicit idempotency key header", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      method: "POST",
+      url: "/api/admin/ingestions/worknet/worknet.recruiting",
+      headers: {
+        "idempotency-key": "request_123",
+      },
+    })
+
+    assert.equal(response.status, 202)
+    assert.equal(response.body.commandId, "mock-command-worknet.recruiting")
+    assert.equal(response.body.status, "accepted")
   })
 })
 

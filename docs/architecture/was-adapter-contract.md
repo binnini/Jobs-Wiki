@@ -302,11 +302,59 @@ type AskWorkspaceAdapter = {
 
 ```ts
 type CommandFacadeAdapter = {
-  triggerWorknetIngestion?(input: {
-    sourceId: string;
+  submitCommand(input: {
+    requestId?: string;
+    command: {
+      name: string;
+      payload: Record<string, unknown>;
+    };
   }): Promise<{
     commandId: string;
+    status: "accepted";
     acceptedAt: string;
+    outcome?:
+      | "accepted_only"
+      | "partially_applied"
+      | "fully_applied"
+      | "failed";
+    affectedObjectRefs?: string[];
+    affectedRelationRefs?: string[];
+    refreshScopes?: string[];
+    projectionStates?: Array<{
+      projection: string;
+      visibility: "applied" | "pending" | "partial" | "unknown" | "stale";
+    }>;
+    error?: {
+      code: string;
+      message: string;
+      retryable?: boolean;
+    };
+  }>;
+
+  triggerWorknetIngestion?(input: {
+    sourceId: string;
+    idempotencyKey?: string;
+  }): Promise<{
+    commandId: string;
+    status: "accepted";
+    acceptedAt: string;
+    outcome?:
+      | "accepted_only"
+      | "partially_applied"
+      | "fully_applied"
+      | "failed";
+    affectedObjectRefs?: string[];
+    affectedRelationRefs?: string[];
+    refreshScopes?: string[];
+    projectionStates?: Array<{
+      projection: string;
+      visibility: "applied" | "pending" | "partial" | "unknown" | "stale";
+    }>;
+    error?: {
+      code: string;
+      message: string;
+      retryable?: boolean;
+    };
   }>;
 
   getCommandStatus?(input: {
@@ -321,18 +369,34 @@ type CommandFacadeAdapter = {
       | "succeeded"
       | "failed"
       | "cancelled";
+    outcome?:
+      | "accepted_only"
+      | "partially_applied"
+      | "fully_applied"
+      | "failed";
+    acceptedAt?: string;
+    finishedAt?: string;
+    affectedObjectRefs?: string[];
+    affectedRelationRefs?: string[];
+    refreshScopes?: string[];
     projectionStates?: Array<{
       projection: string;
       visibility: "applied" | "pending" | "partial" | "unknown" | "stale";
     }>;
+    error?: {
+      code: string;
+      message: string;
+      retryable?: boolean;
+    };
   }>;
 };
 ```
 
 ### Notes
 
-- current MVP read slice에서는 실제 구현보다 skeleton 수준이면 충분합니다.
-- 다만 interface는 지금 문서에서 먼저 고정하는 편이 안전합니다.
+- current MVP read slice에서는 full command family 구현보다 thin client와 normalized envelope를 먼저 고정하는 편이 안전합니다.
+- `triggerWorknetIngestion`은 route/service convenience wrapper이고, 실제 adapter 기준선은 `submitCommand` + `getCommandStatus` 조합입니다.
+- request-level idempotency는 `requestId` 또는 route-level `Idempotency-Key`에서 시작하고, command payload identity와 혼동하지 않습니다.
 
 ### Command Submission Envelope
 
@@ -358,11 +422,25 @@ submit response의 최소 기대 shape:
 ```ts
 type CommandAcceptedResponse = {
   commandId: string;
+  status: "accepted";
   acceptedAt: string;
+  outcome?:
+    | "accepted_only"
+    | "partially_applied"
+    | "fully_applied"
+    | "failed";
+  affectedObjectRefs?: string[];
+  affectedRelationRefs?: string[];
+  refreshScopes?: string[];
   projectionStates?: Array<{
     projection: string;
     visibility: "applied" | "pending" | "partial" | "unknown" | "stale";
   }>;
+  error?: {
+    code: string;
+    message: string;
+    retryable?: boolean;
+  };
 };
 ```
 

@@ -29,6 +29,25 @@ function normalizeProjectionState(state) {
   return compactObject({
     projection: state?.projection,
     visibility: state?.visibility,
+    version: state?.version ?? state?.lastKnownVersion,
+    visibleAt: state?.visibleAt ?? state?.lastVisibleAt,
+  })
+}
+
+function normalizeCommandError(error) {
+  if (!error || typeof error !== "object") {
+    return undefined
+  }
+
+  if (typeof error.code !== "string" || typeof error.message !== "string") {
+    return undefined
+  }
+
+  return compactObject({
+    code: error.code,
+    message: error.message,
+    retryable:
+      typeof error.retryable === "boolean" ? error.retryable : undefined,
   })
 }
 
@@ -79,12 +98,13 @@ async function spawnAndCapture(command, args) {
 }
 
 function normalizeSubmissionResponse(rawResponse) {
+  const acceptedRecord = rawResponse?.command ?? rawResponse
   const projectionStates =
-    rawResponse?.projectionStates?.map(normalizeProjectionState).filter(Boolean) ?? []
+    acceptedRecord?.projectionStates?.map(normalizeProjectionState).filter(Boolean) ?? []
 
   if (
-    typeof rawResponse?.commandId !== "string" ||
-    typeof rawResponse?.acceptedAt !== "string"
+    typeof acceptedRecord?.commandId !== "string" ||
+    typeof acceptedRecord?.acceptedAt !== "string"
   ) {
     throw createUnknownFailureError(
       "The StrataWiki command facade submit response is missing required fields.",
@@ -95,9 +115,27 @@ function normalizeSubmissionResponse(rawResponse) {
   }
 
   return compactObject({
-    commandId: rawResponse.commandId,
-    acceptedAt: rawResponse.acceptedAt,
+    commandId: acceptedRecord.commandId,
+    status:
+      typeof acceptedRecord.status === "string"
+        ? acceptedRecord.status
+        : "accepted",
+    acceptedAt: acceptedRecord.acceptedAt,
+    outcome:
+      typeof acceptedRecord.outcome === "string"
+        ? acceptedRecord.outcome
+        : undefined,
+    affectedObjectRefs:
+      acceptedRecord?.affectedObjectRefs?.filter((value) => typeof value === "string") ??
+      undefined,
+    affectedRelationRefs:
+      acceptedRecord?.affectedRelationRefs?.filter((value) => typeof value === "string") ??
+      undefined,
+    refreshScopes:
+      acceptedRecord?.refreshScopes?.filter((value) => typeof value === "string") ??
+      undefined,
     projectionStates: projectionStates.length > 0 ? projectionStates : undefined,
+    error: normalizeCommandError(acceptedRecord?.error),
   })
 }
 
@@ -121,9 +159,23 @@ function normalizeStatusResponse(rawResponse) {
   return compactObject({
     commandId: commandRecord.commandId,
     status: commandRecord.status,
+    outcome:
+      typeof commandRecord.outcome === "string"
+        ? commandRecord.outcome
+        : undefined,
     acceptedAt: commandRecord.acceptedAt,
     finishedAt: commandRecord.finishedAt,
+    affectedObjectRefs:
+      commandRecord?.affectedObjectRefs?.filter((value) => typeof value === "string") ??
+      undefined,
+    affectedRelationRefs:
+      commandRecord?.affectedRelationRefs?.filter((value) => typeof value === "string") ??
+      undefined,
+    refreshScopes:
+      commandRecord?.refreshScopes?.filter((value) => typeof value === "string") ??
+      undefined,
     projectionStates: projectionStates.length > 0 ? projectionStates : undefined,
+    error: normalizeCommandError(commandRecord?.error),
   })
 }
 

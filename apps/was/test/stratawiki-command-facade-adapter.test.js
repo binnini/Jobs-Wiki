@@ -23,13 +23,13 @@ set -eu
 
 if [ "$1" = "call" ] && [ "$2" = "knowledge.command.submit" ]; then
   cp "$4" "${submitCapturePath}"
-  printf '%s' '{"commandId":"cmd_001","acceptedAt":"2026-04-19T00:00:00.000Z","projectionStates":[{"projection":"workspace_summary","visibility":"pending"}]}'
+  printf '%s' '{"command":{"commandId":"cmd_001","status":"accepted","acceptedAt":"2026-04-19T00:00:00.000Z","refreshScopes":["workspace_summary"],"projectionStates":[{"projection":"workspace_summary","visibility":"pending"}]}}'
   exit 0
 fi
 
 if [ "$1" = "call" ] && [ "$2" = "knowledge.command.get" ]; then
   cp "$4" "${statusCapturePath}"
-  printf '%s' '{"status":"ok","command":{"commandId":"cmd_001","status":"running","projectionStates":[{"projection":"workspace_summary","visibility":"pending"}]}}'
+  printf '%s' '{"status":"ok","command":{"commandId":"cmd_001","status":"running","acceptedAt":"2026-04-19T00:00:00.000Z","refreshScopes":["workspace_summary"],"projectionStates":[{"projection":"workspace_summary","visibility":"pending"}]}}'
   exit 0
 fi
 
@@ -87,7 +87,9 @@ test("command facade client submits the expected envelope through the wrapper", 
     })
     assert.deepEqual(accepted, {
       commandId: "cmd_001",
+      status: "accepted",
       acceptedAt: "2026-04-19T00:00:00.000Z",
+      refreshScopes: ["workspace_summary"],
       projectionStates: [
         {
           projection: "workspace_summary",
@@ -125,6 +127,8 @@ test("command facade client normalizes status responses", async () => {
     assert.deepEqual(status, {
       commandId: "cmd_001",
       status: "running",
+      acceptedAt: "2026-04-19T00:00:00.000Z",
+      refreshScopes: ["workspace_summary"],
       projectionStates: [
         {
           projection: "workspace_summary",
@@ -166,7 +170,15 @@ test("command facade adapter builds the worknet trigger envelope on top of the t
     })
     assert.deepEqual(accepted, {
       commandId: "cmd_001",
+      status: "accepted",
       acceptedAt: "2026-04-19T00:00:00.000Z",
+      refreshScopes: ["workspace_summary"],
+      projectionStates: [
+        {
+          projection: "workspace_summary",
+          visibility: "pending",
+        },
+      ],
     })
   } finally {
     await fixture.cleanup()
