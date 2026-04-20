@@ -149,15 +149,15 @@ const SYNC_PROJECTION_LABELS = {
 
 const WORKSPACE_LAYER_META = {
   shared: {
-    subtitle: "read-only",
+    subtitle: "shared reference / read-only",
     emptyLabel: "공유 해석 레이어가 준비되면 여기에서 읽습니다.",
   },
   personal_raw: {
-    subtitle: "personal capture",
+    subtitle: "personal working notes",
     emptyLabel: "개인 raw 문서가 아직 없습니다.",
   },
   personal_wiki: {
-    subtitle: "personal wiki",
+    subtitle: "personal knowledge artifacts",
     emptyLabel: "개인 wiki 문서가 아직 없습니다.",
   },
 };
@@ -692,6 +692,42 @@ function normalizeDocumentContext(document) {
 
 function formatDocumentLayerLabel(layer) {
   return DOCUMENT_LAYER_LABELS[layer] ?? layer ?? "document";
+}
+
+function isSharedLayer(layer) {
+  return layer === "shared";
+}
+
+function formatWritableAffordanceLabel({ layer, writable }) {
+  if (isSharedLayer(layer) || writable === false) {
+    return "read-only";
+  }
+
+  return "personal writable";
+}
+
+function getWritableBadgeClassName({ layer, writable }) {
+  if (isSharedLayer(layer) || writable === false) {
+    return "border-slate-200 bg-slate-100 text-slate-600";
+  }
+
+  return "border-emerald-200 bg-emerald-50 text-emerald-700";
+}
+
+function buildLayerBoundaryCopy({ layer, writable }) {
+  if (isSharedLayer(layer) || writable === false) {
+    return "shared reference 문서입니다. 이 화면에서는 상위 authority를 수정하지 않으며, 읽기 전용 boundary만 보여줍니다.";
+  }
+
+  if (layer === "personal_raw") {
+    return "personal/raw 작업 문서입니다. 수정/삭제 authority는 이 personal 레이어에만 한정되며 shared를 바꾸는 의미가 아닙니다.";
+  }
+
+  if (layer === "personal_wiki") {
+    return "personal/wiki 문서입니다. 이 레이어의 편집 가능 경계만 보여주며, shared interpretation이 갱신된 것처럼 표시하지 않습니다.";
+  }
+
+  return "현재 문서의 writable boundary를 이 레이어 기준으로만 표시합니다.";
 }
 
 function getDocumentLayerBadgeClassName(layer) {
@@ -1446,7 +1482,12 @@ const WorkspaceNavigationSection = ({
                         isActive ? "text-indigo-100" : "text-slate-400"
                       }`}
                     >
-                      {getWorkspaceItemKindLabel(item.kind)} / {item.layer}
+                      {getWorkspaceItemKindLabel(item.kind)} /{" "}
+                      {formatDocumentLayerLabel(item.layer)} /{" "}
+                      {formatWritableAffordanceLabel({
+                        layer: item.layer,
+                        writable: !isSharedLayer(item.layer),
+                      })}
                     </div>
                   </div>
                 </div>
@@ -1486,9 +1527,22 @@ const WorkspaceActiveContextCard = ({
                 {context.projectionLabel}
               </span>
               {context.layer ? (
-                <span className="rounded-sm border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-indigo-700">
-                  {context.layer}
-                </span>
+                <>
+                  <span className="rounded-sm border border-indigo-100 bg-indigo-50 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-indigo-700">
+                    {formatDocumentLayerLabel(context.layer)}
+                  </span>
+                  <span
+                    className={`rounded-sm border px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide ${getWritableBadgeClassName({
+                      layer: context.layer,
+                      writable: !isSharedLayer(context.layer),
+                    })}`}
+                  >
+                    {formatWritableAffordanceLabel({
+                      layer: context.layer,
+                      writable: !isSharedLayer(context.layer),
+                    })}
+                  </span>
+                </>
               ) : null}
             </div>
             <h1 className="mt-3 text-2xl font-bold tracking-tight text-slate-900 md:text-3xl">
@@ -2615,6 +2669,23 @@ const DocumentDetailView = ({
       </div>
 
       <SyncNotice sync={documentResponse.sync} refreshError={refreshError} />
+      <InlineNotice
+        title={
+          isSharedLayer(detail.layer)
+            ? "shared read-only boundary"
+            : "personal workspace boundary"
+        }
+        message={
+          isSharedLayer(detail.layer)
+            ? "현재 sync 표시는 shared reference projection의 마지막 확인 상태입니다. personal에 저장된 것을 뜻하지 않습니다."
+            : "현재 sync 표시는 이 personal projection의 마지막 확인 상태입니다. shared가 갱신된 것처럼 해석하면 안 되며, 이 화면은 writable boundary만 정직하게 보여줍니다."
+        }
+        className={
+          isSharedLayer(detail.layer)
+            ? "border-slate-200 bg-slate-50 text-slate-900"
+            : "border-emerald-200 bg-emerald-50 text-emerald-900"
+        }
+      />
 
       <header className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
@@ -2626,13 +2697,15 @@ const DocumentDetailView = ({
                 {formatDocumentLayerLabel(detail.layer)}
               </span>
               <span
-                className={`rounded-sm border px-3 py-1 text-xs font-bold shadow-sm ${
-                  detail.writable
-                    ? "border-emerald-200 bg-emerald-50 text-emerald-700"
-                    : "border-slate-200 bg-slate-100 text-slate-600"
-                }`}
+                className={`rounded-sm border px-3 py-1 text-xs font-bold shadow-sm ${getWritableBadgeClassName({
+                  layer: detail.layer,
+                  writable: detail.writable,
+                })}`}
               >
-                {detail.writable ? "writable" : "read-only"}
+                {formatWritableAffordanceLabel({
+                  layer: detail.layer,
+                  writable: detail.writable,
+                })}
               </span>
             </div>
             <h1 className="text-4xl font-extrabold leading-tight tracking-tight text-slate-900">
@@ -2643,17 +2716,32 @@ const DocumentDetailView = ({
                 {detail.summary}
               </p>
             ) : null}
+            <div className="mt-5 rounded-sm border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium leading-relaxed text-slate-700 shadow-sm">
+              {buildLayerBoundaryCopy({
+                layer: detail.layer,
+                writable: detail.writable,
+              })}
+            </div>
           </div>
 
           <div className="flex shrink-0 flex-wrap gap-3">
             {detail.writable ? (
               <>
-                <button className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50">
-                  편집
+                <button
+                  disabled
+                  className="cursor-not-allowed rounded-sm border border-slate-200 bg-slate-100 px-5 py-3 text-sm font-bold text-slate-500 shadow-sm"
+                >
+                  수정 연결 예정
                 </button>
-                <button className="rounded-sm border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700 shadow-sm transition-colors hover:bg-rose-100">
-                  삭제
+                <button
+                  disabled
+                  className="cursor-not-allowed rounded-sm border border-rose-100 bg-rose-50/60 px-5 py-3 text-sm font-bold text-rose-500 shadow-sm"
+                >
+                  삭제 연결 예정
                 </button>
+                <div className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm">
+                  personal 문서 경계만 표시 중
+                </div>
               </>
             ) : (
               <div className="rounded-sm border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-bold text-slate-600 shadow-sm">
