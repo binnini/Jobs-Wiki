@@ -108,6 +108,30 @@ export function loadEnv(overrides = {}) {
       rawEnv.STRATAWIKI_GET_PERSONAL_RECORD_TOOL ??
       rawEnv.getPersonalRecordTool ??
       "get_personal_record",
+    listPersonalDocumentsTool:
+      rawEnv.STRATAWIKI_LIST_PERSONAL_DOCUMENTS_TOOL ??
+      rawEnv.listPersonalDocumentsTool ??
+      "list_personal_documents",
+    getPersonalDocumentTool:
+      rawEnv.STRATAWIKI_GET_PERSONAL_DOCUMENT_TOOL ??
+      rawEnv.getPersonalDocumentTool ??
+      "get_personal_document",
+    createPersonalDocumentTool:
+      rawEnv.STRATAWIKI_CREATE_PERSONAL_DOCUMENT_TOOL ??
+      rawEnv.createPersonalDocumentTool ??
+      "create_personal_document",
+    updatePersonalDocumentTool:
+      rawEnv.STRATAWIKI_UPDATE_PERSONAL_DOCUMENT_TOOL ??
+      rawEnv.updatePersonalDocumentTool ??
+      "update_personal_document",
+    deletePersonalDocumentTool:
+      rawEnv.STRATAWIKI_DELETE_PERSONAL_DOCUMENT_TOOL ??
+      rawEnv.deletePersonalDocumentTool ??
+      "delete_personal_document",
+    registerPersonalAssetTool:
+      rawEnv.STRATAWIKI_REGISTER_PERSONAL_ASSET_TOOL ??
+      rawEnv.registerPersonalAssetTool ??
+      "register_personal_asset",
     getInterpretationRecordTool:
       rawEnv.STRATAWIKI_GET_INTERPRETATION_RECORD_TOOL ??
       rawEnv.getInterpretationRecordTool ??

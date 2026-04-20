@@ -235,6 +235,99 @@ test("GET /api/documents/:documentId returns shared and personal document projec
   })
 })
 
+test("personal document CRUD and asset registration round-trip through the workspace shell", async () => {
+  await withApp(async (app) => {
+    const createResponse = await invokeApp(app, {
+      method: "POST",
+      url: "/api/documents",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        layer: "personal_raw",
+        title: "새 개인 노트",
+        bodyMarkdown: "## Draft\n\n첫 번째 버전",
+      },
+    })
+
+    assert.equal(createResponse.status, 201)
+    const createdDocumentId = createResponse.body.item.documentRef.objectId
+    assert.match(createdDocumentId, /^personal_raw:pdoc_mock_/)
+    assert.equal(createResponse.body.item.metadata.version, 1)
+
+    const workspaceAfterCreate = await invokeApp(app, {
+      url: "/api/workspace",
+    })
+    assert.equal(
+      workspaceAfterCreate.body.navigation.sections[1].items[0].objectRef.objectId,
+      createdDocumentId,
+    )
+
+    const assetResponse = await invokeApp(app, {
+      method: "POST",
+      url: "/api/assets",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        filename: "resume_v4.pdf",
+        mediaType: "application/pdf",
+        storageRef: "s3://jobs-wiki-assets/resume_v4.pdf",
+      },
+    })
+    assert.equal(assetResponse.status, 201)
+    assert.match(assetResponse.body.assetId, /^passet_mock_/)
+
+    const updateResponse = await invokeApp(app, {
+      method: "PATCH",
+      url: `/api/documents/${encodeURIComponent(createdDocumentId)}`,
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        ifVersion: 1,
+        title: "새 개인 노트 v2",
+        bodyMarkdown: "## Draft\n\n두 번째 버전",
+        assetRefs: [assetResponse.body.assetId],
+      },
+    })
+    assert.equal(updateResponse.status, 200)
+    assert.equal(updateResponse.body.item.metadata.version, 2)
+    assert.deepEqual(updateResponse.body.item.metadata.assetRefs, [
+      assetResponse.body.assetId,
+    ])
+
+    const detailAfterUpdate = await invokeApp(app, {
+      url: `/api/documents/${encodeURIComponent(createdDocumentId)}`,
+    })
+    assert.equal(detailAfterUpdate.body.item.surface.title, "새 개인 노트 v2")
+    assert.equal(detailAfterUpdate.body.item.metadata.version, 2)
+
+    const deleteResponse = await invokeApp(app, {
+      method: "DELETE",
+      url: `/api/documents/${encodeURIComponent(createdDocumentId)}`,
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        ifVersion: 2,
+      },
+    })
+    assert.equal(deleteResponse.status, 200)
+    assert.equal(deleteResponse.body.status, "deleted")
+
+    const workspaceAfterDelete = await invokeApp(app, {
+      url: "/api/workspace",
+    })
+    assert.equal(
+      workspaceAfterDelete.body.navigation.sections[1].items.some(
+        (item) => item.objectRef.objectId === createdDocumentId,
+      ),
+      false,
+    )
+  })
+})
+
 test("GET /api/opportunities returns filter-aware pagination and card-complete list items", async () => {
   await withApp(async (app) => {
     const firstPage = await invokeApp(app, {

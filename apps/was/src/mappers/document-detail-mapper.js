@@ -43,6 +43,9 @@ export function mapDocumentDetail(record) {
         source: mapDocumentSource(record.metadata?.source),
         updatedAt: record.metadata?.updatedAt,
         tags: record.metadata?.tags,
+        version: record.metadata?.version,
+        assetRefs: record.metadata?.assetRefs,
+        status: record.metadata?.status,
       }),
       relatedObjects: record.relatedObjects?.map((item) =>
         mapKnowledgeObjectRef(item.objectId, item.objectKind, item.title),

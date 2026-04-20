@@ -95,6 +95,56 @@ export function getDocumentDetail(documentId) {
   return request(`/api/documents/${encodeURIComponent(documentId)}`)
 }
 
+export function createDocument({ layer, title, bodyMarkdown, assetRefs, kind }) {
+  return request("/api/documents", {
+    method: "POST",
+    headers: buildDemoUserContextHeaders(),
+    body: {
+      layer,
+      title,
+      bodyMarkdown,
+      assetRefs,
+      kind,
+    },
+  })
+}
+
+export function updateDocument(documentId, { ifVersion, title, bodyMarkdown, assetRefs }) {
+  return request(`/api/documents/${encodeURIComponent(documentId)}`, {
+    method: "PATCH",
+    headers: buildDemoUserContextHeaders(),
+    body: {
+      ifVersion,
+      title,
+      bodyMarkdown,
+      assetRefs,
+    },
+  })
+}
+
+export function deleteDocument(documentId, { ifVersion }) {
+  return request(`/api/documents/${encodeURIComponent(documentId)}`, {
+    method: "DELETE",
+    headers: buildDemoUserContextHeaders(),
+    body: {
+      ifVersion,
+    },
+  })
+}
+
+export function registerPersonalAsset({ filename, mediaType, storageRef, assetKind }) {
+  return request("/api/assets", {
+    method: "POST",
+    headers: buildDemoUserContextHeaders(),
+    body: {
+      filename,
+      mediaType,
+      storageRef,
+      assetKind,
+    },
+  })
+}
+
 export function getWorkspaceSync({ commandId } = {}) {
   const searchParams = new URLSearchParams()
 

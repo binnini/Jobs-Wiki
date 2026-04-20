@@ -22,25 +22,32 @@ import {
   MapPin,
   MessageSquare,
   MoveRight,
+  Pencil,
+  Plus,
   RefreshCw,
   Search,
   ShieldCheck,
   SlidersHorizontal,
   Sparkles,
   Target,
+  Trash2,
   UploadCloud,
   Zap,
   Database,
 } from "lucide-react";
 import {
   askWorkspace,
+  createDocument,
+  deleteDocument,
   getCalendar,
   getDocumentDetail,
   getOpportunityDetail,
   getWorkspace,
   getWorkspaceSync,
   getWorkspaceSummary,
+  registerPersonalAsset,
   triggerWorknetIngestion,
+  updateDocument,
   WasClientError,
 } from "./was-client";
 
@@ -1005,6 +1012,9 @@ function mapDocumentResponse(response) {
     bodyMarkdown: item.surface?.bodyMarkdown ?? "",
     summary: item.surface?.summary ?? null,
     metadata: item.metadata ?? null,
+    version: item.metadata?.version ?? null,
+    assetRefs: Array.isArray(item.metadata?.assetRefs) ? item.metadata.assetRefs : [],
+    status: item.metadata?.status ?? null,
     relatedObjects: Array.isArray(item.relatedObjects) ? item.relatedObjects : [],
   };
 }
@@ -1868,21 +1878,35 @@ const WorkspaceNavigationSection = ({
   section,
   currentPath,
   onNavigatePath,
+  onCreatePersonalDocument,
 }) => {
   const layerMeta = WORKSPACE_LAYER_META[section.sectionId] ?? {
     subtitle: "workspace",
     emptyLabel: "표시할 항목이 아직 없습니다.",
   };
+  const canCreate = section.sectionId === "personal_raw" || section.sectionId === "personal_wiki";
 
   return (
     <div className="space-y-2">
-      <div className="px-3">
-        <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
-          {section.label}
+      <div className="flex items-start justify-between gap-3 px-3">
+        <div>
+          <div className="text-[11px] font-bold uppercase tracking-widest text-slate-500">
+            {section.label}
+          </div>
+          <div className="mt-1 text-[11px] font-medium text-slate-400">
+            {layerMeta.subtitle}
+          </div>
         </div>
-        <div className="mt-1 text-[11px] font-medium text-slate-400">
-          {layerMeta.subtitle}
-        </div>
+        {canCreate ? (
+          <button
+            type="button"
+            onClick={() => onCreatePersonalDocument(section.sectionId)}
+            className="inline-flex items-center rounded-sm border border-slate-700 bg-slate-900 px-2.5 py-1.5 text-[11px] font-bold text-slate-200 transition-colors hover:border-indigo-400 hover:text-white"
+          >
+            <Plus size={12} className="mr-1.5" />
+            새 문서
+          </button>
+        ) : null}
       </div>
 
       {section.items.length ? (
@@ -2248,6 +2272,101 @@ const WorkspaceHomeView = ({
           )}
         </div>
       </section>
+    </div>
+  );
+};
+
+const CreatePersonalDocumentModal = ({
+  layer,
+  isSubmitting,
+  error,
+  onClose,
+  onSubmit,
+}) => {
+  const [title, setTitle] = useState("");
+  const [bodyMarkdown, setBodyMarkdown] = useState("");
+
+  useEffect(() => {
+    setTitle("");
+    setBodyMarkdown("");
+  }, [layer]);
+
+  if (!layer) {
+    return null;
+  }
+
+  const titleLabel = layer === "personal_wiki" ? "personal/wiki 새 문서" : "personal/raw 새 문서";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4">
+      <div className="w-full max-w-2xl rounded-sm border border-slate-200 bg-white p-8 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <Label className="text-indigo-600">personal create</Label>
+            <h2 className="text-2xl font-bold text-slate-900">{titleLabel}</h2>
+            <p className="mt-2 text-sm font-medium text-slate-600">
+              shared shell은 그대로 두고, 현재 personal layer에만 새 writable 문서를 추가합니다.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-sm border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 shadow-sm"
+          >
+            닫기
+          </button>
+        </div>
+        <div className="mt-6 space-y-5">
+          <div>
+            <Label>제목</Label>
+            <input
+              value={title}
+              onChange={(event) => setTitle(event.target.value)}
+              placeholder="문서 제목"
+              className="w-full rounded-sm border border-slate-300 px-4 py-3 text-sm font-medium text-slate-900 outline-none ring-0 transition-colors focus:border-indigo-500"
+            />
+          </div>
+          <div>
+            <Label>본문</Label>
+            <textarea
+              value={bodyMarkdown}
+              onChange={(event) => setBodyMarkdown(event.target.value)}
+              placeholder="## Notes"
+              className="custom-scrollbar min-h-[220px] w-full rounded-sm border border-slate-300 px-4 py-3 text-sm font-medium leading-relaxed text-slate-900 outline-none transition-colors focus:border-indigo-500"
+            />
+          </div>
+          {error ? (
+            <InlineNotice
+              title="문서를 만들지 못했습니다"
+              message={error.message}
+              className="border-rose-200 bg-rose-50 text-rose-900"
+            />
+          ) : null}
+          <div className="flex flex-wrap justify-end gap-3">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm"
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              disabled={isSubmitting || !title.trim() || !bodyMarkdown.trim()}
+              onClick={() =>
+                onSubmit({
+                  layer,
+                  title,
+                  bodyMarkdown,
+                })
+              }
+              className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800 disabled:opacity-40"
+            >
+              {isSubmitting ? "생성 중..." : "문서 생성"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
@@ -3187,12 +3306,24 @@ const DocumentDetailView = ({
   documentId,
   onBack,
   onOpenAsk,
+  onWorkspaceChanged,
 }) => {
   const [documentResponse, setDocumentResponse] = useState(null);
   const [error, setError] = useState(null);
   const [refreshError, setRefreshError] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editorTitle, setEditorTitle] = useState("");
+  const [editorBody, setEditorBody] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isRegisteringAsset, setIsRegisteringAsset] = useState(false);
+  const [mutationError, setMutationError] = useState(null);
+  const [mutationNotice, setMutationNotice] = useState(null);
+  const [assetFilename, setAssetFilename] = useState("");
+  const [assetMediaType, setAssetMediaType] = useState("application/pdf");
+  const [assetStorageRef, setAssetStorageRef] = useState("");
   const requestIdRef = useRef(0);
 
   const loadDocument = async ({ preserveData = false } = {}) => {
@@ -3220,6 +3351,9 @@ const DocumentDetailView = ({
       }
 
       setDocumentResponse(response);
+      const detail = mapDocumentResponse(response);
+      setEditorTitle(detail.title ?? "");
+      setEditorBody(detail.bodyMarkdown ?? "");
       setError(null);
       setRefreshError(null);
     } catch (requestError) {
@@ -3253,6 +3387,9 @@ const DocumentDetailView = ({
     setRefreshError(null);
     setIsLoading(true);
     setIsRefreshing(false);
+    setIsEditing(false);
+    setMutationError(null);
+    setMutationNotice(null);
 
     if (!documentId) {
       setIsLoading(false);
@@ -3314,6 +3451,129 @@ const DocumentDetailView = ({
   const syncMeta = getSyncMeta(documentResponse.sync);
   const updatedAt = formatKoreanDateTime(detail.metadata?.updatedAt);
   const tags = detail.metadata?.tags ?? [];
+  const assetRefs = detail.assetRefs ?? [];
+
+  const refreshWorkspace = async () => {
+    await onWorkspaceChanged?.();
+  };
+
+  const handleSaveDocument = async () => {
+    if (!detail.writable || !detail.version || isSaving) {
+      return;
+    }
+
+    setIsSaving(true);
+    setMutationError(null);
+    setMutationNotice(null);
+
+    try {
+      await updateDocument(detail.documentId, {
+        ifVersion: detail.version,
+        title: editorTitle,
+        bodyMarkdown: editorBody,
+        assetRefs,
+      });
+      await loadDocument({ preserveData: true });
+      await refreshWorkspace();
+      setIsEditing(false);
+      setMutationNotice("personal 문서를 저장했습니다.");
+    } catch (requestError) {
+      setMutationError(
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "문서를 저장하지 못했습니다.",
+            }),
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteDocument = async () => {
+    if (!detail.writable || !detail.version || isDeleting) {
+      return;
+    }
+
+    const shouldDelete = window.confirm("이 personal 문서를 삭제하시겠습니까?");
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setMutationError(null);
+    setMutationNotice(null);
+
+    try {
+      await deleteDocument(detail.documentId, {
+        ifVersion: detail.version,
+      });
+      await refreshWorkspace();
+      onBack();
+    } catch (requestError) {
+      setMutationError(
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "문서를 삭제하지 못했습니다.",
+            }),
+      );
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleRegisterAsset = async () => {
+    if (!detail.writable || !detail.version || isRegisteringAsset) {
+      return;
+    }
+
+    setIsRegisteringAsset(true);
+    setMutationError(null);
+    setMutationNotice(null);
+
+    try {
+      const assetResponse = await registerPersonalAsset({
+        filename: assetFilename,
+        mediaType: assetMediaType,
+        storageRef: assetStorageRef,
+        assetKind: "file",
+      });
+      const nextAssetRefs = Array.from(
+        new Set([...(assetRefs ?? []), assetResponse.assetId].filter(Boolean)),
+      );
+      const referenceLine = `- ${assetResponse.filename} (${assetResponse.assetId})`;
+      const nextBody = editorBody.includes(referenceLine)
+        ? editorBody
+        : `${editorBody.trimEnd()}\n\n## Asset references\n${referenceLine}\n`;
+
+      await updateDocument(detail.documentId, {
+        ifVersion: detail.version,
+        title: editorTitle,
+        bodyMarkdown: nextBody,
+        assetRefs: nextAssetRefs,
+      });
+      setAssetFilename("");
+      setAssetMediaType("application/pdf");
+      setAssetStorageRef("");
+      await loadDocument({ preserveData: true });
+      await refreshWorkspace();
+      setIsEditing(true);
+      setEditorBody(nextBody);
+      setMutationNotice("asset를 등록하고 현재 personal 문서에 연결했습니다.");
+    } catch (requestError) {
+      setMutationError(
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "asset 등록 또는 문서 연결에 실패했습니다.",
+            }),
+      );
+    } finally {
+      setIsRegisteringAsset(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-5xl space-y-12 animate-in slide-in-from-right-4 duration-500">
@@ -3357,6 +3617,20 @@ const DocumentDetailView = ({
         onRetry={() => loadDocument({ preserveData: Boolean(documentResponse) })}
         isRetrying={isRefreshing}
       />
+      {mutationNotice ? (
+        <InlineNotice
+          title="personal write 적용 완료"
+          message={mutationNotice}
+          className="border-emerald-200 bg-emerald-50 text-emerald-900"
+        />
+      ) : null}
+      {mutationError ? (
+        <InlineNotice
+          title="personal write 실패"
+          message={mutationError.message}
+          className="border-rose-200 bg-rose-50 text-rose-900"
+        />
+      ) : null}
       <InlineNotice
         title={
           isSharedLayer(detail.layer)
@@ -3416,19 +3690,28 @@ const DocumentDetailView = ({
             {detail.writable ? (
               <>
                 <button
-                  disabled
-                  className="cursor-not-allowed rounded-sm border border-slate-200 bg-slate-100 px-5 py-3 text-sm font-bold text-slate-500 shadow-sm"
+                  onClick={() => {
+                    setIsEditing((current) => !current);
+                    setMutationError(null);
+                    setMutationNotice(null);
+                    setEditorTitle(detail.title ?? "");
+                    setEditorBody(detail.bodyMarkdown ?? "");
+                  }}
+                  className="rounded-sm border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
                 >
-                  수정 연결 예정
+                  <Pencil size={14} className="mr-2 inline-flex" />
+                  {isEditing ? "편집 닫기" : "편집"}
                 </button>
                 <button
-                  disabled
-                  className="cursor-not-allowed rounded-sm border border-rose-100 bg-rose-50/60 px-5 py-3 text-sm font-bold text-rose-500 shadow-sm"
+                  onClick={handleDeleteDocument}
+                  disabled={isDeleting}
+                  className="rounded-sm border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700 shadow-sm transition-colors hover:bg-rose-100 disabled:opacity-40"
                 >
-                  삭제 연결 예정
+                  <Trash2 size={14} className="mr-2 inline-flex" />
+                  {isDeleting ? "삭제 중..." : "삭제"}
                 </button>
                 <div className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm">
-                  personal 문서 경계만 표시 중
+                  personal writable boundary
                 </div>
               </>
             ) : (
@@ -3450,17 +3733,103 @@ const DocumentDetailView = ({
         <div className="space-y-8 md:col-span-8">
           <section className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
             <Label>문서 본문</Label>
-            <StructuredResponse
-              text={
-                detail.bodyMarkdown ||
-                detail.summary ||
-                "표시할 문서 본문이 아직 없습니다."
-              }
-            />
+            {detail.writable && isEditing ? (
+              <div className="space-y-4">
+                <input
+                  value={editorTitle}
+                  onChange={(event) => setEditorTitle(event.target.value)}
+                  className="w-full rounded-sm border border-slate-300 px-4 py-3 text-lg font-bold text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                />
+                <textarea
+                  value={editorBody}
+                  onChange={(event) => setEditorBody(event.target.value)}
+                  className="custom-scrollbar min-h-[360px] w-full rounded-sm border border-slate-300 px-4 py-3 text-sm font-medium leading-relaxed text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                />
+                <div className="flex flex-wrap justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditorTitle(detail.title ?? "");
+                      setEditorBody(detail.bodyMarkdown ?? "");
+                    }}
+                    className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm"
+                  >
+                    취소
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleSaveDocument}
+                    disabled={isSaving || !editorTitle.trim()}
+                    className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800 disabled:opacity-40"
+                  >
+                    {isSaving ? "저장 중..." : "저장"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <StructuredResponse
+                text={
+                  detail.bodyMarkdown ||
+                  detail.summary ||
+                  "표시할 문서 본문이 아직 없습니다."
+                }
+              />
+            )}
           </section>
         </div>
 
         <div className="space-y-8 md:col-span-4">
+          {detail.writable ? (
+            <Panel>
+              <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
+                asset registration
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <Label className="mb-1">Filename</Label>
+                  <input
+                    value={assetFilename}
+                    onChange={(event) => setAssetFilename(event.target.value)}
+                    placeholder="resume_v4.pdf"
+                    className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1">Media Type</Label>
+                  <input
+                    value={assetMediaType}
+                    onChange={(event) => setAssetMediaType(event.target.value)}
+                    placeholder="application/pdf"
+                    className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                  />
+                </div>
+                <div>
+                  <Label className="mb-1">Storage Ref</Label>
+                  <input
+                    value={assetStorageRef}
+                    onChange={(event) => setAssetStorageRef(event.target.value)}
+                    placeholder="s3://jobs-wiki-assets/resume_v4.pdf"
+                    className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleRegisterAsset}
+                  disabled={
+                    isRegisteringAsset ||
+                    !assetFilename.trim() ||
+                    !assetMediaType.trim() ||
+                    !assetStorageRef.trim()
+                  }
+                  className="w-full rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:opacity-40"
+                >
+                  <UploadCloud size={14} className="mr-2 inline-flex" />
+                  {isRegisteringAsset ? "등록 중..." : "asset 등록 후 문서에 연결"}
+                </button>
+              </div>
+            </Panel>
+          ) : null}
           <Panel>
             <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">
               문서 메타데이터
@@ -3492,6 +3861,27 @@ const DocumentDetailView = ({
                   </div>
                 ) : (
                   <div>표시할 태그가 없습니다.</div>
+                )}
+              </div>
+              <div>
+                <Label className="mb-1">Version</Label>
+                <div>{detail.version ?? "버전 정보 없음"}</div>
+              </div>
+              <div>
+                <Label className="mb-1">Asset Refs</Label>
+                {assetRefs.length ? (
+                  <div className="space-y-2">
+                    {assetRefs.map((assetRef) => (
+                      <div
+                        key={assetRef}
+                        className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700"
+                      >
+                        {assetRef}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div>연결된 asset이 없습니다.</div>
                 )}
               </div>
             </div>
@@ -4758,6 +5148,9 @@ export default function JobsWikiPrototype() {
   const [isRefreshingWorkspaceSync, setIsRefreshingWorkspaceSync] = useState(false);
   const [isTriggeringWorkspaceSync, setIsTriggeringWorkspaceSync] = useState(false);
   const [activeWorkspaceCommandId, setActiveWorkspaceCommandId] = useState(null);
+  const [createDocumentLayer, setCreateDocumentLayer] = useState(null);
+  const [createDocumentError, setCreateDocumentError] = useState(null);
+  const [isCreatingDocument, setIsCreatingDocument] = useState(false);
   const workspaceRequestIdRef = useRef(0);
   const syncRequestIdRef = useRef(0);
   const currentView = currentRoute.view;
@@ -4924,6 +5317,43 @@ export default function JobsWikiPrototype() {
 
     const method = replace ? "replaceState" : "pushState";
     window.history[method]({}, "", nextLocation);
+  };
+
+  const handleOpenCreatePersonalDocument = (layer) => {
+    setCreateDocumentLayer(layer);
+    setCreateDocumentError(null);
+  };
+
+  const handleCreatePersonalDocument = async ({ layer, title, bodyMarkdown }) => {
+    setIsCreatingDocument(true);
+    setCreateDocumentError(null);
+
+    try {
+      const response = await createDocument({
+        layer,
+        title,
+        bodyMarkdown,
+        kind: "note",
+      });
+      await loadWorkspaceNavigation();
+      const createdDocumentId = response.item?.documentRef?.objectId ?? null;
+
+      if (createdDocumentId) {
+        navigateToPath(`/documents/${encodeURIComponent(createdDocumentId)}`);
+      }
+
+      setCreateDocumentLayer(null);
+    } catch (requestError) {
+      setCreateDocumentError(
+        requestError instanceof WasClientError
+          ? requestError
+          : new WasClientError({
+              message: "문서를 생성하지 못했습니다.",
+            }),
+      );
+    } finally {
+      setIsCreatingDocument(false);
+    }
   };
 
   useEffect(() => {
@@ -5167,6 +5597,7 @@ export default function JobsWikiPrototype() {
             documentId={currentRoute.documentId}
             onBack={() => navigateTo("workspace")}
             onOpenAsk={openAsk}
+            onWorkspaceChanged={loadWorkspaceNavigation}
           />
         );
       case "ask":
@@ -5313,6 +5744,7 @@ export default function JobsWikiPrototype() {
               section={section}
               currentPath={currentPath}
               onNavigatePath={navigateToPath}
+              onCreatePersonalDocument={handleOpenCreatePersonalDocument}
             />
           ))}
 
@@ -5369,6 +5801,19 @@ export default function JobsWikiPrototype() {
           </div>
         </div>
       </aside>
+
+      <CreatePersonalDocumentModal
+        layer={createDocumentLayer}
+        isSubmitting={isCreatingDocument}
+        error={createDocumentError}
+        onClose={() => {
+          if (!isCreatingDocument) {
+            setCreateDocumentLayer(null);
+            setCreateDocumentError(null);
+          }
+        }}
+        onSubmit={handleCreatePersonalDocument}
+      />
 
       <main className="flex-1 overflow-y-auto bg-slate-100/50">
         <div className="p-8 md:p-10 lg:p-12">

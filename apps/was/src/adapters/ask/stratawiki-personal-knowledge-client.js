@@ -389,6 +389,213 @@ export function createStratawikiPersonalKnowledgeClient({
       })
     },
 
+    async listPersonalDocuments({ tenantId, userId, subspace, status, kind }) {
+      const payload = {
+        domain,
+        tenant_id: tenantId,
+        user_id: userId,
+        ...(subspace ? { subspace } : {}),
+        ...(status ? { status } : {}),
+        ...(kind ? { kind } : {}),
+      }
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.listPersonalDocumentsTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.listPersonalDocumentsTool,
+            arguments: payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.listPersonalDocumentsTool, payload)
+        },
+      })
+    },
+
+    async getPersonalDocument({ tenantId, userId, documentId }) {
+      const payload = {
+        domain,
+        tenant_id: tenantId,
+        user_id: userId,
+        document_id: documentId,
+      }
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.getPersonalDocumentTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.getPersonalDocumentTool,
+            arguments: payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.getPersonalDocumentTool, payload)
+        },
+      })
+    },
+
+    async createPersonalDocument({
+      tenantId,
+      userId,
+      profileVersion,
+      subspace,
+      kind,
+      title,
+      bodyMarkdown,
+      assetRefs,
+      anchors,
+    }) {
+      const payload = {
+        domain,
+        tenant_id: tenantId,
+        user_id: userId,
+        profile_version: profileVersion,
+        subspace,
+        kind,
+        title,
+        ...(bodyMarkdown !== undefined ? { body_markdown: bodyMarkdown } : {}),
+        ...(assetRefs !== undefined ? { asset_refs: assetRefs } : {}),
+        ...(anchors !== undefined ? { anchors } : {}),
+      }
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.createPersonalDocumentTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.createPersonalDocumentTool,
+            arguments: payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.createPersonalDocumentTool, payload)
+        },
+      })
+    },
+
+    async updatePersonalDocument({
+      tenantId,
+      userId,
+      documentId,
+      profileVersion,
+      ifVersion,
+      title,
+      bodyMarkdown,
+      assetRefs,
+      anchors,
+    }) {
+      const payload = {
+        domain,
+        tenant_id: tenantId,
+        user_id: userId,
+        document_id: documentId,
+        profile_version: profileVersion,
+        if_version: ifVersion,
+        ...(title !== undefined ? { title } : {}),
+        ...(bodyMarkdown !== undefined ? { body_markdown: bodyMarkdown } : {}),
+        ...(assetRefs !== undefined ? { asset_refs: assetRefs } : {}),
+        ...(anchors !== undefined ? { anchors } : {}),
+      }
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.updatePersonalDocumentTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.updatePersonalDocumentTool,
+            arguments: payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.updatePersonalDocumentTool, payload)
+        },
+      })
+    },
+
+    async deletePersonalDocument({ tenantId, userId, documentId, ifVersion }) {
+      const payload = {
+        domain,
+        tenant_id: tenantId,
+        user_id: userId,
+        document_id: documentId,
+        if_version: ifVersion,
+      }
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.deletePersonalDocumentTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.deletePersonalDocumentTool,
+            arguments: payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.deletePersonalDocumentTool, payload)
+        },
+      })
+    },
+
+    async registerPersonalAsset({
+      tenantId,
+      userId,
+      assetKind,
+      mediaType,
+      filename,
+      storageRef,
+    }) {
+      const payload = {
+        domain,
+        tenant_id: tenantId,
+        user_id: userId,
+        asset_kind: assetKind,
+        media_type: mediaType,
+        filename,
+        storage_ref: storageRef,
+      }
+
+      return await withFallback({
+        env,
+        primaryMode,
+        fallbackLabel: {
+          toolName: env.registerPersonalAssetTool,
+          path: "/api/v1/tool-calls",
+        },
+        httpRun() {
+          return httpClient.callTool({
+            name: env.registerPersonalAssetTool,
+            arguments: payload,
+          })
+        },
+        wrapperRun() {
+          return callWrapperTool(wrapperPath, env.registerPersonalAssetTool, payload)
+        },
+      })
+    },
+
     async getInterpretationRecord({ interpretationId }) {
       return await withFallback({
         env,

@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto"
 import { createAskAdapter } from "./adapters/ask/create-ask-adapter.js"
 import { createCommandFacadeAdapter } from "./adapters/command-facade/create-command-facade-adapter.js"
+import { createPersonalDocumentAdapter } from "./adapters/personal-document/create-personal-document-adapter.js"
 import { createReadAuthorityAdapter } from "./adapters/read-authority/create-read-authority-adapter.js"
 import { loadEnv } from "./config/env.js"
 import { createNotFoundError } from "./http/errors.js"
@@ -88,6 +89,11 @@ function createAdapters(dataMode, env) {
     readAuthority,
     askWorkspace: createAskAdapter({ mode: dataMode, env, readAuthority }),
     commandFacade: createCommandFacadeAdapter({ mode: dataMode, env }),
+    personalDocument: createPersonalDocumentAdapter({
+      mode: dataMode,
+      env,
+      readAuthority,
+    }),
   }
 }
 

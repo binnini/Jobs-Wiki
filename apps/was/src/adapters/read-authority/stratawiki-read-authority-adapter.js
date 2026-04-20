@@ -635,28 +635,99 @@ function mapSharedFactDocument(parsedDocumentId, record) {
 
 function mapPersonalDocument(parsedDocumentId, record) {
   const title = record?.title ?? parsedDocumentId.recordId
-  const summary = trimText(record?.summary, 280)
+  const summary =
+    trimText(record?.summary, 280) ??
+    trimText(record?.body_markdown, 280)
+  const assetRefs = Array.isArray(record?.asset_refs)
+    ? record.asset_refs.filter((value) => typeof value === "string" && value.trim() !== "")
+    : undefined
 
   return {
-    documentId: `${parsedDocumentId.layer}:${record.id}`,
+    documentId: `${parsedDocumentId.layer}:${record.document_id ?? record.id}`,
     title,
     layer: parsedDocumentId.layer,
     writable: true,
-    bodyMarkdown: buildMarkdownBody({
-      title,
-      summary,
-      attributes: record?.attributes,
-    }),
+    bodyMarkdown:
+      record?.body_markdown ??
+      buildMarkdownBody({
+        title,
+        summary,
+        attributes: record?.attributes,
+      }),
     summary,
     metadata: compactOptionalObject({
       source: {
-        provider: "stratawiki_personal",
-        sourceId: record?.id,
+        provider: assetRefs?.length ? "stratawiki_personal_asset" : "stratawiki_personal",
+        sourceId: record?.document_id ?? record?.id,
       },
-      updatedAt: record?.updated_at,
+      updatedAt: record?.updated_at ?? record?.created_at,
       tags: record?.tags,
+      version: record?.version,
+      assetRefs,
+      status: record?.status,
     }),
     relatedObjects: undefined,
+  }
+}
+
+function mapPersonalWorkspaceItem(record) {
+  const recordId = record?.document_id ?? record?.id
+
+  if (typeof recordId !== "string" || recordId.trim() === "") {
+    return undefined
+  }
+
+  const layer = record?.subspace === "wiki" ? "personal_wiki" : "personal_raw"
+
+  return {
+    objectId: `${layer}:${recordId}`,
+    objectKind: "document",
+    title: record?.title ?? recordId,
+    kind: "document",
+    layer,
+    path: `/documents/${encodeURIComponent(`${layer}:${recordId}`)}`,
+  }
+}
+
+async function listPersonalWorkspaceItems({
+  env,
+  userContext,
+  personalKnowledgeClient,
+  profileContextCatalog,
+}) {
+  const profileContextEntry = resolveProfileContextEntry({
+    catalog: profileContextCatalog,
+    userContext,
+    domain: env.readDomain ?? "recruiting",
+  })
+
+  if (!profileContextEntry || !personalKnowledgeClient.listPersonalDocuments) {
+    return {
+      personalRawItems: [],
+      personalWikiItems: [],
+    }
+  }
+
+  const [rawResponse, wikiResponse] = await Promise.all([
+    personalKnowledgeClient.listPersonalDocuments({
+      tenantId: profileContextEntry.tenantId,
+      userId: profileContextEntry.userId,
+      subspace: "raw",
+      status: "active",
+    }),
+    personalKnowledgeClient.listPersonalDocuments({
+      tenantId: profileContextEntry.tenantId,
+      userId: profileContextEntry.userId,
+      subspace: "wiki",
+      status: "active",
+    }),
+  ])
+
+  return {
+    personalRawItems:
+      (rawResponse?.items ?? []).map(mapPersonalWorkspaceItem).filter(Boolean),
+    personalWikiItems:
+      (wikiResponse?.items ?? []).map(mapPersonalWorkspaceItem).filter(Boolean),
   }
 }
 
@@ -700,12 +771,6 @@ async function loadDocumentDetail({
     parsedDocumentId.layer === "personal_raw" ||
     parsedDocumentId.layer === "personal_wiki"
   ) {
-    if (!parsedDocumentId.recordId.startsWith("personal:")) {
-      throw createNotFoundError("document not found", {
-        documentId,
-      })
-    }
-
     const profileContextEntry = resolveProfileContextEntry({
       catalog: profileContextCatalog,
       userContext,
@@ -718,13 +783,23 @@ async function loadDocumentDetail({
       })
     }
 
-    const response = await personalKnowledgeClient.getPersonalRecord({
-      tenantId: profileContextEntry.tenantId,
-      userId: profileContextEntry.userId,
-      personalId: parsedDocumentId.recordId,
-    })
+    const response =
+      parsedDocumentId.recordId.startsWith("personal:")
+        ? await personalKnowledgeClient.getPersonalRecord({
+            tenantId: profileContextEntry.tenantId,
+            userId: profileContextEntry.userId,
+            personalId: parsedDocumentId.recordId,
+          })
+        : await personalKnowledgeClient.getPersonalDocument({
+            tenantId: profileContextEntry.tenantId,
+            userId: profileContextEntry.userId,
+            documentId: parsedDocumentId.recordId,
+          })
 
-    return mapPersonalDocument(parsedDocumentId, response?.record ?? response)
+    return mapPersonalDocument(
+      parsedDocumentId,
+      response?.document ?? response?.record ?? response,
+    )
   }
 
   throw createNotFoundError("document not found", {
@@ -732,7 +807,17 @@ async function loadDocumentDetail({
   })
 }
 
-function buildWorkspaceRecord(readModel) {
+async function buildWorkspaceRecord(
+  readModel,
+  { env, userContext, personalKnowledgeClient, profileContextCatalog } = {},
+) {
+  const personalItems = await listPersonalWorkspaceItems({
+    env,
+    userContext,
+    personalKnowledgeClient,
+    profileContextCatalog,
+  })
+
   return {
     sections: [
       {
@@ -769,12 +854,12 @@ function buildWorkspaceRecord(readModel) {
       {
         sectionId: "personal_raw",
         label: "personal/raw",
-        items: [],
+        items: personalItems.personalRawItems,
       },
       {
         sectionId: "personal_wiki",
         label: "personal/wiki",
-        items: [],
+        items: personalItems.personalWikiItems,
       },
     ],
     activeProjection: {
@@ -961,14 +1046,19 @@ export function createStratawikiReadAuthorityAdapter({
   const profileContextCatalog = loadProfileContextCatalog(env.profileContextCatalogPath)
 
   return {
-    async getWorkspace() {
+    async getWorkspace({ userContext } = {}) {
       const readModel = await loadReadModel({
         env,
         queryJson,
         now: now(),
       })
 
-      return buildWorkspaceRecord(readModel)
+      return buildWorkspaceRecord(readModel, {
+        env,
+        userContext,
+        personalKnowledgeClient,
+        profileContextCatalog,
+      })
     },
 
     async getWorkspaceSummary({ userContext } = {}) {
