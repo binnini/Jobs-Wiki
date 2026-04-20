@@ -328,6 +328,89 @@ test("personal document CRUD and asset registration round-trip through the works
   })
 })
 
+test("POST /api/assets validates required registration fields", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      method: "POST",
+      url: "/api/assets",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        filename: "resume_v4.pdf",
+      },
+    })
+
+    assert.equal(response.status, 400)
+    assert.equal(response.body.error.code, "validation_failed")
+    assert.equal(
+      response.body.error.message,
+      "`filename`, `mediaType`, and `storageRef` are required.",
+    )
+  })
+})
+
+test("PATCH and DELETE /api/documents/:documentId reject stale personal document versions", async () => {
+  await withApp(async (app) => {
+    const createResponse = await invokeApp(app, {
+      method: "POST",
+      url: "/api/documents",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        layer: "personal_raw",
+        title: "버전 확인용 노트",
+        bodyMarkdown: "v1",
+      },
+    })
+    const documentId = createResponse.body.item.documentRef.objectId
+
+    const staleUpdate = await invokeApp(app, {
+      method: "PATCH",
+      url: `/api/documents/${encodeURIComponent(documentId)}`,
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        ifVersion: 99,
+        bodyMarkdown: "stale update",
+      },
+    })
+
+    assert.equal(staleUpdate.status, 409)
+    assert.equal(staleUpdate.body.error.code, "conflict")
+    assert.equal(staleUpdate.body.error.message, "Personal document version mismatch.")
+    assert.deepEqual(staleUpdate.body.error.details, {
+      resource: "personal_document",
+      documentId,
+      expectedVersion: 99,
+      currentVersion: 1,
+    })
+
+    const staleDelete = await invokeApp(app, {
+      method: "DELETE",
+      url: `/api/documents/${encodeURIComponent(documentId)}`,
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        ifVersion: 77,
+      },
+    })
+
+    assert.equal(staleDelete.status, 409)
+    assert.equal(staleDelete.body.error.code, "conflict")
+    assert.equal(staleDelete.body.error.message, "Personal document version mismatch.")
+    assert.deepEqual(staleDelete.body.error.details, {
+      resource: "personal_document",
+      documentId,
+      expectedVersion: 77,
+      currentVersion: 1,
+    })
+  })
+})
+
 test("personal raw-to-wiki generation and wiki link actions stay within the personal layer", async () => {
   await withApp(async (app) => {
     const createRawResponse = await invokeApp(app, {
@@ -410,6 +493,121 @@ test("personal raw-to-wiki generation and wiki link actions stay within the pers
       wikiDetailAfterAttach.body.item.metadata.version,
       wikiVersionBeforeAttach + 1,
     )
+  })
+})
+
+test("POST /api/documents/:documentId/rewrite and /structure each generate personal/wiki outputs", async () => {
+  await withApp(async (app) => {
+    const createRawResponse = await invokeApp(app, {
+      method: "POST",
+      url: "/api/documents",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        layer: "personal_raw",
+        title: "Generation source",
+        bodyMarkdown: "# Source\n\nRewrite and structure checks.",
+      },
+    })
+    const rawDocumentId = createRawResponse.body.item.documentRef.objectId
+
+    const rewriteResponse = await invokeApp(app, {
+      method: "POST",
+      url: `/api/documents/${encodeURIComponent(rawDocumentId)}/rewrite`,
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {},
+    })
+    const structureResponse = await invokeApp(app, {
+      method: "POST",
+      url: `/api/documents/${encodeURIComponent(rawDocumentId)}/structure`,
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {},
+    })
+
+    assert.equal(rewriteResponse.status, 200)
+    assert.equal(rewriteResponse.body.operation, "rewrite")
+    assert.match(rewriteResponse.body.item.documentRef.objectId, /^personal_wiki:/)
+
+    assert.equal(structureResponse.status, 200)
+    assert.equal(structureResponse.body.operation, "structure")
+    assert.match(structureResponse.body.item.documentRef.objectId, /^personal_wiki:/)
+  })
+})
+
+test("POST /api/documents/:documentId/suggest-links and /attach-links validate request bodies", async () => {
+  await withApp(async (app) => {
+    const suggestResponse = await invokeApp(app, {
+      method: "POST",
+      url: "/api/documents/personal_wiki%3Apersonal%3Abackend-application-strategy/suggest-links",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        maxSuggestions: 0,
+      },
+    })
+
+    assert.equal(suggestResponse.status, 400)
+    assert.equal(suggestResponse.body.error.code, "validation_failed")
+    assert.equal(
+      suggestResponse.body.error.message,
+      "`maxSuggestions` must be a positive integer.",
+    )
+
+    const attachResponse = await invokeApp(app, {
+      method: "POST",
+      url: "/api/documents/personal_wiki%3Apersonal%3Abackend-application-strategy/attach-links",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        wikiDocumentVersion: 1,
+        attachments: [],
+      },
+    })
+
+    assert.equal(attachResponse.status, 400)
+    assert.equal(attachResponse.body.error.code, "validation_failed")
+    assert.equal(
+      attachResponse.body.error.message,
+      "`attachments` must include at least one link target.",
+    )
+  })
+})
+
+test("POST /api/documents/:documentId/attach-links rejects stale personal/wiki versions", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      method: "POST",
+      url: "/api/documents/personal_wiki%3Apersonal%3Abackend-application-strategy/attach-links",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        wikiDocumentVersion: 999,
+        attachments: [
+          {
+            layer: "fact",
+            id: "fact:job:1",
+          },
+        ],
+      },
+    })
+
+    assert.equal(response.status, 409)
+    assert.equal(response.body.error.code, "conflict")
+    assert.equal(response.body.error.message, "Personal wiki document version mismatch.")
+    assert.equal(response.body.error.details.resource, "personal_wiki_document")
+    assert.equal(
+      response.body.error.details.documentId,
+      "personal_wiki:personal:backend-application-strategy",
+    )
+    assert.equal(response.body.error.details.expectedVersion, 999)
   })
 })
 
