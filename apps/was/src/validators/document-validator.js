@@ -1,4 +1,5 @@
 import { createValidationError } from "../http/errors.js"
+import { randomUUID } from "node:crypto"
 
 export function validateDocumentId(documentId) {
   if (typeof documentId !== "string" || documentId.trim() === "") {
@@ -37,6 +38,18 @@ function validateStringArray(value, fieldName) {
 
     return entry.trim()
   })
+}
+
+function buildStorageRef(filename) {
+  const baseName = filename
+    .replace(/\.[^.]+$/, "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+
+  const safeName = baseName || "asset"
+  return `personal-assets/${safeName}-${randomUUID().slice(0, 8)}`
 }
 
 function validateAnchorArray(value, fieldName) {
@@ -148,16 +161,14 @@ export function validateRegisterAssetRequest(body = {}) {
   const storageRef = validateOptionalString(body.storageRef, "storageRef")
   const assetKind = validateOptionalString(body.assetKind, "assetKind") ?? "file"
 
-  if (!filename || !mediaType || !storageRef) {
-    throw createValidationError(
-      "`filename`, `mediaType`, and `storageRef` are required.",
-    )
+  if (!filename || !mediaType) {
+    throw createValidationError("`filename` and `mediaType` are required.")
   }
 
   return {
     filename,
     mediaType,
-    storageRef,
+    storageRef: storageRef ?? buildStorageRef(filename),
     assetKind,
   }
 }

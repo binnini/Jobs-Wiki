@@ -139,6 +139,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const [assetFilename, setAssetFilename] = useState("");
   const [assetMediaType, setAssetMediaType] = useState("application/pdf");
   const [assetStorageRef, setAssetStorageRef] = useState("");
+  const [showAdvancedAssetSettings, setShowAdvancedAssetSettings] = useState(false);
   const [linkSuggestions, setLinkSuggestions] = useState([]);
   const [autoAttachedLinkKeys, setAutoAttachedLinkKeys] = useState([]);
   const requestIdRef = useRef(0);
@@ -377,7 +378,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     const assetResponse = await registerPersonalAsset({
       filename: assetFilename,
       mediaType: assetMediaType,
-      storageRef: assetStorageRef,
+      ...(assetStorageRef.trim() ? { storageRef: assetStorageRef.trim() } : {}),
       assetKind: "file",
     });
     const nextAssetRefs = Array.from(
@@ -511,6 +512,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
       setAssetFilename("");
       setAssetMediaType("application/pdf");
       setAssetStorageRef("");
+      setShowAdvancedAssetSettings(false);
       await loadDocument({ preserveData: true });
       await refreshWorkspace();
       setIsEditing(true);
@@ -772,6 +774,9 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
           {detail.writable ? (
             <Panel>
               <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">asset registration</h3>
+              <p className="mb-4 text-sm leading-relaxed text-slate-600">
+                파일 이름과 타입만 입력하면 됩니다. 저장 위치가 필요하면 고급 설정에서만 지정하세요.
+              </p>
               <div className="space-y-4">
                 <div>
                   <Label className="mb-1">Filename</Label>
@@ -781,14 +786,33 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                   <Label className="mb-1">Media Type</Label>
                   <input value={assetMediaType} onChange={(event) => setAssetMediaType(event.target.value)} placeholder="application/pdf" className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500" />
                 </div>
-                <div>
-                  <Label className="mb-1">Storage Ref</Label>
-                  <input value={assetStorageRef} onChange={(event) => setAssetStorageRef(event.target.value)} placeholder="s3://jobs-wiki-assets/resume_v4.pdf" className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500" />
+                <div className="border-t border-slate-100 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowAdvancedAssetSettings((current) => !current)}
+                    className="text-xs font-bold text-slate-500 transition-colors hover:text-slate-900"
+                  >
+                    {showAdvancedAssetSettings ? "고급 설정 숨기기" : "고급 설정"}
+                  </button>
+                  {showAdvancedAssetSettings ? (
+                    <div className="mt-3">
+                      <Label className="mb-1">Storage Ref</Label>
+                      <input
+                        value={assetStorageRef}
+                        onChange={(event) => setAssetStorageRef(event.target.value)}
+                        placeholder="필요할 때만 직접 지정"
+                        className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                      />
+                      <p className="mt-2 text-xs leading-relaxed text-slate-500">
+                        비워두면 시스템이 안전한 기본 경로를 자동으로 만듭니다.
+                      </p>
+                    </div>
+                  ) : null}
                 </div>
                 <button
                   type="button"
                   onClick={handleRegisterAsset}
-                  disabled={isRegisteringAsset || !assetFilename.trim() || !assetMediaType.trim() || !assetStorageRef.trim()}
+                  disabled={isRegisteringAsset || !assetFilename.trim() || !assetMediaType.trim()}
                   className="w-full rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:opacity-40"
                 >
                   <UploadCloud size={14} className="mr-2 inline-flex" />

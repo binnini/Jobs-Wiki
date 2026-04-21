@@ -277,6 +277,7 @@ test("personal document CRUD and asset registration round-trip through the works
     })
     assert.equal(assetResponse.status, 201)
     assert.match(assetResponse.body.assetId, /^passet_mock_/)
+    assert.equal(assetResponse.body.storageRef, "s3://jobs-wiki-assets/resume_v4.pdf")
 
     const updateResponse = await invokeApp(app, {
       method: "PATCH",
@@ -345,8 +346,28 @@ test("POST /api/assets validates required registration fields", async () => {
     assert.equal(response.body.error.code, "validation_failed")
     assert.equal(
       response.body.error.message,
-      "`filename`, `mediaType`, and `storageRef` are required.",
+      "`filename` and `mediaType` are required.",
     )
+  })
+})
+
+test("POST /api/assets generates a storage ref when omitted", async () => {
+  await withApp(async (app) => {
+    const response = await invokeApp(app, {
+      method: "POST",
+      url: "/api/assets",
+      headers: {
+        "content-type": "application/json",
+      },
+      body: {
+        filename: "Resume_v4.pdf",
+        mediaType: "application/pdf",
+      },
+    })
+
+    assert.equal(response.status, 201)
+    assert.match(response.body.storageRef, /^personal-assets\/resume-v4-[a-f0-9]{8}$/)
+    assert.match(response.body.assetId, /^passet_mock_/)
   })
 })
 
