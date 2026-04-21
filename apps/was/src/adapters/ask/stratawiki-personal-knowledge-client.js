@@ -404,12 +404,16 @@ export function createStratawikiPersonalKnowledgeClient({
         primaryMode,
         fallbackLabel: {
           toolName: env.listPersonalDocumentsTool,
-          path: "/api/v1/tool-calls",
+          path: "/api/v1/personal-documents",
         },
         httpRun() {
-          return httpClient.callTool({
-            name: env.listPersonalDocumentsTool,
-            arguments: payload,
+          return httpClient.listPersonalDocuments({
+            domain,
+            tenantId,
+            userId,
+            subspace,
+            status,
+            kind,
           })
         },
         wrapperRun() {
@@ -431,12 +435,14 @@ export function createStratawikiPersonalKnowledgeClient({
         primaryMode,
         fallbackLabel: {
           toolName: env.getPersonalDocumentTool,
-          path: "/api/v1/tool-calls",
+          path: `/api/v1/personal-documents/${encodeURIComponent(documentId)}`,
         },
         httpRun() {
-          return httpClient.callTool({
-            name: env.getPersonalDocumentTool,
-            arguments: payload,
+          return httpClient.getPersonalDocument({
+            domain,
+            tenantId,
+            userId,
+            documentId,
           })
         },
         wrapperRun() {
@@ -484,12 +490,11 @@ export function createStratawikiPersonalKnowledgeClient({
         primaryMode,
         fallbackLabel: {
           toolName: env.createPersonalDocumentTool,
-          path: "/api/v1/tool-calls",
+          path: "/api/v1/personal-documents",
         },
         httpRun() {
-          return httpClient.callTool({
-            name: env.createPersonalDocumentTool,
-            arguments: payload,
+          return httpClient.createPersonalDocument({
+            payload,
           })
         },
         wrapperRun() {
@@ -537,12 +542,12 @@ export function createStratawikiPersonalKnowledgeClient({
         primaryMode,
         fallbackLabel: {
           toolName: env.updatePersonalDocumentTool,
-          path: "/api/v1/tool-calls",
+          path: `/api/v1/personal-documents/${encodeURIComponent(documentId)}`,
         },
         httpRun() {
-          return httpClient.callTool({
-            name: env.updatePersonalDocumentTool,
-            arguments: payload,
+          return httpClient.updatePersonalDocument({
+            documentId,
+            payload,
           })
         },
         wrapperRun() {
@@ -565,12 +570,12 @@ export function createStratawikiPersonalKnowledgeClient({
         primaryMode,
         fallbackLabel: {
           toolName: env.deletePersonalDocumentTool,
-          path: "/api/v1/tool-calls",
+          path: `/api/v1/personal-documents/${encodeURIComponent(documentId)}`,
         },
         httpRun() {
-          return httpClient.callTool({
-            name: env.deletePersonalDocumentTool,
-            arguments: payload,
+          return httpClient.deletePersonalDocument({
+            documentId,
+            payload,
           })
         },
         wrapperRun() {
@@ -602,12 +607,11 @@ export function createStratawikiPersonalKnowledgeClient({
         primaryMode,
         fallbackLabel: {
           toolName: env.registerPersonalAssetTool,
-          path: "/api/v1/tool-calls",
+          path: "/api/v1/personal-assets",
         },
         httpRun() {
-          return httpClient.callTool({
-            name: env.registerPersonalAssetTool,
-            arguments: payload,
+          return httpClient.registerPersonalAsset({
+            payload,
           })
         },
         wrapperRun() {
@@ -641,12 +645,11 @@ export function createStratawikiPersonalKnowledgeClient({
         primaryMode,
         fallbackLabel: {
           toolName: env.summarizePersonalDocumentToWikiTool,
-          path: "/api/v1/tool-calls",
+          path: "/api/v1/personal-wiki-generations/summarize",
         },
         httpRun() {
-          return httpClient.callTool({
-            name: env.summarizePersonalDocumentToWikiTool,
-            arguments: payload,
+          return httpClient.summarizePersonalDocumentToWiki({
+            payload,
           })
         },
         wrapperRun() {
@@ -680,12 +683,11 @@ export function createStratawikiPersonalKnowledgeClient({
         primaryMode,
         fallbackLabel: {
           toolName: env.rewritePersonalDocumentToWikiTool,
-          path: "/api/v1/tool-calls",
+          path: "/api/v1/personal-wiki-generations/rewrite",
         },
         httpRun() {
-          return httpClient.callTool({
-            name: env.rewritePersonalDocumentToWikiTool,
-            arguments: payload,
+          return httpClient.rewritePersonalDocumentToWiki({
+            payload,
           })
         },
         wrapperRun() {
@@ -719,12 +721,11 @@ export function createStratawikiPersonalKnowledgeClient({
         primaryMode,
         fallbackLabel: {
           toolName: env.structurePersonalDocumentToWikiTool,
-          path: "/api/v1/tool-calls",
+          path: "/api/v1/personal-wiki-generations/structure",
         },
         httpRun() {
-          return httpClient.callTool({
-            name: env.structurePersonalDocumentToWikiTool,
-            arguments: payload,
+          return httpClient.structurePersonalDocumentToWiki({
+            payload,
           })
         },
         wrapperRun() {
@@ -758,12 +759,11 @@ export function createStratawikiPersonalKnowledgeClient({
         primaryMode,
         fallbackLabel: {
           toolName: env.suggestPersonalWikiLinksTool,
-          path: "/api/v1/tool-calls",
+          path: "/api/v1/personal-wiki-links/suggest",
         },
         httpRun() {
-          return httpClient.callTool({
-            name: env.suggestPersonalWikiLinksTool,
-            arguments: payload,
+          return httpClient.suggestPersonalWikiLinks({
+            payload,
           })
         },
         wrapperRun() {
@@ -793,12 +793,11 @@ export function createStratawikiPersonalKnowledgeClient({
         primaryMode,
         fallbackLabel: {
           toolName: env.attachPersonalWikiLinksTool,
-          path: "/api/v1/tool-calls",
+          path: "/api/v1/personal-wiki-links/attach",
         },
         httpRun() {
-          return httpClient.callTool({
-            name: env.attachPersonalWikiLinksTool,
-            arguments: payload,
+          return httpClient.attachPersonalWikiLinks({
+            payload,
           })
         },
         wrapperRun() {

@@ -259,6 +259,171 @@ export function createStratawikiHttpClient({
       })
       return response.result
     },
+    async listPersonalDocuments({
+      domain,
+      tenantId,
+      userId,
+      subspace,
+      status,
+      kind,
+      requestId,
+    }) {
+      const response = await request({
+        method: "GET",
+        path: "/api/v1/personal-documents",
+        query: {
+          domain,
+          tenant_id: tenantId,
+          user_id: userId,
+          subspace,
+          status,
+          kind,
+        },
+        requestId,
+      })
+      return response.result
+    },
+    async getPersonalDocument({ domain, tenantId, userId, documentId, requestId }) {
+      const response = await request({
+        method: "GET",
+        path: `/api/v1/personal-documents/${encodeURIComponent(documentId)}`,
+        query: {
+          domain,
+          tenant_id: tenantId,
+          user_id: userId,
+        },
+        requestId,
+      })
+      return response.result
+    },
+    async createPersonalDocument({
+      payload,
+      requestId,
+      idempotencyKey,
+    }) {
+      const response = await request({
+        method: "POST",
+        path: "/api/v1/personal-documents",
+        json: payload,
+        requestId,
+        idempotencyKey,
+      })
+      return response.result
+    },
+    async updatePersonalDocument({
+      documentId,
+      payload,
+      requestId,
+      idempotencyKey,
+    }) {
+      const response = await request({
+        method: "PATCH",
+        path: `/api/v1/personal-documents/${encodeURIComponent(documentId)}`,
+        json: payload,
+        requestId,
+        idempotencyKey,
+      })
+      return response.result
+    },
+    async deletePersonalDocument({
+      documentId,
+      payload,
+      requestId,
+      idempotencyKey,
+    }) {
+      const response = await request({
+        method: "DELETE",
+        path: `/api/v1/personal-documents/${encodeURIComponent(documentId)}`,
+        json: payload,
+        requestId,
+        idempotencyKey,
+      })
+      return response.result
+    },
+    async registerPersonalAsset({
+      payload,
+      requestId,
+      idempotencyKey,
+    }) {
+      const response = await request({
+        method: "POST",
+        path: "/api/v1/personal-assets",
+        json: payload,
+        requestId,
+        idempotencyKey,
+      })
+      return response.result
+    },
+    async summarizePersonalDocumentToWiki({
+      payload,
+      requestId,
+      idempotencyKey,
+    }) {
+      const response = await request({
+        method: "POST",
+        path: "/api/v1/personal-wiki-generations/summarize",
+        json: payload,
+        requestId,
+        idempotencyKey,
+      })
+      return response.result
+    },
+    async rewritePersonalDocumentToWiki({
+      payload,
+      requestId,
+      idempotencyKey,
+    }) {
+      const response = await request({
+        method: "POST",
+        path: "/api/v1/personal-wiki-generations/rewrite",
+        json: payload,
+        requestId,
+        idempotencyKey,
+      })
+      return response.result
+    },
+    async structurePersonalDocumentToWiki({
+      payload,
+      requestId,
+      idempotencyKey,
+    }) {
+      const response = await request({
+        method: "POST",
+        path: "/api/v1/personal-wiki-generations/structure",
+        json: payload,
+        requestId,
+        idempotencyKey,
+      })
+      return response.result
+    },
+    async suggestPersonalWikiLinks({
+      payload,
+      requestId,
+      idempotencyKey,
+    }) {
+      const response = await request({
+        method: "POST",
+        path: "/api/v1/personal-wiki-links/suggest",
+        json: payload,
+        requestId,
+        idempotencyKey,
+      })
+      return response.result
+    },
+    async attachPersonalWikiLinks({
+      payload,
+      requestId,
+      idempotencyKey,
+    }) {
+      const response = await request({
+        method: "POST",
+        path: "/api/v1/personal-wiki-links/attach",
+        json: payload,
+        requestId,
+        idempotencyKey,
+      })
+      return response.result
+    },
     async validateDomainProposalBatch({ batch, requestId, idempotencyKey }) {
       const response = await request({
         method: "POST",

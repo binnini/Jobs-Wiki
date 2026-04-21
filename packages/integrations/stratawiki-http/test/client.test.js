@@ -161,6 +161,170 @@ test("http client maps profile sync, personal query, and background build endpoi
   assert.equal(calls[2].method, "POST")
 })
 
+test("http client uses dedicated personal REST endpoints for document, asset, generation, and link flows", async () => {
+  const calls = []
+  const client = createStratawikiHttpClient({
+    baseUrl: "http://127.0.0.1:8080",
+    requestIdFactory: () => "req-http-2a",
+    fetchImpl: async (url, options) => {
+      calls.push({
+        url,
+        method: options.method,
+        body: options.body ? JSON.parse(options.body) : undefined,
+      })
+
+      return createJsonResponse({
+        ok: true,
+        request_id: "req-http-2a",
+        result: {
+          ok: true,
+        },
+      })
+    },
+  })
+
+  await client.listPersonalDocuments({
+    domain: "recruiting",
+    tenantId: "tenant-1",
+    userId: "user-1",
+    subspace: "raw",
+    status: "active",
+    kind: "note",
+  })
+  await client.getPersonalDocument({
+    domain: "recruiting",
+    tenantId: "tenant-1",
+    userId: "user-1",
+    documentId: "personal:1",
+  })
+  await client.createPersonalDocument({
+    payload: {
+      domain: "recruiting",
+      tenant_id: "tenant-1",
+      user_id: "user-1",
+      profile_version: "profile:v1",
+      subspace: "raw",
+      kind: "note",
+      title: "Draft",
+    },
+  })
+  await client.updatePersonalDocument({
+    documentId: "personal:1",
+    payload: {
+      domain: "recruiting",
+      tenant_id: "tenant-1",
+      user_id: "user-1",
+      document_id: "personal:1",
+      profile_version: "profile:v1",
+      if_version: 1,
+      title: "Draft v2",
+    },
+  })
+  await client.deletePersonalDocument({
+    documentId: "personal:1",
+    payload: {
+      domain: "recruiting",
+      tenant_id: "tenant-1",
+      user_id: "user-1",
+      document_id: "personal:1",
+      if_version: 2,
+    },
+  })
+  await client.registerPersonalAsset({
+    payload: {
+      domain: "recruiting",
+      tenant_id: "tenant-1",
+      user_id: "user-1",
+      asset_kind: "resume",
+      media_type: "application/pdf",
+      filename: "resume.pdf",
+      storage_ref: "s3://bucket/resume.pdf",
+    },
+  })
+  await client.summarizePersonalDocumentToWiki({
+    payload: {
+      domain: "recruiting",
+      tenant_id: "tenant-1",
+      user_id: "user-1",
+      source_document_ref: { document_id: "personal:1", subspace: "raw", version: 1 },
+      profile_version: "profile:v1",
+      model_profile: "balanced_default",
+      save_target: { subspace: "wiki" },
+      summary_style: "brief",
+    },
+  })
+  await client.rewritePersonalDocumentToWiki({
+    payload: {
+      domain: "recruiting",
+      tenant_id: "tenant-1",
+      user_id: "user-1",
+      source_document_ref: { document_id: "personal:1", subspace: "raw", version: 1 },
+      profile_version: "profile:v1",
+      model_profile: "balanced_default",
+      save_target: { subspace: "wiki" },
+      rewrite_goal: "job-prep",
+    },
+  })
+  await client.structurePersonalDocumentToWiki({
+    payload: {
+      domain: "recruiting",
+      tenant_id: "tenant-1",
+      user_id: "user-1",
+      source_document_ref: { document_id: "personal:1", subspace: "raw", version: 1 },
+      profile_version: "profile:v1",
+      model_profile: "balanced_default",
+      save_target: { subspace: "wiki" },
+      structure_template: "job-brief",
+    },
+  })
+  await client.suggestPersonalWikiLinks({
+    payload: {
+      domain: "recruiting",
+      tenant_id: "tenant-1",
+      user_id: "user-1",
+      wiki_document_id: "personal:2",
+      wiki_document_version: 1,
+      profile_version: "profile:v1",
+      model_profile: "balanced_default",
+      max_suggestions: 2,
+    },
+  })
+  await client.attachPersonalWikiLinks({
+    payload: {
+      domain: "recruiting",
+      tenant_id: "tenant-1",
+      user_id: "user-1",
+      wiki_document_id: "personal:2",
+      wiki_document_version: 1,
+      attachments: [{ layer: "fact", id: "fact:1" }],
+    },
+  })
+
+  assert.equal(calls[0].method, "GET")
+  assert.equal(calls[0].url, "http://127.0.0.1:8080/api/v1/personal-documents?domain=recruiting&tenant_id=tenant-1&user_id=user-1&subspace=raw&status=active&kind=note")
+  assert.equal(calls[1].method, "GET")
+  assert.equal(calls[1].url, "http://127.0.0.1:8080/api/v1/personal-documents/personal%3A1?domain=recruiting&tenant_id=tenant-1&user_id=user-1")
+  assert.equal(calls[2].method, "POST")
+  assert.equal(calls[2].url, "http://127.0.0.1:8080/api/v1/personal-documents")
+  assert.equal(calls[3].method, "PATCH")
+  assert.equal(calls[3].url, "http://127.0.0.1:8080/api/v1/personal-documents/personal%3A1")
+  assert.equal(calls[4].method, "DELETE")
+  assert.equal(calls[4].url, "http://127.0.0.1:8080/api/v1/personal-documents/personal%3A1")
+  assert.equal(calls[5].method, "POST")
+  assert.equal(calls[5].url, "http://127.0.0.1:8080/api/v1/personal-assets")
+  assert.equal(calls[6].method, "POST")
+  assert.equal(calls[6].url, "http://127.0.0.1:8080/api/v1/personal-wiki-generations/summarize")
+  assert.equal(calls[7].method, "POST")
+  assert.equal(calls[7].url, "http://127.0.0.1:8080/api/v1/personal-wiki-generations/rewrite")
+  assert.equal(calls[8].method, "POST")
+  assert.equal(calls[8].url, "http://127.0.0.1:8080/api/v1/personal-wiki-generations/structure")
+  assert.equal(calls[9].method, "POST")
+  assert.equal(calls[9].url, "http://127.0.0.1:8080/api/v1/personal-wiki-links/suggest")
+  assert.equal(calls[10].method, "POST")
+  assert.equal(calls[10].url, "http://127.0.0.1:8080/api/v1/personal-wiki-links/attach")
+  assert.equal(calls[10].body.attachments[0].id, "fact:1")
+})
+
 test("http client maps snapshot, cache, explanation, and tool-call reads", async () => {
   const client = createStratawikiHttpClient({
     baseUrl: "http://127.0.0.1:8080",
