@@ -505,6 +505,27 @@ export function createStratawikiHttpClient({
       })
       return response.result
     },
+    async submitCommand({ requestId, command, idempotencyKey } = {}) {
+      const response = await request({
+        method: "POST",
+        path: "/api/v1/commands",
+        json: compactObject({
+          requestId,
+          command,
+        }),
+        requestId,
+        idempotencyKey: idempotencyKey ?? requestId,
+      })
+      return response.result
+    },
+    async getCommandStatus({ commandId, requestId } = {}) {
+      const response = await request({
+        method: "GET",
+        path: `/api/v1/commands/${encodeURIComponent(commandId)}`,
+        requestId,
+      })
+      return response.result
+    },
     async getSnapshotStatus({ domain, family, segment, requestId }) {
       const response = await request({
         method: "GET",

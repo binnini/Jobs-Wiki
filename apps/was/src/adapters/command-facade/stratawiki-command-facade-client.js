@@ -1,28 +1,16 @@
-import { constants } from "node:fs"
-import { access, mkdtemp, rm, writeFile } from "node:fs/promises"
-import { tmpdir } from "node:os"
-import { join } from "node:path"
-import { spawn } from "node:child_process"
-import { createTemporarilyUnavailableError, createUnknownFailureError } from "../../http/errors.js"
+import { createStratawikiHttpClient, StratawikiHttpError } from "../../../../../packages/integrations/stratawiki-http/client.js"
+import {
+  createForbiddenError,
+  createNotFoundError,
+  createTemporarilyUnavailableError,
+  createUnknownFailureError,
+  createValidationError,
+} from "../../http/errors.js"
 
 function compactObject(value) {
   return Object.fromEntries(
     Object.entries(value).filter(([, entryValue]) => entryValue !== undefined),
   )
-}
-
-async function assertExecutable(pathText) {
-  try {
-    await access(pathText, constants.X_OK)
-  } catch (error) {
-    throw createTemporarilyUnavailableError(
-      "The StrataWiki command facade wrapper is not executable.",
-      {
-        adapter: "stratawiki_command_facade",
-        wrapperPath: pathText,
-      },
-    )
-  }
 }
 
 function normalizeProjectionState(state) {
@@ -46,54 +34,7 @@ function normalizeCommandError(error) {
   return compactObject({
     code: error.code,
     message: error.message,
-    retryable:
-      typeof error.retryable === "boolean" ? error.retryable : undefined,
-  })
-}
-
-function parseJson(text, label) {
-  try {
-    return JSON.parse(text)
-  } catch (error) {
-    throw createUnknownFailureError(
-      `${label} returned non-JSON output.`,
-      {
-        adapter: "stratawiki_command_facade",
-      },
-      error,
-    )
-  }
-}
-
-async function spawnAndCapture(command, args) {
-  return await new Promise((resolvePromise, rejectPromise) => {
-    const child = spawn(command, args, {
-      stdio: ["ignore", "pipe", "pipe"],
-      env: process.env,
-    })
-
-    let stdout = ""
-    let stderr = ""
-
-    child.stdout.on("data", (chunk) => {
-      stdout += chunk.toString()
-    })
-
-    child.stderr.on("data", (chunk) => {
-      stderr += chunk.toString()
-    })
-
-    child.on("error", (error) => {
-      rejectPromise(error)
-    })
-
-    child.on("close", (code) => {
-      resolvePromise({
-        code: code ?? 1,
-        stdout: stdout.trim(),
-        stderr: stderr.trim(),
-      })
-    })
+    retryable: typeof error.retryable === "boolean" ? error.retryable : undefined,
   })
 }
 
@@ -117,14 +58,10 @@ function normalizeSubmissionResponse(rawResponse) {
   return compactObject({
     commandId: acceptedRecord.commandId,
     status:
-      typeof acceptedRecord.status === "string"
-        ? acceptedRecord.status
-        : "accepted",
+      typeof acceptedRecord.status === "string" ? acceptedRecord.status : "accepted",
     acceptedAt: acceptedRecord.acceptedAt,
     outcome:
-      typeof acceptedRecord.outcome === "string"
-        ? acceptedRecord.outcome
-        : undefined,
+      typeof acceptedRecord.outcome === "string" ? acceptedRecord.outcome : undefined,
     affectedObjectRefs:
       acceptedRecord?.affectedObjectRefs?.filter((value) => typeof value === "string") ??
       undefined,
@@ -160,9 +97,7 @@ function normalizeStatusResponse(rawResponse) {
     commandId: commandRecord.commandId,
     status: commandRecord.status,
     outcome:
-      typeof commandRecord.outcome === "string"
-        ? commandRecord.outcome
-        : undefined,
+      typeof commandRecord.outcome === "string" ? commandRecord.outcome : undefined,
     acceptedAt: commandRecord.acceptedAt,
     finishedAt: commandRecord.finishedAt,
     affectedObjectRefs:
@@ -179,81 +114,117 @@ function normalizeStatusResponse(rawResponse) {
   })
 }
 
-export function createStratawikiCommandFacadeClient({ env = {} } = {}) {
-  const wrapperPath = env.stratawikiCliWrapper
-  const submitTool = env.commandSubmitTool
-  const statusTool = env.commandStatusTool
+function mapHttpError(error, { operation }) {
+  if (!(error instanceof StratawikiHttpError)) {
+    return createUnknownFailureError(error.message ?? `${operation} failed.`, {
+      adapter: "stratawiki_command_facade",
+      operation,
+    }, error)
+  }
 
-  async function callTool(toolName, payload) {
-    if (!wrapperPath) {
-      throw createTemporarilyUnavailableError(
-        "STRATAWIKI_CLI_WRAPPER is required for the real command facade adapter.",
-        {
-          adapter: "stratawiki_command_facade",
-        },
-      )
-    }
+  const details = {
+    adapter: "stratawiki_command_facade",
+    operation,
+    upstreamCode: error.code,
+    requestId: error.requestId,
+    path: error.details?.path,
+  }
 
-    await assertExecutable(wrapperPath)
+  if (error.status === 404 || error.code === "not_found") {
+    return createNotFoundError(error.message, details)
+  }
 
-    const tempDir = await mkdtemp(join(tmpdir(), "jobs-wiki-command-facade-"))
-    const argsFilePath = join(tempDir, `${toolName}.json`)
+  if (error.status === 422 || error.code === "validation_error") {
+    return createValidationError(error.message, details)
+  }
 
-    try {
-      await writeFile(argsFilePath, JSON.stringify(payload, null, 2), "utf8")
+  if (error.status === 401 || error.status === 403 || error.code === "unauthorized") {
+    return createForbiddenError(error.message, details)
+  }
 
-      const result = await spawnAndCapture(wrapperPath, [
-        "call",
-        toolName,
-        "--args-file",
-        argsFilePath,
-      ])
+  if (error.retryable) {
+    return createTemporarilyUnavailableError(error.message, details)
+  }
 
-      if (result.code !== 0) {
-        throw createTemporarilyUnavailableError(
-          "The StrataWiki command facade wrapper call failed.",
-          {
-            adapter: "stratawiki_command_facade",
-            toolName,
-            stderr: result.stderr || result.stdout || undefined,
-          },
-        )
-      }
+  return createUnknownFailureError(error.message, details, error)
+}
 
-      return parseJson(result.stdout, `StrataWiki command facade tool ${toolName}`)
-    } catch (error) {
-      if (error?.code === "ENOENT") {
-        throw createTemporarilyUnavailableError(
-          "The StrataWiki command facade wrapper could not be started.",
-          {
-            adapter: "stratawiki_command_facade",
-            wrapperPath,
-          },
-        )
-      }
+function normalizeCommandFacadeStatus(commandStatus) {
+  return compactObject({
+    commandId: commandStatus.commandId,
+    status: commandStatus.status,
+    outcome: commandStatus.outcome,
+    acceptedAt: commandStatus.acceptedAt,
+    finishedAt: commandStatus.finishedAt,
+    affectedObjectRefs: commandStatus.affectedObjectRefs,
+    affectedRelationRefs: commandStatus.affectedRelationRefs,
+    refreshScopes: commandStatus.refreshScopes,
+    projectionStates: commandStatus.projectionStates,
+    error: commandStatus.error,
+  })
+}
 
-      throw error
-    } finally {
-      await rm(tempDir, { recursive: true, force: true })
-    }
+export function createStratawikiCommandFacadeClient({
+  env = {},
+  httpClient: providedHttpClient,
+} = {}) {
+  const httpClient =
+    providedHttpClient ??
+    (env.stratawikiBaseUrl
+      ? createStratawikiHttpClient({
+          baseUrl: env.stratawikiBaseUrl,
+          apiToken: env.stratawikiApiToken,
+          timeoutMs: env.stratawikiHttpTimeoutMs,
+        })
+      : null)
+
+  if (!httpClient) {
+    throw createTemporarilyUnavailableError(
+      "STRATAWIKI_BASE_URL is required for the StrataWiki command facade HTTP client.",
+      {
+        adapter: "stratawiki_command_facade",
+      },
+    )
   }
 
   return {
-    async submitCommand({ requestId, command }) {
-      const rawResponse = await callTool(submitTool, {
-        requestId,
-        command,
-      })
+    async submitCommand({ requestId, command, idempotencyKey } = {}) {
+      try {
+        const rawResponse = await httpClient.submitCommand({
+          requestId,
+          command,
+          idempotencyKey: idempotencyKey ?? requestId,
+        })
 
-      return normalizeSubmissionResponse(rawResponse)
+        return normalizeSubmissionResponse(rawResponse)
+      } catch (error) {
+        throw mapHttpError(error, { operation: "submitCommand" })
+      }
     },
 
-    async getCommandStatus({ commandId }) {
-      const rawResponse = await callTool(statusTool, {
-        commandId,
+    async triggerWorknetIngestion({ sourceId, idempotencyKey } = {}) {
+      return this.submitCommand({
+        requestId: idempotencyKey,
+        idempotencyKey,
+        command: {
+          name: "jobs_wiki.ingestion.trigger_worknet",
+          payload: {
+            sourceId,
+          },
+        },
       })
+    },
 
-      return normalizeStatusResponse(rawResponse)
+    async getCommandStatus({ commandId } = {}) {
+      try {
+        const rawResponse = await httpClient.getCommandStatus({
+          commandId,
+        })
+
+        return normalizeStatusResponse(rawResponse)
+      } catch (error) {
+        throw mapHttpError(error, { operation: "getCommandStatus" })
+      }
     },
   }
 }

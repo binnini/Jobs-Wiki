@@ -11,11 +11,21 @@ function compactObject(value) {
 
 export function createStratawikiCommandFacadeAdapter({
   env = {},
-  client = createStratawikiCommandFacadeClient({ env }),
+  client: providedClient,
 } = {}) {
+  let resolvedClient = providedClient
+
+  function getClient() {
+    if (!resolvedClient) {
+      resolvedClient = createStratawikiCommandFacadeClient({ env })
+    }
+
+    return resolvedClient
+  }
+
   return {
     async submitCommand({ requestId, command } = {}) {
-      const accepted = await client.submitCommand({
+      const accepted = await getClient().submitCommand({
         requestId: requestId ?? `jobs-wiki-command-${randomUUID()}`,
         command,
       })
@@ -46,7 +56,7 @@ export function createStratawikiCommandFacadeAdapter({
     },
 
     async getCommandStatus({ commandId }) {
-      const status = await client.getCommandStatus({
+      const status = await getClient().getCommandStatus({
         commandId,
       })
 
