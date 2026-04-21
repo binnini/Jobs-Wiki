@@ -11,6 +11,7 @@
     "test:ingestion": "npm --prefix apps/ingestion run test",
     "ingest:worknet": "npm --prefix apps/ingestion run ingest:worknet",
     "ingest:worknet:apply": "npm --prefix apps/ingestion run ingest:worknet:apply",
+    "ingest:worknet:incremental": "npm --prefix apps/ingestion run ingest:worknet:incremental",
     "ingest:worknet:schedule": "npm --prefix apps/ingestion run ingest:worknet:schedule",
     "ingest:worknet:backfill": "npm --prefix apps/ingestion run ingest:worknet:backfill",
     "dev:was": "WAS_DATA_MODE=${WAS_DATA_MODE:-real} npm --prefix apps/was run dev",

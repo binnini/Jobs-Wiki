@@ -65,6 +65,12 @@ npm run ingest:worknet
 npm run ingest:worknet:apply
 ```
 
+증분 실행:
+
+```bash
+npm run ingest:worknet:incremental
+```
+
 주기 실행:
 
 ```bash
@@ -99,6 +105,10 @@ npm start -- --source worknet --dry-run
 - `INGEST_RETRY_DELAY_MS`
 - `INGEST_SCHEDULE_INTERVAL_MS`
 - `INGEST_SCHEDULE_CYCLES`
+- `INGEST_INCREMENTAL_STATE_DIR`
+- `INGEST_INCREMENTAL_MAX_PAGES`
+- `INGEST_INCREMENTAL_STOP_AFTER_SEEN_PAGES`
+- `INGEST_INCREMENTAL_RECENT_FINGERPRINT_LIMIT`
 - `WORKNET_BACKFILL_START_PAGE`
 - `WORKNET_BACKFILL_PAGES`
 - WorkNet auth keys
@@ -156,6 +166,9 @@ npm start -- --source worknet --dry-run
 - `--apply`는 validation 성공 후
   `POST /api/v1/domain-proposals/ingest`까지 호출합니다.
 - `--mode scheduled`는 interval 기반 반복 실행 entrypoint 입니다.
+- `--mode incremental`은 최근에 수집한 `sourceId + contentHash` fingerprint 를
+  state file 로 저장한 뒤, 최신 페이지를 다시 훑으면서 새 공고나 수정된 공고만
+  apply 하는 증분 수집 entrypoint 입니다.
 - `--mode backfill`은 page window 를 순차 실행하면서 aggregation summary 를 만듭니다.
 - retry 는 attempt 수와 delay 로 조정할 수 있습니다.
 - 각 실행 결과는 JSON summary 파일로 저장됩니다.
@@ -236,6 +249,31 @@ INGEST_MAX_ATTEMPTS=3 \
 INGEST_RETRY_DELAY_MS=2000 \
 npm run ingest:worknet:schedule
 ```
+
+daily incremental 권장 baseline:
+
+```bash
+INGEST_DRY_RUN=false \
+INGEST_INCREMENTAL_MAX_PAGES=3 \
+WORKNET_FETCH_SIZE=20 \
+npm run ingest:worknet:incremental
+```
+
+초기 데이터 확보용 backfill 권장 baseline:
+
+```bash
+INGEST_DRY_RUN=false \
+WORKNET_BACKFILL_START_PAGE=1 \
+WORKNET_BACKFILL_PAGES=10 \
+WORKNET_FETCH_SIZE=20 \
+npm run ingest:worknet:backfill
+```
+
+권장 운영 방식:
+
+- 오늘 한 번 `backfill` 로 바닥 데이터를 확보합니다.
+- 이후에는 하루 1회 `incremental` 로 새 공고와 수정 공고를 수집합니다.
+- `incremental` state 는 `INGEST_INCREMENTAL_STATE_DIR` 아래 source별 JSON 파일로 저장됩니다.
 
 run summary 확인:
 

@@ -46,13 +46,15 @@ export function readCliOptions(args = process.argv.slice(2)) {
   const backfillStartPage = readPositiveIntegerOption(args, "--backfill-start-page")
   const backfillPages = readPositiveIntegerOption(args, "--backfill-pages")
   const cycles = readPositiveIntegerOption(args, "--cycles")
+  const maxPages = readPositiveIntegerOption(args, "--max-pages")
+  const stateDir = readOption(args, "--state-dir")
 
   if (dryRunFlag && applyFlag) {
     throw new Error("Use only one of --dry-run or --apply.")
   }
 
-  if (mode && !["manual", "scheduled", "backfill"].includes(mode)) {
-    throw new Error("--mode must be one of manual, scheduled, backfill.")
+  if (mode && !["manual", "scheduled", "backfill", "incremental"].includes(mode)) {
+    throw new Error("--mode must be one of manual, scheduled, backfill, incremental.")
   }
 
   return {
@@ -72,6 +74,8 @@ export function readCliOptions(args = process.argv.slice(2)) {
     backfillStartPage,
     backfillPages,
     cycles,
+    maxPages,
+    stateDir,
   }
 }
 
@@ -82,12 +86,13 @@ Usage:
   npm run start:ingestion -- --source worknet --dry-run
   npm run ingest:worknet
   npm run ingest:worknet:apply
+  npm run ingest:worknet:incremental
   npm run ingest:worknet:schedule
   npm run ingest:worknet:backfill
 
 Options:
   --source <name>   Ingestion source family. Current baseline: worknet
-  --mode <name>     manual | scheduled | backfill
+  --mode <name>     manual | scheduled | backfill | incremental
   --dry-run         Use the execution contract without applying writes
   --apply           Mark the run as apply mode for future write integration
   --retry-attempts  Retry count for one ingestion unit
@@ -99,6 +104,10 @@ Options:
   --backfill-pages <number>
                     Number of sequential pages to ingest in backfill mode
   --cycles <number> Number of scheduled cycles before exit
+  --max-pages <number>
+                    Maximum pages to scan in incremental mode
+  --state-dir <path>
+                    Incremental state directory override
   --help            Show this help message
 `)
 }

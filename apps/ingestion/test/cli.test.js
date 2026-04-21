@@ -47,3 +47,22 @@ test("readCliOptions parses backfill page window overrides", () => {
   assert.equal(options.backfillPages, 5)
   assert.equal(options.size, 20)
 })
+
+test("readCliOptions parses incremental options", () => {
+  const options = readCliOptions([
+    "--source",
+    "worknet",
+    "--apply",
+    "--mode",
+    "incremental",
+    "--max-pages",
+    "4",
+    "--state-dir",
+    "/tmp/jobs-wiki-state",
+  ])
+
+  assert.equal(options.mode, "incremental")
+  assert.equal(options.dryRun, false)
+  assert.equal(options.maxPages, 4)
+  assert.equal(options.stateDir, "/tmp/jobs-wiki-state")
+})

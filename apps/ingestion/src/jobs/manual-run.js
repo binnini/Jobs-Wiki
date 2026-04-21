@@ -10,6 +10,7 @@ import {
 import { runWorknetIngestion } from "./run-worknet-ingestion.js"
 import { runScheduledIngestion } from "./run-scheduled-ingestion.js"
 import { runWorknetBackfill } from "./run-worknet-backfill.js"
+import { runWorknetIncremental } from "./run-worknet-incremental.js"
 
 async function main() {
   let env
@@ -75,6 +76,16 @@ async function main() {
           intervalMs: env.ingestScheduleIntervalMs,
           maxAttempts: cliOptions.retryAttempts ?? env.ingestMaxAttempts,
           retryDelayMs: cliOptions.retryDelayMs ?? env.ingestRetryDelayMs,
+        })
+      } else if (mode === "incremental") {
+        summary = await runWorknetIncremental({
+          ...sharedOptions,
+          maxPages: cliOptions.maxPages ?? env.ingestIncrementalMaxPages,
+          fetchSize: cliOptions.size ?? env.worknetFetchSize,
+          stateDirectory:
+            cliOptions.stateDir ?? env.ingestIncrementalStateDir,
+          stopAfterSeenPages: env.ingestIncrementalStopAfterSeenPages,
+          recentFingerprintLimit: env.ingestIncrementalRecentFingerprintLimit,
         })
       } else if (mode === "backfill") {
         summary = await runWorknetBackfill({

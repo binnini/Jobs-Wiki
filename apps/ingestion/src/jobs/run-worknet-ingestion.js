@@ -39,6 +39,7 @@ export async function runWorknetIngestion({
   fetchPage = env.worknetFetchPage,
   fetchSize = env.worknetFetchSize,
   attempt = 1,
+  prefetchedFetchResult = null,
 }) {
   if (!clients?.stratawiki || !clients?.worknetRecruiting) {
     throw new Error(
@@ -55,16 +56,18 @@ export async function runWorknetIngestion({
     attempt,
   })
 
-  const fetchResult = await fetchWorknetSourcePayloads({
-    env,
-    logger,
-    sourceId,
-    runId,
-    clients,
-    fetchPage,
-    fetchSize,
-    attempt,
-  })
+  const fetchResult =
+    prefetchedFetchResult ??
+    (await fetchWorknetSourcePayloads({
+      env,
+      logger,
+      sourceId,
+      runId,
+      clients,
+      fetchPage,
+      fetchSize,
+      attempt,
+    }))
   await clients.stratawiki.assertWriteRuntimeConfig()
   const mappingResult = mapWorknetPayloadsToProposalBatches({
     env,

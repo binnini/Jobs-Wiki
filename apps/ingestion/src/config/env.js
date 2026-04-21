@@ -161,6 +161,14 @@ function loadNearestEnvFile() {
   }
 }
 
+function parseDirectory(value, fallback) {
+  if (value === undefined || value === null || String(value).trim() === "") {
+    return resolve(fallback)
+  }
+
+  return resolve(String(value).trim())
+}
+
 loadNearestEnvFile()
 
 export function loadEnv(overrides = {}) {
@@ -195,6 +203,22 @@ export function loadEnv(overrides = {}) {
       300000,
     ),
     ingestScheduleCycles: parseInteger(rawEnv.INGEST_SCHEDULE_CYCLES, 1),
+    ingestIncrementalStateDir: parseDirectory(
+      rawEnv.INGEST_INCREMENTAL_STATE_DIR,
+      resolve(MODULE_DIR, "../../../data/ingestion-state"),
+    ),
+    ingestIncrementalMaxPages: parseInteger(
+      rawEnv.INGEST_INCREMENTAL_MAX_PAGES,
+      3,
+    ),
+    ingestIncrementalStopAfterSeenPages: parseInteger(
+      rawEnv.INGEST_INCREMENTAL_STOP_AFTER_SEEN_PAGES,
+      1,
+    ),
+    ingestIncrementalRecentFingerprintLimit: parseInteger(
+      rawEnv.INGEST_INCREMENTAL_RECENT_FINGERPRINT_LIMIT,
+      500,
+    ),
     worknetSourceId: rawEnv.WORKNET_SOURCE_ID ?? "worknet.recruiting",
     worknetFetchPage: parseInteger(rawEnv.WORKNET_FETCH_PAGE, 1),
     worknetFetchSize: parseInteger(rawEnv.WORKNET_FETCH_SIZE, 5),
