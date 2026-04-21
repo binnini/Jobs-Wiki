@@ -58,6 +58,15 @@
   npm run smoke:http
   ```
 
+  이 smoke 는 fixture recruiting fact 를 새로 만들지 않습니다. 빈 recruiting proposal batch 로 HTTP ingest 계약만 확인한 뒤,
+  실제로 적재된 live recruiting fact snapshot 을 읽어서 personal query 와 interpretation build 를 검증합니다.
+  실행 중 fact pointer 는 일시적으로 smoke snapshot 을 가리킬 수 있지만, 종료 시 원래 recruiting fact snapshot 으로 복원됩니다.
+  과거 smoke fixture row 정리가 필요하면:
+
+  ```bash
+  npm run smoke:http:cleanup
+  ```
+
 - one-command local stack smoke:
 
   ```bash

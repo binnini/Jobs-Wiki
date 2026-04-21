@@ -243,6 +243,18 @@ StrataWiki HTTP smoke:
 npm run smoke:http
 ```
 
+이 smoke 는 recruiting fixture canonical row 를 남기지 않도록 설계되어 있습니다.
+
+- fixture fact 대신 빈 recruiting proposal batch 로 ingest 경계만 확인합니다.
+- personal query / interpretation build 는 현재 local DB 의 live recruiting fact snapshot 을 사용합니다.
+- smoke 종료 시 recruiting fact pointer 는 이전 snapshot 으로 복원됩니다.
+
+이전 smoke 가 남긴 local fixture row 를 정리하려면:
+
+```bash
+npm run smoke:http:cleanup
+```
+
 Cross-repo HTTP baseline smoke:
 
 ```bash

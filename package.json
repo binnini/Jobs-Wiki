@@ -20,6 +20,7 @@
     "verify:mvp": "npm run test:was && npm run build:frontend",
     "smoke:live": "node scripts/live-integration-smoke.mjs",
     "smoke:http": "node scripts/http-rest-smoke.mjs",
+    "smoke:http:cleanup": "node scripts/cleanup-http-smoke-facts.mjs",
     "smoke:http:cross-repo": "node scripts/cross-repo-http-smoke.mjs",
     "smoke:stack": "node scripts/local-stack-http-smoke.mjs",
     "test:domain-pack": "node --test tests/domain-packs/recruiting-pack.test.mjs",
