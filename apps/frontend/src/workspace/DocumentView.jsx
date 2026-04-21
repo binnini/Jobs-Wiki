@@ -220,47 +220,20 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     return () => { requestIdRef.current += 1; };
   }, [documentId]);
 
-  if (!documentId) {
-    return (
-      <RetryPanel
-        title="선택된 문서가 없습니다"
-        message="워크스페이스에서 문서를 선택한 뒤 상세 화면으로 이동해 주세요."
-        onRetry={onBack}
-        retryLabel="워크스페이스로 돌아가기"
-      />
-    );
-  }
-
-  if (isLoading && !documentResponse) return <DetailLoadingView />;
-
-  if (error?.code === "not_found" && !documentResponse) {
-    return (
-      <RetryPanel
-        title="문서를 찾을 수 없습니다"
-        message="선택한 documentId에 해당하는 문서가 더 이상 없거나 접근할 수 없습니다."
-        onRetry={onBack}
-        retryLabel="워크스페이스로 돌아가기"
-      />
-    );
-  }
-
-  if (error && !documentResponse) {
-    return (
-      <RetryPanel
-        title="문서 상세를 불러오지 못했습니다"
-        message={error.message}
-        onRetry={() => loadDocument()}
-        secondaryAction={
-          <button onClick={onBack} className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700">
-            워크스페이스로 돌아가기
-          </button>
-        }
-      />
-    );
-  }
-
-  const detail = mapDocumentResponse(documentResponse);
-  const syncMeta = getSyncMeta(documentResponse.sync);
+  const detail = documentResponse
+    ? mapDocumentResponse(documentResponse)
+    : {
+        documentId: null,
+        layer: null,
+        writable: false,
+        version: null,
+        title: "",
+        bodyMarkdown: "",
+        assetRefs: [],
+        metadata: {},
+        workspacePath: null,
+      };
+  const syncMeta = documentResponse?.sync ? getSyncMeta(documentResponse.sync) : null;
   const updatedAt = formatKoreanDateTime(detail.metadata?.updatedAt);
   const tags = detail.metadata?.tags ?? [];
   const assetRefs = detail.assetRefs ?? [];
@@ -305,6 +278,46 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     } finally {
       if (requestId === suggestionRequestIdRef.current) {
         setIsSuggestingLinks(false);
+      }
+    }
+  };
+
+  const autoAttachHighConfidenceLinks = async (suggestions) => {
+    if (
+      detail.layer !== "personal_wiki" ||
+      !detail.writable ||
+      !detail.version ||
+      isAttachingLinks ||
+      suggestions.length === 0
+    ) {
+      return;
+    }
+
+    const requestId = attachRequestIdRef.current + 1;
+    attachRequestIdRef.current = requestId;
+
+    setIsAttachingLinks(true);
+    setMutationError(null);
+    setMutationNotice(null);
+
+    try {
+      await attachWikiLinks(detail.documentId, {
+        wikiDocumentVersion: detail.version,
+        attachments: suggestions.map((item) => ({ layer: item.layer, id: item.id })),
+      });
+      if (requestId !== attachRequestIdRef.current) return;
+      setAutoAttachedLinkKeys((current) => Array.from(new Set([...current, ...suggestions.map(buildLinkKey)])));
+      await loadDocument({ preserveData: true });
+      await refreshWorkspace();
+      setMutationNotice(
+        `confidence ${AUTO_ATTACH_CONFIDENCE_THRESHOLD.toFixed(2)} 이상 link ${suggestions.length}개를 auto-attach했습니다.`,
+      );
+    } catch (requestError) {
+      if (requestId !== attachRequestIdRef.current) return;
+      setMutationError(requestError instanceof WasClientError ? requestError : new WasClientError({ message: "link auto-attach에 실패했습니다." }));
+    } finally {
+      if (requestId === attachRequestIdRef.current) {
+        setIsAttachingLinks(false);
       }
     }
   };
@@ -356,45 +369,44 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     isAttachingLinks,
   ]);
 
-  const autoAttachHighConfidenceLinks = async (suggestions) => {
-    if (
-      detail.layer !== "personal_wiki" ||
-      !detail.writable ||
-      !detail.version ||
-      isAttachingLinks ||
-      suggestions.length === 0
-    ) {
-      return;
-    }
+  if (!documentId) {
+    return (
+      <RetryPanel
+        title="선택된 문서가 없습니다"
+        message="워크스페이스에서 문서를 선택한 뒤 상세 화면으로 이동해 주세요."
+        onRetry={onBack}
+        retryLabel="워크스페이스로 돌아가기"
+      />
+    );
+  }
 
-    const requestId = attachRequestIdRef.current + 1;
-    attachRequestIdRef.current = requestId;
+  if (isLoading && !documentResponse) return <DetailLoadingView />;
 
-    setIsAttachingLinks(true);
-    setMutationError(null);
-    setMutationNotice(null);
+  if (error?.code === "not_found" && !documentResponse) {
+    return (
+      <RetryPanel
+        title="문서를 찾을 수 없습니다"
+        message="선택한 documentId에 해당하는 문서가 더 이상 없거나 접근할 수 없습니다."
+        onRetry={onBack}
+        retryLabel="워크스페이스로 돌아가기"
+      />
+    );
+  }
 
-    try {
-      await attachWikiLinks(detail.documentId, {
-        wikiDocumentVersion: detail.version,
-        attachments: suggestions.map((item) => ({ layer: item.layer, id: item.id })),
-      });
-      if (requestId !== attachRequestIdRef.current) return;
-      setAutoAttachedLinkKeys((current) => Array.from(new Set([...current, ...suggestions.map(buildLinkKey)])));
-      await loadDocument({ preserveData: true });
-      await refreshWorkspace();
-      setMutationNotice(
-        `confidence ${AUTO_ATTACH_CONFIDENCE_THRESHOLD.toFixed(2)} 이상 link ${suggestions.length}개를 auto-attach했습니다.`,
-      );
-    } catch (requestError) {
-      if (requestId !== attachRequestIdRef.current) return;
-      setMutationError(requestError instanceof WasClientError ? requestError : new WasClientError({ message: "link auto-attach에 실패했습니다." }));
-    } finally {
-      if (requestId === attachRequestIdRef.current) {
-        setIsAttachingLinks(false);
-      }
-    }
-  };
+  if (error && !documentResponse) {
+    return (
+      <RetryPanel
+        title="문서 상세를 불러오지 못했습니다"
+        message={error.message}
+        onRetry={() => loadDocument()}
+        secondaryAction={
+          <button onClick={onBack} className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700">
+            워크스페이스로 돌아가기
+          </button>
+        }
+      />
+    );
+  }
 
   const buildAssetRegistrationInput = () => {
     const filename = assetFilename.trim();
