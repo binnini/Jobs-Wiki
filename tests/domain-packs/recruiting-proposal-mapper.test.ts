@@ -89,6 +89,7 @@ test("normalizes WorkNet HTML entities and mixed line breaks in posting text fie
 
   payload.posting.summary = "플랫폼 API 개발&#xd;&nbsp;";
   payload.posting.acceptanceAnnouncement = " 개별 안내&#10; ";
+  payload.posting.employmentType = " 정규직 | 정규직 | 기타 ";
   payload.recruitmentSections = [
     {
       title: "플랫폼팀",
@@ -119,13 +120,56 @@ test("normalizes WorkNet HTML entities and mixed line breaks in posting text fie
     posting.attributes.summary,
     "플랫폼 API 개발\n\n플랫폼팀: API 설계 및 개발",
   );
-  assert.equal(posting.attributes.location_text, "플랫폼팀: 서울");
+  assert.equal(posting.attributes.employment_type, "정규직");
+  assert.equal(posting.attributes.location_text, "서울");
   assert.equal(
     posting.attributes.requirements_text,
-    "플랫폼팀 경력: 3년 이상\n플랫폼팀 학력: 대졸\n플랫폼팀 기타 요건: Node.js 경험",
+    "경력: 3년 이상\n학력: 대졸\n기타 요건: Node.js 경험",
   );
   assert.equal(
     posting.attributes.selection_process_text,
     "플랫폼팀: 코딩 테스트\n서류전형 | 일정: 4월 2주 | 설명: 서류 검토 | 비고: 합격자 개별 통보\n합격 발표: 개별 안내",
+  );
+});
+
+test("keeps section titles in location and requirements when multiple distinct sections exist", async () => {
+  const payload = await loadJsonFixture<RecruitingSourcePayload>(
+    "worknet-open-recruitment-ambiguous-source.json",
+  );
+
+  payload.posting.employmentType = "정규직|기타|정규직전환형|기타";
+  payload.recruitmentSections = [
+    {
+      title: "데이터팀",
+      roleDescription: "배치 파이프라인 운영",
+      selectionDescription: "실무 과제",
+      location: "서울 강남",
+      careerRequirement: "5년 이상",
+      educationRequirement: "무관",
+      otherRequirement: "SQL 숙련",
+    },
+    {
+      title: "분석플랫폼팀",
+      roleDescription: "지표 체계 운영",
+      selectionDescription: "케이스 인터뷰",
+      location: "서울 강남",
+      careerRequirement: "3년 이상",
+      educationRequirement: "학사 이상",
+      otherRequirement: "Python 숙련",
+    },
+  ];
+
+  const batch = mapRecruitingSourceToDomainProposalBatch(payload);
+  const posting = batch.facts.find((fact) => fact.entityType === "job_posting");
+
+  assert.ok(posting);
+  assert.equal(posting.attributes.employment_type, "정규직|정규직전환형");
+  assert.equal(
+    posting.attributes.location_text,
+    "데이터팀: 서울 강남\n분석플랫폼팀: 서울 강남",
+  );
+  assert.equal(
+    posting.attributes.requirements_text,
+    "데이터팀 경력: 5년 이상\n분석플랫폼팀 경력: 3년 이상\n데이터팀 학력: 무관\n분석플랫폼팀 학력: 학사 이상\n데이터팀 기타 요건: SQL 숙련\n분석플랫폼팀 기타 요건: Python 숙련",
   );
 });

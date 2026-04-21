@@ -125,6 +125,23 @@ function normalizeNameHint(value?: string): string | undefined {
   return normalized?.toLowerCase();
 }
 
+function normalizeEmploymentType(value?: string): string | undefined {
+  const normalized = normalizeInlineText(value);
+  if (!normalized) return undefined;
+
+  const values = uniqueValues(
+    normalized
+      .split("|")
+      .map((item) => normalizeInlineText(item)),
+  );
+
+  const filtered = values.length > 1
+    ? values.filter((item) => item !== "기타")
+    : values;
+
+  return filtered.length > 0 ? filtered.join("|") : undefined;
+}
+
 function normalizeDigits(value?: string): string | undefined {
   const normalized = value?.replace(/\D+/g, "");
   return normalized && normalized.length > 0 ? normalized : undefined;
@@ -183,9 +200,16 @@ function uniqueEvidence(evidence: ProposalEvidenceRef[]): ProposalEvidenceRef[] 
 function formatSectionValue(
   sectionTitle: string | undefined,
   value: string | undefined,
+  options: {
+    includeSectionTitle?: boolean;
+  } = {},
 ): string | undefined {
   const normalizedValue = normalizeText(value);
   if (!normalizedValue) return undefined;
+
+  if (options.includeSectionTitle === false) {
+    return normalizedValue;
+  }
 
   const normalizedTitle = normalizeInlineText(sectionTitle);
   return normalizedTitle ? `${normalizedTitle}: ${normalizedValue}` : normalizedValue;
@@ -195,9 +219,16 @@ function formatLabeledSectionValue(
   sectionTitle: string | undefined,
   label: string,
   value: string | undefined,
+  options: {
+    includeSectionTitle?: boolean;
+  } = {},
 ): string | undefined {
   const normalizedValue = normalizeInlineText(value);
   if (!normalizedValue) return undefined;
+
+  if (options.includeSectionTitle === false) {
+    return `${label}: ${normalizedValue}`;
+  }
 
   const normalizedTitle = normalizeInlineText(sectionTitle);
   return normalizedTitle
@@ -230,6 +261,21 @@ function joinLines(lines: Array<string | undefined>): string | undefined {
   return uniqueLines.length > 0 ? uniqueLines.join("\n") : undefined;
 }
 
+function shouldIncludeSectionTitles(
+  payload: RecruitingSourcePayload,
+  fieldSelector: (
+    section: RecruitingSourcePayload["recruitmentSections"][number],
+  ) => string | undefined,
+): boolean {
+  const contributingTitles = uniqueValues(
+    payload.recruitmentSections
+      .filter((section) => normalizeText(fieldSelector(section)))
+      .map((section) => normalizeInlineText(section.title)),
+  );
+
+  return contributingTitles.length > 1;
+}
+
 function buildPostingSummary(payload: RecruitingSourcePayload): string | undefined {
   const roleDescriptions = payload.recruitmentSections.map((section) =>
     formatSectionValue(section.title, section.roleDescription),
@@ -242,23 +288,42 @@ function buildPostingSummary(payload: RecruitingSourcePayload): string | undefin
 }
 
 function buildLocationText(payload: RecruitingSourcePayload): string | undefined {
+  const includeSectionTitle = shouldIncludeSectionTitles(
+    payload,
+    (section) => section.location,
+  );
+
   return joinLines(
     payload.recruitmentSections.map((section) =>
-      formatSectionValue(section.title, section.location),
+      formatSectionValue(section.title, section.location, { includeSectionTitle }),
     ),
   );
 }
 
 function buildRequirementsText(payload: RecruitingSourcePayload): string | undefined {
+  const includeSectionTitle = shouldIncludeSectionTitles(
+    payload,
+    (section) =>
+      section.careerRequirement ??
+      section.educationRequirement ??
+      section.otherRequirement,
+  );
+
   return joinLines([
     ...payload.recruitmentSections.map((section) =>
-      formatLabeledSectionValue(section.title, "경력", section.careerRequirement),
+      formatLabeledSectionValue(section.title, "경력", section.careerRequirement, {
+        includeSectionTitle,
+      }),
     ),
     ...payload.recruitmentSections.map((section) =>
-      formatLabeledSectionValue(section.title, "학력", section.educationRequirement),
+      formatLabeledSectionValue(section.title, "학력", section.educationRequirement, {
+        includeSectionTitle,
+      }),
     ),
     ...payload.recruitmentSections.map((section) =>
-      formatLabeledSectionValue(section.title, "기타 요건", section.otherRequirement),
+      formatLabeledSectionValue(section.title, "기타 요건", section.otherRequirement, {
+        includeSectionTitle,
+      }),
     ),
   ]);
 }
@@ -321,7 +386,7 @@ function createPostingFact(payload: RecruitingSourcePayload): FactProposal<"job_
   const attributes = compactRecord({
     title,
     summary: buildPostingSummary(payload),
-    employment_type: normalizeInlineText(payload.posting.employmentType),
+    employment_type: normalizeEmploymentType(payload.posting.employmentType),
     opens_at: normalizeText(payload.posting.startsAt),
     closes_at: normalizeText(payload.posting.closesAt),
     source_url: normalizeText(payload.source.sourceUrl),

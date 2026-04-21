@@ -15,8 +15,8 @@
         "closes_at": "2026-05-15",
         "source_url": "https://example.com/jobs/EMP-MISSING-COMPANY",
         "mobile_source_url": "https://m.example.com/jobs/EMP-MISSING-COMPANY",
-        "location_text": "데이터플랫폼팀: 부산",
-        "requirements_text": "데이터플랫폼팀 기타 요건: Python 경험"
+        "location_text": "부산",
+        "requirements_text": "기타 요건: Python 경험"
       },
       "identityHints": {
         "source_id": "EMP-MISSING-COMPANY"

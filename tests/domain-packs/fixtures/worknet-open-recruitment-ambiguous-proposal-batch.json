@@ -15,8 +15,8 @@
         "closes_at": "2026-06-30",
         "source_url": "https://example.com/jobs/EMP-AMBIGUOUS-1",
         "mobile_source_url": "https://m.example.com/jobs/EMP-AMBIGUOUS-1",
-        "location_text": "데이터팀: 서울 강남",
-        "requirements_text": "데이터팀 경력: 5년 이상\n데이터팀 학력: 무관\n데이터팀 기타 요건: SQL 숙련",
+        "location_text": "서울 강남",
+        "requirements_text": "경력: 5년 이상\n학력: 무관\n기타 요건: SQL 숙련",
         "selection_process_text": "데이터팀: 실무 과제\n서류전형 | 일정: 상시 | 설명: 이력서 검토 | 비고: 수시 연락\n합격 발표: 추후 안내"
       },
       "identityHints": {
