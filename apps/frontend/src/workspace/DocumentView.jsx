@@ -373,6 +373,28 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     }
   };
 
+  const registerPendingAsset = async () => {
+    const assetResponse = await registerPersonalAsset({
+      filename: assetFilename,
+      mediaType: assetMediaType,
+      storageRef: assetStorageRef,
+      assetKind: "file",
+    });
+    const nextAssetRefs = Array.from(
+      new Set([...(assetRefs ?? []), assetResponse.assetId].filter(Boolean)),
+    );
+    const referenceLine = `- ${assetResponse.filename} (${assetResponse.assetId})`;
+    const nextBody = editorBody.includes(referenceLine)
+      ? editorBody
+      : `${editorBody.trimEnd()}\n\n## Asset references\n${referenceLine}\n`;
+
+    return {
+      assetResponse,
+      nextAssetRefs,
+      nextBody,
+    };
+  };
+
   const handleGenerateWiki = async (operation) => {
     if (detail.layer !== "personal_raw" || !detail.writable || isGeneratingWiki) return;
     setIsGeneratingWiki(true);
@@ -425,11 +447,34 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     setMutationError(null);
     setMutationNotice(null);
     try {
-      await updateDocument(detail.documentId, { ifVersion: detail.version, title: editorTitle, bodyMarkdown: editorBody, assetRefs });
+      const shouldAutoRegisterAsset =
+        detail.layer === "personal_raw" &&
+        assetFilename.trim() &&
+        assetMediaType.trim() &&
+        assetStorageRef.trim();
+      const assetRegistrationResult = shouldAutoRegisterAsset
+        ? await registerPendingAsset()
+        : null;
+      const nextBodyMarkdown = assetRegistrationResult?.nextBody ?? editorBody;
+      const nextAssetRefs = assetRegistrationResult?.nextAssetRefs ?? assetRefs;
+
+      await updateDocument(detail.documentId, {
+        ifVersion: detail.version,
+        title: editorTitle,
+        bodyMarkdown: nextBodyMarkdown,
+        assetRefs: nextAssetRefs,
+      });
       await loadDocument({ preserveData: true });
       await refreshWorkspace();
       setIsEditing(false);
-      setMutationNotice("personal 문서를 저장했습니다.");
+      if (assetRegistrationResult) {
+        setAssetFilename("");
+        setAssetMediaType("application/pdf");
+        setAssetStorageRef("");
+        setMutationNotice("asset를 자동 등록하고 personal/raw 문서를 저장했습니다.");
+      } else {
+        setMutationNotice("personal 문서를 저장했습니다.");
+      }
     } catch (requestError) {
       setMutationError(requestError instanceof WasClientError ? requestError : new WasClientError({ message: "문서를 저장하지 못했습니다." }));
     } finally {
@@ -461,12 +506,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     setMutationError(null);
     setMutationNotice(null);
     try {
-      const assetResponse = await registerPersonalAsset({ filename: assetFilename, mediaType: assetMediaType, storageRef: assetStorageRef, assetKind: "file" });
-      const nextAssetRefs = Array.from(new Set([...(assetRefs ?? []), assetResponse.assetId].filter(Boolean)));
-      const referenceLine = `- ${assetResponse.filename} (${assetResponse.assetId})`;
-      const nextBody = editorBody.includes(referenceLine)
-        ? editorBody
-        : `${editorBody.trimEnd()}\n\n## Asset references\n${referenceLine}\n`;
+      const { nextAssetRefs, nextBody } = await registerPendingAsset();
       await updateDocument(detail.documentId, { ifVersion: detail.version, title: editorTitle, bodyMarkdown: nextBody, assetRefs: nextAssetRefs });
       setAssetFilename("");
       setAssetMediaType("application/pdf");
