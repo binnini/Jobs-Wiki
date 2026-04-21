@@ -30,9 +30,10 @@
 
 - read authority
   - StrataWiki canonical read DB 를 직접 읽는 read-backed projection path
-- ask workspace
+- ask workspace / personal document facade
   - read-backed baseline answer
   - 조건이 맞을 때만 personal-aware upgrade
+  - personal document CRUD / wiki generation / link flow 는 StrataWiki personal surface 를 경유
 - command facade
   - wrapper-only sync/admin command path
 
@@ -43,7 +44,7 @@
 - `src/http/`
   - 공통 response helper, error normalization, request parsing
 - `src/routes/`
-  - workspace / opportunity / calendar route family
+  - workspace / document / opportunity / calendar / admin route family
 - `src/services/`
   - endpoint 단위 orchestration
 - `src/mappers/`
@@ -87,7 +88,7 @@ npm start
   - 기본값: `shared`
 - `STRATAWIKI_INTEGRATION_MODE`
   - `auto|http|wrapper`
-  - 기본 권장값: `auto`
+  - personal surface 와 ask integration 의 기본 권장값은 `http`
 - `STRATAWIKI_BASE_URL`
   - HTTP-first StrataWiki integration base URL
 - `STRATAWIKI_API_TOKEN`
@@ -113,6 +114,28 @@ npm start
   - 기본값: `query_personal_knowledge`
 - `STRATAWIKI_GET_PERSONAL_RECORD_TOOL`
   - 기본값: `get_personal_record`
+- `STRATAWIKI_LIST_PERSONAL_DOCUMENTS_TOOL`
+  - 기본값: `list_personal_documents`
+- `STRATAWIKI_GET_PERSONAL_DOCUMENT_TOOL`
+  - 기본값: `get_personal_document`
+- `STRATAWIKI_CREATE_PERSONAL_DOCUMENT_TOOL`
+  - 기본값: `create_personal_document`
+- `STRATAWIKI_UPDATE_PERSONAL_DOCUMENT_TOOL`
+  - 기본값: `update_personal_document`
+- `STRATAWIKI_DELETE_PERSONAL_DOCUMENT_TOOL`
+  - 기본값: `delete_personal_document`
+- `STRATAWIKI_REGISTER_PERSONAL_ASSET_TOOL`
+  - 기본값: `register_personal_asset`
+- `STRATAWIKI_SUMMARIZE_PERSONAL_DOCUMENT_TO_WIKI_TOOL`
+  - 기본값: `summarize_personal_document_to_wiki`
+- `STRATAWIKI_REWRITE_PERSONAL_DOCUMENT_TO_WIKI_TOOL`
+  - 기본값: `rewrite_personal_document_to_wiki`
+- `STRATAWIKI_STRUCTURE_PERSONAL_DOCUMENT_TO_WIKI_TOOL`
+  - 기본값: `structure_personal_document_to_wiki`
+- `STRATAWIKI_SUGGEST_PERSONAL_WIKI_LINKS_TOOL`
+  - 기본값: `suggest_personal_wiki_links`
+- `STRATAWIKI_ATTACH_PERSONAL_WIKI_LINKS_TOOL`
+  - 기본값: `attach_personal_wiki_links`
 - `STRATAWIKI_GET_INTERPRETATION_RECORD_TOOL`
   - 기본값: `get_interpretation_record`
 - `STRATAWIKI_GET_FACT_RECORD_TOOL`
@@ -126,40 +149,64 @@ GET /health
 
 현재 route baseline:
 
+- `GET /api/workspace`
 - `GET /api/workspace/summary`
 - `POST /api/workspace/ask`
 - `GET /api/opportunities`
 - `GET /api/opportunities/:opportunityId`
+- `GET /api/documents/:documentId`
+- `POST /api/documents`
+- `PATCH /api/documents/:documentId`
+- `DELETE /api/documents/:documentId`
+- `POST /api/assets`
+- `POST /api/documents/:documentId/summarize`
+- `POST /api/documents/:documentId/rewrite`
+- `POST /api/documents/:documentId/structure`
+- `POST /api/documents/:documentId/suggest-links`
+- `POST /api/documents/:documentId/attach-links`
 - `GET /api/calendar`
 - `GET /api/workspace/sync`
 - `POST /api/admin/ingestions/worknet/:sourceId`
 
 `WAS_DATA_MODE=real` 에서는 아래처럼 동작합니다.
 
-- `workspace/summary`, `opportunities`, `calendar`
+- `workspace`, `workspace/summary`, `opportunities`, `calendar`
   - StrataWiki fact/relation/snapshot table 기반 read projection
 - `workspace/ask`
   - read-backed baseline answer
   - profile context catalog 와 StrataWiki personal surface 가 모두 준비된 경우에만 personal-aware upgrade
+- `documents`, `assets`, wiki generation, link routes`
+  - StrataWiki personal surface 를 통해 user-scoped CRUD / generation / link attachment 처리
 - `workspace/sync`
   - 기본값은 read-side projection visibility
   - `commandId` 가 있으면 wrapper-backed command status 까지 포함
 - `admin/ingestions/worknet/:sourceId`
   - wrapper-backed command submit
 
-real ask adapter는 현재 HTTP/REST 우선 dual-mode 이지만, baseline 을 아래처럼 이해해야 합니다.
+real ask/personal adapter는 현재 HTTP 우선 dual-mode 이지만, baseline 을 아래처럼 이해해야 합니다.
 
 - ask 의 기본값은 read-backed source-first answer 입니다.
 - personal query path 는 optional upgrade 입니다.
 - `save` 는 계속 reserved no-op 입니다.
-- full PKM structure 를 이미 frontend contract 로 노출하는 단계는 아닙니다.
+- personal authoring path 는 현재 frontend contract 에 이미 노출되어 있습니다.
 
 - 현재 ask baseline 에서 실제로 사용하는 경로:
   - `PUT /api/v1/profile-contexts/{tenant_id}/{user_id}`
   - `POST /api/v1/personal-queries`
   - `GET /api/v1/snapshot-status`
-  - resource-specific endpoint 가 없는 record/tool 조회만 generic `/api/v1/tool-calls` 또는 wrapper fallback
+  - resource-specific endpoint 가 없는 record/tool 조회와 personal document family 는 generic `/api/v1/tool-calls` 또는 wrapper fallback
     - `get_profile_context`
+    - `list_personal_documents`
+    - `get_personal_document`
+    - `create_personal_document`
+    - `update_personal_document`
+    - `delete_personal_document`
+    - `register_personal_asset`
+    - `summarize_personal_document_to_wiki`
+    - `rewrite_personal_document_to_wiki`
+    - `structure_personal_document_to_wiki`
+    - `suggest_personal_wiki_links`
+    - `attach_personal_wiki_links`
     - `get_personal_record`
     - `get_interpretation_record`
     - `get_fact_record`

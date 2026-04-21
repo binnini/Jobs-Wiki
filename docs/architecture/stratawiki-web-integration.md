@@ -68,13 +68,42 @@ user-facing projection 을 만듭니다.
 3. personal path 가 성공하면 personal-aware answer 로 upgrade 합니다.
 4. personal path 가 없거나 실패하면 read-backed source-first answer 로 fallback 합니다.
 
-현재 ask 에서 실제로 사용하는 StrataWiki surface:
+### 3-1. WAS personal document path
+
+현재 workspace-first authoring 은 ask path 와 별도로 StrataWiki personal surface 를 사용합니다.
+
+실제 동작 범위:
+
+- Personal document list / detail
+- Personal document create / update / delete
+- Personal asset registration
+- raw -> wiki summarize / rewrite / structure
+- wiki link suggestion / attach
+
+중요한 현재 구현 reality:
+
+- Jobs-Wiki 는 HTTP mode 에서도 이 personal family 를 대부분 generic tool-call bridge 로 호출합니다.
+- 즉 현재 cross-repo baseline 은 "HTTP transport" 이지만, consumer contract 는 아직 resource-shaped REST endpoint 로 완전히 옮겨가지 않았습니다.
+- dedicated resource-shaped REST endpoint 는 target contract 로 문서화되어 있고, Jobs-Wiki 현재 구현은 그 target 으로 가는 bridge 단계에 있습니다.
+
+현재 ask 와 personal document path 에서 실제로 사용하는 StrataWiki surface:
 
 - `PUT /api/v1/profile-contexts/{tenant_id}/{user_id}`
 - `POST /api/v1/personal-queries`
 - `GET /api/v1/snapshot-status`
 - generic `/api/v1/tool-calls`
   - `get_profile_context`
+  - `list_personal_documents`
+  - `get_personal_document`
+  - `create_personal_document`
+  - `update_personal_document`
+  - `delete_personal_document`
+  - `register_personal_asset`
+  - `summarize_personal_document_to_wiki`
+  - `rewrite_personal_document_to_wiki`
+  - `structure_personal_document_to_wiki`
+  - `suggest_personal_wiki_links`
+  - `attach_personal_wiki_links`
   - `get_personal_record`
   - `get_interpretation_record`
   - `get_fact_record`
@@ -164,10 +193,16 @@ POST /api/workspace/ask
 
 현재 구현이 아직 보장하지 않는 것은 아래입니다.
 
-- full PKM document tree
 - ask history persistence
 - save-enabled personal note creation
-- personal wiki structure 전체를 frontend contract 로 노출하는 것
+- binary upload transport 자체
+
+현재는 이미 보장하는 것:
+
+- workspace tree 기반 document navigation
+- personal/raw 와 personal/wiki authoring
+- generation trace / provenance surface
+- personal wiki link suggestion / attachment
 
 ### Sync / admin
 
@@ -189,8 +224,9 @@ POST /api/workspace/ask
 
 - `STRATAWIKI_INTEGRATION_MODE`
   - `auto|http|wrapper`
+- current workspace-first personal/document flows 에서는 `http` 를 명시하는 편이 안전합니다.
 - `STRATAWIKI_BASE_URL`
-  - HTTP-first write / ask integration base URL
+  - HTTP-first ask / personal document integration base URL
 - `STRATAWIKI_API_TOKEN`
   - auth-enabled HTTP 환경용 bearer token
 - `STRATAWIKI_HTTP_TIMEOUT_MS`
@@ -208,6 +244,11 @@ POST /api/workspace/ask
   - WAS read-side SQL query process
 - `JOBS_WIKI_PROFILE_CONTEXT_CATALOG_PATH`
   - ask personal-aware upgrade 시도에 사용할 profile catalog
+
+현재 runtime reality 메모:
+
+- `auto` 는 wrapper fallback 을 허용하지만, wrapper 가 최신 personal tool family 를 모두 노출하지 않으면 workspace/document route 가 `temporarily_unavailable` 로 실패할 수 있습니다.
+- 그래서 현재 local verification baseline 은 `STRATAWIKI_INTEGRATION_MODE=http` 와 `STRATAWIKI_BASE_URL=http://127.0.0.1:18080` 입니다.
 
 ### StrataWiki owned env
 

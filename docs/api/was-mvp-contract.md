@@ -79,7 +79,9 @@ workspace-first MVP 기준으로 좁게 고정합니다.
 - `POST /api/assets`
 - `POST /api/documents/{documentId}/summarize`
 - `POST /api/documents/{documentId}/rewrite`
-- `POST /api/documents/{documentId}/link`
+- `POST /api/documents/{documentId}/structure`
+- `POST /api/documents/{documentId}/suggest-links`
+- `POST /api/documents/{documentId}/attach-links`
 
 ### Optional Early Command Endpoint
 
@@ -167,6 +169,14 @@ type WorkspaceShellResponse = {
       sectionId: string;
       label: string;
       items: KnowledgeObjectRef[];
+      tree?: Array<{
+        nodeId: string;
+        label: string;
+        nodeType: "folder" | "object";
+        objectRef?: KnowledgeObjectRef;
+        workspacePath?: string;
+        children?: unknown[];
+      }>;
     }>;
   };
   activeProjection?: {

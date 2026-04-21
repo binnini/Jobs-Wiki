@@ -4,10 +4,10 @@
 
 이 레이어는 직접 WorkNet 같은 외부 API를 호출하지 않고, 기본적으로 backend/WAS가 제공하는 내부 API를 소비하는 것을 전제로 합니다.
 
-현재 report-first MVP entry component:
+현재 workspace-first MVP entry component:
 
 - [src/JobsWikiPrototype.jsx](src/JobsWikiPrototype.jsx)
-  - onboarding, extraction review, baseline report, opportunity detail, ask, calendar 흐름을 한 컴포넌트 트리로 정리한 현재 MVP shell
+  - workspace tree, document detail, ask, report, opportunity, calendar 흐름을 한 컴포넌트 트리로 정리한 현재 MVP shell
 
 ## Run
 
@@ -52,12 +52,18 @@ VITE_WAS_BASE_URL=http://127.0.0.1:4310 npm run preview
 
 현재 MVP route baseline:
 
-- `/onboarding`
-- `/review`
-- `/report`
+- `/workspace`
+- `/documents/:documentId`
 - `/opportunities/:opportunityId`
 - `/ask`
 - `/calendar`
+
+현재 프론트 구조의 핵심:
+
+- 좌측 `WorkspaceTree` 로 `shared`, `personal/raw`, `personal/wiki`, `calendar` 를 탐색합니다.
+- 중앙에서 선택된 document / opportunity / report / calendar projection 을 렌더합니다.
+- 우측 `WorkspaceRightPanel` 에 ask, metadata, sync, action surface 를 둡니다.
+- shared content 는 read-only 로 보이고, personal/raw 와 personal/wiki 만 writable surface 를 가집니다.
 
 ## Smoke Verification
 
