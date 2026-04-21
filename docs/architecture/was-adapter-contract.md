@@ -19,19 +19,19 @@ status: draft
 
 ## Current Scope
 
-현재 구현 범위는 아래 세 family 입니다.
+현재 구현 범위는 아래 네 family 입니다.
 
 1. `ReadAuthorityAdapter`
 2. `AskWorkspaceAdapter`
 3. `CommandFacadeAdapter`
+4. `PersonalDocumentAdapter`
 
 factory 는 존재하지만, 별도 adapter family 로 설명할 대상은 아닙니다.
 
 현재 문서 범위 밖:
 
-- personal document CRUD
 - shared/personal wiki tree 전체
-- asset upload / link refresh
+- binary asset upload transport 자체
 - auth-aware multi-tenant session contract 완성형
 
 이 항목들은 target direction 으로는 가능하지만 현재 route baseline 에는 들어와 있지 않습니다.
@@ -202,7 +202,6 @@ type AskWorkspaceAdapter = {
   - `get_personal_record`
   - `get_interpretation_record`
   - `get_fact_record`
-- wrapper fallback
 
 중요한 해석:
 
@@ -319,12 +318,60 @@ type CommandFacadeAdapter = {
 - current MVP read slice에서는 full command family 구현보다 thin client와 normalized envelope를 먼저 고정하는 편이 안전합니다.
 - `triggerWorknetIngestion`은 route/service convenience wrapper이고, 실제 adapter 기준선은 `submitCommand` + `getCommandStatus` 조합입니다.
 - request-level idempotency는 `requestId` 또는 route-level `Idempotency-Key`에서 시작하고, command payload identity와 혼동하지 않습니다.
-- current real implementation 은 HTTP 가 아니라 wrapper-only 입니다.
-- submit tool 기본값은 `knowledge.command.submit` 입니다.
-- status tool 기본값은 `knowledge.command.get` 입니다.
+- current real implementation 은 HTTP command contract 입니다.
+- submit endpoint 는 `POST /api/v1/commands` 입니다.
+- status endpoint 는 `GET /api/v1/commands/{command_id}` 입니다.
 - `GET /api/workspace/sync` 는 `commandId` 가 없으면 read projections 만 보여주고,
   `commandId` 가 있으면 command facade 도 함께 사용합니다.
 - `POST /api/admin/ingestions/worknet/:sourceId` 는 command facade submit entrypoint 입니다.
+
+## 4. PersonalDocumentAdapter
+
+### Responsibility
+
+- personal document list/detail/create/update/delete
+- personal asset registration
+- raw-to-wiki generation
+- wiki link suggestion / attachment
+
+### Interface
+
+```ts
+type PersonalDocumentAdapter = {
+  listDocuments(input: {
+    userContext?: UserContext;
+    domain: string;
+    subspace?: string;
+    kind?: string;
+    status?: string;
+    limit?: number;
+  }): Promise<{ items: PersonalDocumentRecord[] }>;
+
+  getDocument(input: {
+    userContext?: UserContext;
+    domain: string;
+    documentId: string;
+  }): Promise<PersonalDocumentRecord>;
+
+  createDocument(input: Record<string, unknown>): Promise<{ document: PersonalDocumentRecord }>;
+  updateDocument(input: Record<string, unknown>): Promise<{ document: PersonalDocumentRecord }>;
+  deleteDocument(input: Record<string, unknown>): Promise<{ document: PersonalDocumentRecord }>;
+
+  registerAsset(input: Record<string, unknown>): Promise<{ asset: PersonalAssetRecord }>;
+
+  summarizeToWiki(input: Record<string, unknown>): Promise<Record<string, unknown>>;
+  rewriteToWiki(input: Record<string, unknown>): Promise<Record<string, unknown>>;
+  structureToWiki(input: Record<string, unknown>): Promise<Record<string, unknown>>;
+  suggestLinks(input: Record<string, unknown>): Promise<Record<string, unknown>>;
+  attachLinks(input: Record<string, unknown>): Promise<Record<string, unknown>>;
+};
+```
+
+### Notes
+
+- current real implementation uses dedicated StrataWiki HTTP endpoints for this family.
+- current baseline is not the generic tool-call bridge for Personal CRUD/generation/link flows.
+- shared read / personal write boundary remains unchanged.
 
 ## Adapter Factories
 
@@ -341,9 +388,11 @@ type DataMode = "mock" | "real";
 - `AskWorkspaceAdapter`
   - read-backed baseline + optional personal-aware upgrade
 - `CommandFacadeAdapter`
-  - wrapper-only command client
+  - HTTP command client
+- `PersonalDocumentAdapter`
+  - HTTP Personal document / asset / generation / link client
 
-즉 current real mode 는 "모든 adapter 가 HTTP client" 인 구조가 아닙니다.
+즉 current real mode 는 "read 는 DB projection, write/command 는 HTTP" 구조입니다.
 
 ```ts
 type CommandAcceptedResponse = {
@@ -395,10 +444,8 @@ type CommandAcceptedResponse = {
 아래 항목은 현재 codebase 의 target direction 또는 prior design artifact 이며,
 현재 shipped route contract 로 읽으면 안 됩니다.
 
-- `PersonalDocumentAdapter`
-- personal wiki CRUD
-- shared/personal document detail family
-- asset registration / raw-to-wiki generation / link refresh
+- personal wiki graph/backlink surface
+- binary asset upload transport 자체
 - full PKM object tree 를 전제로 한 frontend contract
 
 이 항목들을 다시 문서화할 수는 있지만,
@@ -410,7 +457,6 @@ type CommandAcceptedResponse = {
 
 - personal document adapter 추가
 - richer interpretation build / job polling flow 노출
-- wrapper-only command facade 를 장기적으로 HTTP 또는 daemon 경계로 이전
 - ask save/history UX 추가
 
 다만 이 문서의 기준선은 현재 runtime 입니다.
