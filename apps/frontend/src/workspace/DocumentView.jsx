@@ -39,6 +39,19 @@ import {
 
 const AUTO_ATTACH_CONFIDENCE_THRESHOLD = 0.95;
 
+function createDefaultAssetStorageRef(filename) {
+  const safeName = String(filename ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const suffix =
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
+
+  return `personal-assets/${(safeName || "asset")}-${suffix}`;
+}
+
 const ContextPanel = ({ activeContext, profileSnapshot, isLoadingContext = false, contextError = null }) => {
   const profile = normalizeProfileSnapshot(profileSnapshot);
   const contextType = activeContext?.contextType ?? "workspace";
@@ -139,7 +152,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const [assetFilename, setAssetFilename] = useState("");
   const [assetMediaType, setAssetMediaType] = useState("application/pdf");
   const [assetStorageRef, setAssetStorageRef] = useState("");
-  const [showAdvancedAssetSettings, setShowAdvancedAssetSettings] = useState(false);
+  const [isAssetAdvancedMode, setIsAssetAdvancedMode] = useState(false);
   const [linkSuggestions, setLinkSuggestions] = useState([]);
   const [autoAttachedLinkKeys, setAutoAttachedLinkKeys] = useState([]);
   const requestIdRef = useRef(0);
@@ -198,6 +211,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     setAutoAttachedLinkKeys([]);
     suggestionRequestIdRef.current += 1;
     attachRequestIdRef.current += 1;
+    setIsAssetAdvancedMode(false);
     if (!documentId) { setIsLoading(false); return undefined; }
     loadDocument();
     return () => { requestIdRef.current += 1; };
@@ -374,11 +388,40 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     }
   };
 
-  const registerPendingAsset = async () => {
+  const buildAssetRegistrationInput = () => {
+    const filename = assetFilename.trim();
+    const mediaType = assetMediaType.trim();
+
+    if (!filename || !mediaType) {
+      return null;
+    }
+
+    if (isAssetAdvancedMode) {
+      const storageRef = assetStorageRef.trim();
+
+      if (!storageRef) {
+        return null;
+      }
+
+      return {
+        filename,
+        mediaType,
+        storageRef,
+      };
+    }
+
+    return {
+      filename,
+      mediaType,
+      storageRef: createDefaultAssetStorageRef(filename),
+    };
+  };
+
+  const registerPendingAsset = async ({ filename, mediaType, storageRef }) => {
     const assetResponse = await registerPersonalAsset({
-      filename: assetFilename,
-      mediaType: assetMediaType,
-      ...(assetStorageRef.trim() ? { storageRef: assetStorageRef.trim() } : {}),
+      filename,
+      mediaType,
+      storageRef,
       assetKind: "file",
     });
     const nextAssetRefs = Array.from(
@@ -448,13 +491,11 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     setMutationError(null);
     setMutationNotice(null);
     try {
-      const shouldAutoRegisterAsset =
-        detail.layer === "personal_raw" &&
-        assetFilename.trim() &&
-        assetMediaType.trim() &&
-        assetStorageRef.trim();
-      const assetRegistrationResult = shouldAutoRegisterAsset
-        ? await registerPendingAsset()
+      const assetRegistrationInput =
+        detail.layer === "personal_raw" ? buildAssetRegistrationInput() : null;
+      const assetRegistrationResult =
+        assetRegistrationInput && detail.layer === "personal_raw"
+          ? await registerPendingAsset(assetRegistrationInput)
         : null;
       const nextBodyMarkdown = assetRegistrationResult?.nextBody ?? editorBody;
       const nextAssetRefs = assetRegistrationResult?.nextAssetRefs ?? assetRefs;
@@ -507,7 +548,17 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     setMutationError(null);
     setMutationNotice(null);
     try {
-      const { nextAssetRefs, nextBody } = await registerPendingAsset();
+      const assetRegistrationInput = buildAssetRegistrationInput();
+
+      if (!assetRegistrationInput) {
+        throw new WasClientError({
+          message: isAssetAdvancedMode
+            ? "필수 정보와 storageRef를 입력한 뒤 다시 시도해 주세요."
+            : "Filename과 Media Type을 입력한 뒤 다시 시도해 주세요.",
+        });
+      }
+
+      const { nextAssetRefs, nextBody } = await registerPendingAsset(assetRegistrationInput);
       await updateDocument(detail.documentId, { ifVersion: detail.version, title: editorTitle, bodyMarkdown: nextBody, assetRefs: nextAssetRefs });
       setAssetFilename("");
       setAssetMediaType("application/pdf");
@@ -778,6 +829,25 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                 파일 이름과 타입만 입력하면 됩니다. 저장 위치가 필요하면 고급 설정에서만 지정하세요.
               </p>
               <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3 rounded-sm border border-slate-200 bg-slate-50 px-3 py-2">
+                  <div>
+                    <div className="text-xs font-bold text-slate-900">기본 모드</div>
+                    <div className="text-[11px] font-medium text-slate-600">
+                      storageRef는 자동 생성되고, 고급 모드에서만 직접 지정할 수 있습니다.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAssetAdvancedMode((current) => !current)}
+                    className={`rounded-sm border px-3 py-2 text-xs font-bold shadow-sm transition-colors ${
+                      isAssetAdvancedMode
+                        ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                    }`}
+                  >
+                    {isAssetAdvancedMode ? "고급 모드 사용 중" : "고급 모드 열기"}
+                  </button>
+                </div>
                 <div>
                   <Label className="mb-1">Filename</Label>
                   <input value={assetFilename} onChange={(event) => setAssetFilename(event.target.value)} placeholder="resume_v4.pdf" className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500" />
@@ -786,33 +856,25 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                   <Label className="mb-1">Media Type</Label>
                   <input value={assetMediaType} onChange={(event) => setAssetMediaType(event.target.value)} placeholder="application/pdf" className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500" />
                 </div>
-                <div className="border-t border-slate-100 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setShowAdvancedAssetSettings((current) => !current)}
-                    className="text-xs font-bold text-slate-500 transition-colors hover:text-slate-900"
-                  >
-                    {showAdvancedAssetSettings ? "고급 설정 숨기기" : "고급 설정"}
-                  </button>
-                  {showAdvancedAssetSettings ? (
-                    <div className="mt-3">
-                      <Label className="mb-1">Storage Ref</Label>
-                      <input
-                        value={assetStorageRef}
-                        onChange={(event) => setAssetStorageRef(event.target.value)}
-                        placeholder="필요할 때만 직접 지정"
-                        className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500"
-                      />
-                      <p className="mt-2 text-xs leading-relaxed text-slate-500">
-                        비워두면 시스템이 안전한 기본 경로를 자동으로 만듭니다.
-                      </p>
-                    </div>
-                  ) : null}
-                </div>
+                {isAssetAdvancedMode ? (
+                  <div>
+                    <Label className="mb-1">Storage Ref</Label>
+                    <input value={assetStorageRef} onChange={(event) => setAssetStorageRef(event.target.value)} placeholder="s3://jobs-wiki-assets/resume_v4.pdf" className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500" />
+                  </div>
+                ) : (
+                  <div className="rounded-sm border border-dashed border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
+                    storageRef는 자동 생성됩니다. 고급 모드에서만 직접 지정할 수 있습니다.
+                  </div>
+                )}
                 <button
                   type="button"
                   onClick={handleRegisterAsset}
-                  disabled={isRegisteringAsset || !assetFilename.trim() || !assetMediaType.trim()}
+                  disabled={
+                    isRegisteringAsset ||
+                    !assetFilename.trim() ||
+                    !assetMediaType.trim() ||
+                    (isAssetAdvancedMode && !assetStorageRef.trim())
+                  }
                   className="w-full rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100 disabled:opacity-40"
                 >
                   <UploadCloud size={14} className="mr-2 inline-flex" />
