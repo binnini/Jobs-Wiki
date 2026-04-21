@@ -125,6 +125,20 @@ test("personal knowledge client uses HTTP-first resource endpoints when configur
   assert.equal(calls[3].payload.name, "get_personal_record")
 })
 
+test("personal knowledge client rejects legacy non-http integration modes", () => {
+  assert.throws(
+    () =>
+      createStratawikiPersonalKnowledgeClient({
+        env: {
+          stratawikiBaseUrl: "http://127.0.0.1:8080",
+          stratawikiIntegrationMode: "wrapper",
+        },
+        httpClient: {},
+      }),
+    /STRATAWIKI_INTEGRATION_MODE=http/,
+  )
+})
+
 test("personal knowledge client uses dedicated HTTP methods for personal CRUD, generation, and link flows", async () => {
   const calls = []
   const client = createStratawikiPersonalKnowledgeClient({

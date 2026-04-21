@@ -3,7 +3,7 @@ import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
 const VALID_DATA_MODES = new Set(["mock", "real"])
-const VALID_INTEGRATION_MODES = new Set(["auto", "http", "wrapper"])
+const VALID_INTEGRATION_MODES = new Set(["http"])
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url))
 
@@ -80,7 +80,7 @@ export function loadEnv(overrides = {}) {
   }
 
   const stratawikiIntegrationMode =
-    rawEnv.STRATAWIKI_INTEGRATION_MODE ?? rawEnv.stratawikiIntegrationMode ?? "auto"
+    rawEnv.STRATAWIKI_INTEGRATION_MODE ?? rawEnv.stratawikiIntegrationMode ?? "http"
 
   if (!VALID_INTEGRATION_MODES.has(stratawikiIntegrationMode)) {
     throw new Error(

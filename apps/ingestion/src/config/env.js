@@ -37,16 +37,16 @@ function parseInteger(value, fallback) {
   return normalized
 }
 
-function parseIntegrationMode(value, fallback = "auto") {
+function parseIntegrationMode(value, fallback = "http") {
   if (value === undefined || value === null || String(value).trim() === "") {
     return fallback
   }
 
   const normalized = String(value).trim().toLowerCase()
 
-  if (!["auto", "http", "wrapper"].includes(normalized)) {
+  if (normalized !== "http") {
     throw new Error(
-      `Invalid STRATAWIKI_INTEGRATION_MODE: ${value}. Expected auto, http, or wrapper.`,
+      `Invalid STRATAWIKI_INTEGRATION_MODE: ${value}. Expected http.`,
     )
   }
 

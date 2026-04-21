@@ -1,9 +1,7 @@
 import {
   StratawikiHttpError,
   createStratawikiHttpClient,
-  shouldUseStratawikiWrapperFallback,
 } from "../../../../packages/integrations/stratawiki-http/client.js"
-import { createStratawikiCliClient } from "./stratawiki-cli-client.js"
 
 export class StratawikiWriteError extends Error {
   constructor({
@@ -27,26 +25,6 @@ export class StratawikiWriteError extends Error {
   }
 }
 
-function resolveIntegrationMode(env) {
-  const configuredMode = String(
-    env.stratawikiIntegrationMode ?? "auto",
-  ).trim().toLowerCase()
-
-  if (configuredMode === "http" || configuredMode === "wrapper") {
-    return configuredMode
-  }
-
-  return env.stratawikiBaseUrl ? "http" : "wrapper"
-}
-
-function canUseWrapperFallback(env) {
-  return (
-    String(env.stratawikiIntegrationMode ?? "auto").trim().toLowerCase() ===
-      "auto" &&
-    Boolean(env.stratawikiCliWrapper)
-  )
-}
-
 function createHttpClient(env) {
   if (!env.stratawikiBaseUrl) {
     return null
@@ -64,9 +42,7 @@ function looksLikeConfigurationFailure(message) {
     "Missing required env",
     "Invalid STRATAWIKI_",
     "requires STRATAWIKI_BASE_URL",
-    "does not exist",
-    "not executable",
-    "no valid artifact paths were parsed",
+    "Jobs-Wiki ingestion flows now require STRATAWIKI_INTEGRATION_MODE=http",
   ].some((pattern) => message.includes(pattern))
 }
 
@@ -108,61 +84,13 @@ function normalizeWriteError(error, { transport, operation }) {
   })
 }
 
-async function withFallback({
-  env,
-  primaryMode,
-  httpRun,
-  wrapperRun,
-  operation,
-}) {
-  if (primaryMode === "wrapper") {
-    try {
-      return await wrapperRun()
-    } catch (error) {
-      throw normalizeWriteError(error, {
-        transport: "wrapper",
-        operation,
-      })
-    }
-  }
+function ensureHttpMode(env, httpClient) {
+  const configuredMode = String(env.stratawikiIntegrationMode ?? "http").trim().toLowerCase()
 
-  try {
-    return await httpRun()
-  } catch (error) {
-    if (
-      canUseWrapperFallback(env) &&
-      shouldUseStratawikiWrapperFallback(error)
-    ) {
-      try {
-        return await wrapperRun()
-      } catch (wrapperError) {
-        throw normalizeWriteError(wrapperError, {
-          transport: "wrapper",
-          operation,
-        })
-      }
-    }
-
-    throw normalizeWriteError(error, {
-      transport: "http",
-      operation,
-    })
-  }
-}
-
-export function createStratawikiWriteClient(
-  env,
-  {
-    cliClient = createStratawikiCliClient(env),
-    httpClient = createHttpClient(env),
-  } = {},
-) {
-  const primaryMode = resolveIntegrationMode(env)
-
-  if (primaryMode === "http" && !httpClient) {
+  if (configuredMode !== "http") {
     throw new StratawikiWriteError({
       message:
-        "HTTP mode requires STRATAWIKI_BASE_URL. Set STRATAWIKI_BASE_URL or switch STRATAWIKI_INTEGRATION_MODE=wrapper.",
+        "Jobs-Wiki ingestion flows now require STRATAWIKI_INTEGRATION_MODE=http.",
       code: "configuration_invalid",
       retryable: false,
       transport: "http",
@@ -170,103 +98,88 @@ export function createStratawikiWriteClient(
     })
   }
 
-  return {
-    mode: primaryMode,
-    wrapperPath: cliClient.wrapperPath,
-    configured:
-      primaryMode === "http"
-        ? Boolean(httpClient)
-        : Boolean(env.stratawikiCliWrapper),
-    async assertWriteRuntimeConfig() {
-      try {
-        if (primaryMode === "http") {
-          if (!httpClient) {
-            throw new Error(
-              "HTTP mode requires STRATAWIKI_BASE_URL for StrataWiki write requests.",
-            )
-          }
-          return
-        }
+  if (!httpClient) {
+    throw new StratawikiWriteError({
+      message:
+        "Jobs-Wiki ingestion flows require STRATAWIKI_BASE_URL for HTTP mode.",
+      code: "configuration_invalid",
+      retryable: false,
+      transport: "http",
+      operation: "create_client",
+    })
+  }
+}
 
-        return await cliClient.assertWriteRuntimeConfig()
-      } catch (error) {
-        throw normalizeWriteError(error, {
-          transport: primaryMode,
+export function createStratawikiWriteClient(
+  env,
+  {
+    httpClient = createHttpClient(env),
+  } = {},
+) {
+  ensureHttpMode(env, httpClient)
+
+  async function runHttp(httpRun, operation) {
+    try {
+      return await httpRun()
+    } catch (error) {
+      throw normalizeWriteError(error, {
+        transport: "http",
+        operation,
+      })
+    }
+  }
+
+  return {
+    mode: "http",
+    wrapperPath: null,
+    configured: Boolean(httpClient),
+    async assertWriteRuntimeConfig() {
+      if (!httpClient) {
+        throw new StratawikiWriteError({
+          message:
+            "Jobs-Wiki ingestion flows require STRATAWIKI_BASE_URL for HTTP mode.",
+          code: "configuration_invalid",
+          retryable: false,
+          transport: "http",
           operation: "assert_write_runtime_config",
         })
       }
     },
     async listTools() {
-      return await withFallback({
-        env,
-        primaryMode,
-        operation: "list_tools",
-        httpRun() {
-          return httpClient.listTools()
-        },
-        wrapperRun() {
-          return cliClient.listTools()
-        },
-      })
+      return await runHttp(() => httpClient.listTools(), "list_tools")
     },
     async callTool(name, args = {}, options = {}) {
-      return await withFallback({
-        env,
-        primaryMode,
-        operation: name,
-        httpRun() {
-          return httpClient.callTool({
+      return await runHttp(
+        () =>
+          httpClient.callTool({
             name,
             arguments: args,
             idempotencyKey: options.idempotencyKey,
-          })
-        },
-        wrapperRun() {
-          return cliClient.callTool(name, args, options)
-        },
-      })
+          }),
+        name,
+      )
     },
     async validateDomainProposalBatch({ batch, requestId, idempotencyKey } = {}) {
-      return await withFallback({
-        env,
-        primaryMode,
-        operation: "validate_domain_proposal_batch",
-        httpRun() {
-          return httpClient.validateDomainProposalBatch({
+      return await runHttp(
+        () =>
+          httpClient.validateDomainProposalBatch({
             batch,
             requestId,
             idempotencyKey,
-          })
-        },
-        wrapperRun() {
-          return cliClient.callTool(
-            "validate_domain_proposal_batch",
-            { batch },
-            { envelope: false },
-          )
-        },
-      })
+          }),
+        "validate_domain_proposal_batch",
+      )
     },
     async ingestDomainProposalBatch({ batch, requestId, idempotencyKey } = {}) {
-      return await withFallback({
-        env,
-        primaryMode,
-        operation: "ingest_domain_proposal_batch",
-        httpRun() {
-          return httpClient.ingestDomainProposalBatch({
+      return await runHttp(
+        () =>
+          httpClient.ingestDomainProposalBatch({
             batch,
             requestId,
             idempotencyKey,
-          })
-        },
-        wrapperRun() {
-          return cliClient.callTool(
-            "ingest_domain_proposal_batch",
-            { batch },
-            { envelope: false },
-          )
-        },
-      })
+          }),
+        "ingest_domain_proposal_batch",
+      )
     },
   }
 }

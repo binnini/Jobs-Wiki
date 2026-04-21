@@ -457,10 +457,23 @@ export function createStratawikiAskAdapter({
 } = {}) {
   const adapter =
     readAuthority ?? createStratawikiReadAuthorityAdapter({ env, now })
-  const personalClient =
-    personalKnowledgeClient ?? createStratawikiPersonalKnowledgeClient({ env })
+  let personalClient = personalKnowledgeClient ?? null
   const profileCatalog =
-    profileContextCatalog ?? loadProfileContextCatalog(env.profileContextCatalogPath)
+    profileContextCatalog ??
+    (env.profileContextCatalogPath
+      ? loadProfileContextCatalog(env.profileContextCatalogPath)
+      : {
+          defaultProfileId: null,
+          profiles: {},
+        })
+
+  function getPersonalClient() {
+    if (!personalClient) {
+      personalClient = createStratawikiPersonalKnowledgeClient({ env })
+    }
+
+    return personalClient
+  }
 
   return {
     async askWorkspace({ userContext, question, opportunityId, documentId }) {
@@ -521,18 +534,20 @@ export function createStratawikiAskAdapter({
 
       if (resolvedProfile) {
         try {
+          const activePersonalClient = getPersonalClient()
+
           await ensureProfileContext({
-            personalKnowledgeClient: personalClient,
+            personalKnowledgeClient: activePersonalClient,
             profileContext: resolvedProfile,
           })
 
-          const currentSnapshotStatus = await personalClient.getSnapshotStatus()
+          const currentSnapshotStatus = await activePersonalClient.getSnapshotStatus()
           const currentFactSnapshot =
             currentSnapshotStatus?.fact_snapshot ??
             currentSnapshotStatus?.layers?.fact?.fact_snapshot_id ??
             null
 
-          const personalAnswer = await personalClient.queryPersonalKnowledge({
+          const personalAnswer = await activePersonalClient.queryPersonalKnowledge({
             tenantId: resolvedProfile.tenantId,
             userId: resolvedProfile.userId,
             question: buildPersonalAwareQuestion(
@@ -548,7 +563,7 @@ export function createStratawikiAskAdapter({
           })
 
           const artifacts = await collectPersonalAwareArtifacts({
-            personalKnowledgeClient: personalClient,
+            personalKnowledgeClient: activePersonalClient,
             personalRecordIds: personalAnswer.personal_records_used ?? [],
             interpretationRecordIds:
               personalAnswer.interpretation_records_used ?? [],

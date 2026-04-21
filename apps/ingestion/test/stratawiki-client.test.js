@@ -6,12 +6,12 @@ import {
   createStratawikiWriteClient,
 } from "../src/clients/stratawiki-write-client.js"
 
-test("dual-mode ingestion client prefers HTTP proposal endpoints in auto mode", async () => {
+test("ingestion client uses HTTP proposal endpoints", async () => {
   const calls = []
   const client = createStratawikiWriteClient(
     {
       stratawikiBaseUrl: "http://127.0.0.1:8080",
-      stratawikiIntegrationMode: "auto",
+      stratawikiIntegrationMode: "http",
     },
     {
       httpClient: {
@@ -26,18 +26,6 @@ test("dual-mode ingestion client prefers HTTP proposal endpoints in auto mode", 
         async listTools() {
           calls.push({ kind: "http-tools" })
           return [{ name: "validate_domain_proposal_batch" }]
-        },
-      },
-      cliClient: {
-        wrapperPath: "/tmp/fake-wrapper",
-        async assertWriteRuntimeConfig() {},
-        async callTool(name) {
-          calls.push({ kind: "wrapper", name })
-          return { ok: true }
-        },
-        async listTools() {
-          calls.push({ kind: "wrapper-tools" })
-          return []
         },
       },
     },
@@ -69,13 +57,28 @@ test("dual-mode ingestion client prefers HTTP proposal endpoints in auto mode", 
   )
 })
 
-test("dual-mode ingestion client falls back to wrapper when HTTP is temporarily unavailable", async () => {
-  const calls = []
+test("write client rejects legacy non-http integration modes", async () => {
+  assert.throws(
+    () =>
+      createStratawikiWriteClient({
+        stratawikiIntegrationMode: "wrapper",
+        stratawikiBaseUrl: "http://127.0.0.1:8080",
+      }),
+    (error) => {
+      assert.equal(error instanceof StratawikiWriteError, true)
+      assert.equal(error.code, "configuration_invalid")
+      assert.equal(error.transport, "http")
+      assert.equal(error.operation, "create_client")
+      return true
+    },
+  )
+})
+
+test("write client surfaces HTTP failures without wrapper fallback", async () => {
   const client = createStratawikiWriteClient(
     {
       stratawikiBaseUrl: "http://127.0.0.1:8080",
-      stratawikiIntegrationMode: "auto",
-      stratawikiCliWrapper: "/tmp/fake-wrapper",
+      stratawikiIntegrationMode: "http",
     },
     {
       httpClient: {
@@ -84,58 +87,29 @@ test("dual-mode ingestion client falls back to wrapper when HTTP is temporarily 
             status: 503,
             code: "not_ready",
             message: "StrataWiki HTTP runtime is not ready.",
+            retryable: true,
           })
-        },
-      },
-      cliClient: {
-        wrapperPath: "/tmp/fake-wrapper",
-        async assertWriteRuntimeConfig() {},
-        async callTool(name, payload) {
-          calls.push({ name, payload })
-          return { ok: true, dry_run: true }
-        },
-      },
-    },
-  )
-
-  const result = await client.validateDomainProposalBatch({
-    batch: {
-      batch_id: "jobs-wiki-batch-002",
-      domain: "recruiting",
-      producer: "jobs-wiki",
-      facts: [],
-      relations: [],
-    },
-  })
-
-  assert.equal(result.ok, true)
-  assert.equal(calls[0].name, "validate_domain_proposal_batch")
-})
-
-test("write client normalizes runtime configuration failures", async () => {
-  const client = createStratawikiWriteClient(
-    {
-      stratawikiIntegrationMode: "wrapper",
-      stratawikiCliWrapper: "/tmp/fake-wrapper",
-    },
-    {
-      cliClient: {
-        wrapperPath: "/tmp/fake-wrapper",
-        async assertWriteRuntimeConfig() {
-          throw new Error("Missing required env: JOBS_WIKI_STRATAWIKI_DOMAIN_PACK_PATHS.")
         },
       },
     },
   )
 
   await assert.rejects(
-    () => client.assertWriteRuntimeConfig(),
+    () =>
+      client.validateDomainProposalBatch({
+        batch: {
+          batch_id: "jobs-wiki-batch-002",
+          domain: "recruiting",
+          producer: "jobs-wiki",
+          facts: [],
+          relations: [],
+        },
+      }),
     (error) => {
       assert.equal(error instanceof StratawikiWriteError, true)
-      assert.equal(error.code, "configuration_invalid")
-      assert.equal(error.retryable, false)
-      assert.equal(error.transport, "wrapper")
-      assert.equal(error.operation, "assert_write_runtime_config")
+      assert.equal(error.transport, "http")
+      assert.equal(error.operation, "validate_domain_proposal_batch")
+      assert.equal(error.retryable, true)
       return true
     },
   )
