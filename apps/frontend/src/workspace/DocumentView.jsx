@@ -39,6 +39,13 @@ import {
 
 const AUTO_ATTACH_CONFIDENCE_THRESHOLD = 0.95;
 
+const ASSET_TYPE_OPTIONS = [
+  { value: "application/pdf", label: "PDF 문서" },
+  { value: "text/markdown", label: "Markdown 노트" },
+  { value: "text/plain", label: "텍스트 메모" },
+  { value: "image/png", label: "이미지" },
+];
+
 function createDefaultAssetStorageRef(filename) {
   const safeName = String(filename ?? "")
     .trim()
@@ -50,6 +57,43 @@ function createDefaultAssetStorageRef(filename) {
     `${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
 
   return `personal-assets/${(safeName || "asset")}-${suffix}`;
+}
+
+function inferAssetMediaType(filename) {
+  const normalizedFilename = String(filename ?? "").trim().toLowerCase();
+
+  if (normalizedFilename.endsWith(".md") || normalizedFilename.endsWith(".markdown")) {
+    return "text/markdown";
+  }
+  if (normalizedFilename.endsWith(".txt")) {
+    return "text/plain";
+  }
+  if (
+    normalizedFilename.endsWith(".png") ||
+    normalizedFilename.endsWith(".jpg") ||
+    normalizedFilename.endsWith(".jpeg") ||
+    normalizedFilename.endsWith(".gif") ||
+    normalizedFilename.endsWith(".webp")
+  ) {
+    return "image/png";
+  }
+
+  return "application/pdf";
+}
+
+function formatAssetTypeLabel(mediaType) {
+  return ASSET_TYPE_OPTIONS.find((option) => option.value === mediaType)?.label ?? mediaType ?? "파일";
+}
+
+function buildAssetReferenceEntry(assetRef) {
+  const trimmedRef = String(assetRef ?? "").trim();
+  const filenameMatch = trimmedRef.match(/^passet_[^:]+:(.+)$/);
+  const filename = filenameMatch?.[1] ?? trimmedRef;
+
+  return {
+    id: trimmedRef,
+    filename,
+  };
 }
 
 function buildDocumentDetailStateFallback() {
@@ -275,6 +319,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const updatedAt = formatKoreanDateTime(detail.metadata?.updatedAt);
   const tags = detail.metadata?.tags ?? [];
   const assetRefs = detail.assetRefs ?? [];
+  const connectedAssetEntries = assetRefs.map(buildAssetReferenceEntry);
   const generation = detail.metadata?.generation ?? null;
   const generationTrace = Array.isArray(generation?.trace) ? generation.trace : [];
   const showGenerationTrace = detail.layer === "personal_wiki" && generationTrace.length > 0;
@@ -284,6 +329,12 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const pendingLinkSuggestions = linkSuggestions.filter((item) => !autoAttachedLinkKeySet.has(buildLinkKey(item)));
   const attachableLinkSuggestions = pendingLinkSuggestions;
   const canEditWorkspacePath = detail.writable && detail.layer !== "shared";
+  const pendingAssetRegistrationInput = detail.layer === "personal_raw" ? buildAssetRegistrationInputPreview({
+    filename: assetFilename,
+    mediaType: assetMediaType,
+    storageRef: assetStorageRef,
+    isAssetAdvancedMode,
+  }) : null;
   const normalizedWorkspacePath = editorWorkspacePath
     .split("/")
     .map((segment) => segment.trim())
@@ -461,34 +512,47 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     );
   }
 
-  const buildAssetRegistrationInput = () => {
-    const filename = assetFilename.trim();
-    const mediaType = assetMediaType.trim();
+  function buildAssetRegistrationInputPreview({
+    filename,
+    mediaType,
+    storageRef,
+    isAssetAdvancedMode: advancedMode,
+  }) {
+    const trimmedFilename = filename.trim();
+    const trimmedMediaType = mediaType.trim();
 
-    if (!filename || !mediaType) {
+    if (!trimmedFilename || !trimmedMediaType) {
       return null;
     }
 
-    if (isAssetAdvancedMode) {
-      const storageRef = assetStorageRef.trim();
+    if (advancedMode) {
+      const trimmedStorageRef = storageRef.trim();
 
-      if (!storageRef) {
+      if (!trimmedStorageRef) {
         return null;
       }
 
       return {
-        filename,
-        mediaType,
-        storageRef,
+        filename: trimmedFilename,
+        mediaType: trimmedMediaType,
+        storageRef: trimmedStorageRef,
       };
     }
 
     return {
-      filename,
-      mediaType,
-      storageRef: createDefaultAssetStorageRef(filename),
+      filename: trimmedFilename,
+      mediaType: trimmedMediaType,
+      storageRef: createDefaultAssetStorageRef(trimmedFilename),
     };
-  };
+  }
+
+  const buildAssetRegistrationInput = () =>
+    buildAssetRegistrationInputPreview({
+      filename: assetFilename,
+      mediaType: assetMediaType,
+      storageRef: assetStorageRef,
+      isAssetAdvancedMode,
+    });
 
   const registerPendingAsset = async ({ filename, mediaType, storageRef }) => {
     const assetResponse = await registerPersonalAsset({
@@ -726,6 +790,10 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                     setEditorTitle(detail.title ?? "");
                     setEditorBody(detail.bodyMarkdown ?? "");
                     setEditorWorkspacePath(detail.workspacePath?.segments?.join("/") ?? "");
+                    setAssetFilename("");
+                    setAssetMediaType("application/pdf");
+                    setAssetStorageRef("");
+                    setIsAssetAdvancedMode(false);
                   }}
                   className="rounded-sm border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
                 >
@@ -796,6 +864,106 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                   onChange={(event) => setEditorBody(event.target.value)}
                   className="custom-scrollbar min-h-[320px] w-full rounded-sm border border-slate-300 px-4 py-2.5 text-sm font-medium leading-relaxed text-slate-900 outline-none transition-colors focus:border-indigo-500"
                 />
+                {detail.layer === "personal_raw" ? (
+                  <div className="rounded-sm border border-slate-200 bg-slate-50/70 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <Label className="mb-1">참고 파일 연결</Label>
+                        <p className="text-sm leading-relaxed text-slate-600">
+                          파일 이름만 적어두면 저장할 때 현재 raw 문서에 자동으로 연결됩니다.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsAssetAdvancedMode((current) => !current)}
+                        className={`rounded-sm border px-3 py-2 text-xs font-bold shadow-sm transition-colors ${
+                          isAssetAdvancedMode
+                            ? "border-indigo-200 bg-indigo-50 text-indigo-700 hover:bg-indigo-100"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        {isAssetAdvancedMode ? "고급 설정 사용 중" : "고급 설정"}
+                      </button>
+                    </div>
+                    <div className="mt-4 grid gap-4 md:grid-cols-2">
+                      <div>
+                        <Label className="mb-1">파일 이름</Label>
+                        <input
+                          value={assetFilename}
+                          onChange={(event) => {
+                            const nextFilename = event.target.value;
+                            setAssetFilename(nextFilename);
+                            if (!isAssetAdvancedMode) {
+                              setAssetMediaType(inferAssetMediaType(nextFilename));
+                            }
+                          }}
+                          placeholder="resume_v4.pdf"
+                          className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                        />
+                      </div>
+                      <div>
+                        <Label className="mb-1">파일 종류</Label>
+                        {isAssetAdvancedMode ? (
+                          <input
+                            value={assetMediaType}
+                            onChange={(event) => setAssetMediaType(event.target.value)}
+                            placeholder="application/pdf"
+                            className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                          />
+                        ) : (
+                          <select
+                            value={assetMediaType}
+                            onChange={(event) => setAssetMediaType(event.target.value)}
+                            className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                          >
+                            {ASSET_TYPE_OPTIONS.map((option) => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    </div>
+                    {isAssetAdvancedMode ? (
+                      <div className="mt-4">
+                        <Label className="mb-1">Storage Ref</Label>
+                        <input
+                          value={assetStorageRef}
+                          onChange={(event) => setAssetStorageRef(event.target.value)}
+                          placeholder="s3://jobs-wiki-assets/resume_v4.pdf"
+                          className="w-full rounded-sm border border-slate-300 px-3 py-2.5 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                        />
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-sm border border-dashed border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-600">
+                        저장 위치 식별자는 자동 생성됩니다. 기본 흐름에서는 따로 입력하지 않아도 됩니다.
+                      </div>
+                    )}
+                    {pendingAssetRegistrationInput ? (
+                      <div className="mt-4 rounded-sm border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
+                        저장 시 <span className="font-bold">{pendingAssetRegistrationInput.filename}</span> 를{" "}
+                        <span className="font-bold">{formatAssetTypeLabel(pendingAssetRegistrationInput.mediaType)}</span> 로 연결합니다.
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-sm border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-500">
+                        연결할 파일 이름을 입력하면 다음 저장 때 함께 반영됩니다.
+                      </div>
+                    )}
+                    {connectedAssetEntries.length ? (
+                      <div className="mt-4">
+                        <Label className="mb-1">이미 연결된 참고 파일</Label>
+                        <div className="flex flex-wrap gap-2">
+                          {connectedAssetEntries.map((asset) => (
+                            <span key={asset.id} className="rounded-sm border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700">
+                              {asset.filename}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="flex flex-wrap justify-end gap-3">
                   <button
                     type="button"
@@ -934,7 +1102,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
             </Panel>
           ) : null}
 
-          {detail.writable ? (
+          {detail.writable && detail.layer !== "personal_raw" ? (
             <Panel>
               <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">asset registration</h3>
               <p className="mb-4 text-sm leading-relaxed text-slate-600">
@@ -1054,10 +1222,10 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
               </div>
               <div>
                 <Label className="mb-1">Asset Refs</Label>
-                {assetRefs.length ? (
+                {connectedAssetEntries.length ? (
                   <div className="space-y-2">
-                    {assetRefs.map((assetRef) => (
-                  <div key={assetRef} className="rounded-sm border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-bold text-slate-700">{assetRef}</div>
+                    {connectedAssetEntries.map((asset) => (
+                  <div key={asset.id} className="rounded-sm border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-bold text-slate-700">{asset.filename}</div>
                     ))}
                   </div>
                 ) : <div>연결된 asset이 없습니다.</div>}
