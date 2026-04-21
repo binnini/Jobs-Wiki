@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ChevronDown,
+  ChevronUp,
   Pencil,
   RefreshCw,
   Target,
@@ -130,6 +132,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const [isAttachingLinks, setIsAttachingLinks] = useState(false);
   const [mutationError, setMutationError] = useState(null);
   const [mutationNotice, setMutationNotice] = useState(null);
+  const [isGenerationTraceOpen, setIsGenerationTraceOpen] = useState(false);
   const [assetFilename, setAssetFilename] = useState("");
   const [assetMediaType, setAssetMediaType] = useState("application/pdf");
   const [assetStorageRef, setAssetStorageRef] = useState("");
@@ -181,6 +184,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     setIsLoading(true);
     setIsRefreshing(false);
     setIsEditing(false);
+    setIsGenerationTraceOpen(false);
     setMutationError(null);
     setMutationNotice(null);
     setLinkSuggestions([]);
@@ -233,6 +237,9 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const updatedAt = formatKoreanDateTime(detail.metadata?.updatedAt);
   const tags = detail.metadata?.tags ?? [];
   const assetRefs = detail.assetRefs ?? [];
+  const generation = detail.metadata?.generation ?? null;
+  const generationTrace = Array.isArray(generation?.trace) ? generation.trace : [];
+  const showGenerationTrace = detail.layer === "personal_wiki" && generationTrace.length > 0;
 
   const refreshWorkspace = async () => { await onWorkspaceChanged?.(); };
 
@@ -490,7 +497,66 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                 </div>
               </div>
             ) : (
-              <StructuredResponse text={detail.bodyMarkdown || detail.summary || "표시할 문서 본문이 아직 없습니다."} />
+              <div className="space-y-6">
+                <StructuredResponse text={detail.bodyMarkdown || detail.summary || "표시할 문서 본문이 아직 없습니다."} />
+                {showGenerationTrace ? (
+                  <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsGenerationTraceOpen((current) => !current)}
+                      className="flex w-full items-center justify-between text-left"
+                    >
+                      <div>
+                        <div className="text-xs font-bold uppercase tracking-widest text-slate-400">Generation trace</div>
+                        <div className="mt-1 text-sm font-bold text-slate-900">
+                          {generation?.operation ?? "generation"} trace
+                        </div>
+                      </div>
+                      {isGenerationTraceOpen ? (
+                        <ChevronUp size={16} className="text-slate-500" />
+                      ) : (
+                        <ChevronDown size={16} className="text-slate-500" />
+                      )}
+                    </button>
+                    {isGenerationTraceOpen ? (
+                      <div className="mt-4 space-y-4">
+                        <div className="grid gap-3 text-xs font-medium text-slate-600 md:grid-cols-2">
+                          <div className="rounded-sm border border-slate-200 bg-white px-3 py-2">
+                            <span className="font-bold text-slate-500">Provider</span>
+                            <div className="mt-1 font-bold text-slate-800">{generation?.provider ?? "unknown"}</div>
+                          </div>
+                          <div className="rounded-sm border border-slate-200 bg-white px-3 py-2">
+                            <span className="font-bold text-slate-500">Model</span>
+                            <div className="mt-1 font-bold text-slate-800">{generation?.model ?? "unknown"}</div>
+                          </div>
+                          <div className="rounded-sm border border-slate-200 bg-white px-3 py-2">
+                            <span className="font-bold text-slate-500">Generated at</span>
+                            <div className="mt-1 font-bold text-slate-800">{formatKoreanDateTime(generation?.generatedAt) ?? "unknown"}</div>
+                          </div>
+                          <div className="rounded-sm border border-slate-200 bg-white px-3 py-2">
+                            <span className="font-bold text-slate-500">Source document</span>
+                            <div className="mt-1 font-bold text-slate-800">
+                              {generation?.sourceDocument?.title ?? generation?.sourceDocument?.documentId ?? "unknown"}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          {generationTrace.map((traceItem, index) => (
+                            <div key={`${traceItem.step}-${index}`} className="rounded-sm border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                              <div className="text-[11px] font-bold uppercase tracking-wide text-slate-400">
+                                {traceItem.step}
+                              </div>
+                              <div className="mt-1 font-medium leading-relaxed">
+                                {traceItem.message}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
             )}
           </section>
         </div>
