@@ -86,6 +86,43 @@ function createFolderNode({ sectionId, label, segments, layer }) {
   }
 }
 
+function compareTreeNodes(leftNode, rightNode) {
+  const getPriority = (node) => {
+    if (node.nodeType === "special_view") {
+      return 0
+    }
+
+    if (node.nodeType === "folder") {
+      return 1
+    }
+
+    return 2
+  }
+
+  const priorityDiff = getPriority(leftNode) - getPriority(rightNode)
+
+  if (priorityDiff !== 0) {
+    return priorityDiff
+  }
+
+  const leftLabel = String(leftNode.label ?? leftNode.objectRef?.title ?? "").trim()
+  const rightLabel = String(rightNode.label ?? rightNode.objectRef?.title ?? "").trim()
+
+  return leftLabel.localeCompare(rightLabel, "ko", {
+    numeric: true,
+    sensitivity: "base",
+  })
+}
+
+function sortWorkspaceTreeNodes(nodes) {
+  return [...nodes]
+    .map((node) => ({
+      ...node,
+      children: Array.isArray(node.children) ? sortWorkspaceTreeNodes(node.children) : [],
+    }))
+    .sort(compareTreeNodes)
+}
+
 export function buildWorkspaceTreeNodes(items, sectionId) {
   const roots = []
   const nodesByKey = new Map()
@@ -149,5 +186,5 @@ export function buildWorkspaceTreeNodes(items, sectionId) {
     }
   }
 
-  return roots
+  return sortWorkspaceTreeNodes(roots)
 }

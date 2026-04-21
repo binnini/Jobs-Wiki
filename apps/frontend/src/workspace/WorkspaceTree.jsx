@@ -96,6 +96,7 @@ export const WorkspaceNavigationSection = ({
   const sectionLabel = DOCUMENT_LAYER_LABELS[section.sectionId] ?? section.label;
   const sectionTree = Array.isArray(section.tree) && section.tree.length ? section.tree : null;
   const [expandedKeys, setExpandedKeys] = useState(() => new Set());
+  const [focusedKey, setFocusedKey] = useState(null);
   const rowRefs = useRef(new Map());
 
   const activeKeys = useMemo(
@@ -117,6 +118,24 @@ export const WorkspaceNavigationSection = ({
     });
   }, [activeKeys]);
 
+  useEffect(() => {
+    if (visibleEntries.length === 0) {
+      setFocusedKey(null);
+      return;
+    }
+
+    const activeEntry = visibleEntries.find((entry) => entry.isActive);
+    const nextFocusedKey =
+      activeEntry?.key ??
+      (focusedKey && visibleEntries.some((entry) => entry.key === focusedKey)
+        ? focusedKey
+        : visibleEntries[0].key);
+
+    if (nextFocusedKey !== focusedKey) {
+      setFocusedKey(nextFocusedKey);
+    }
+  }, [visibleEntries, focusedKey]);
+
   const toggleNode = (key) => {
     setExpandedKeys((current) => {
       const next = new Set(current);
@@ -132,7 +151,9 @@ export const WorkspaceNavigationSection = ({
   const focusNode = (key) => {
     const row = rowRefs.current.get(key);
     if (row) {
+      setFocusedKey(key);
       row.focus();
+      row.scrollIntoView({ block: "nearest" });
     }
   };
 
@@ -186,6 +207,17 @@ export const WorkspaceNavigationSection = ({
         } else if (entry.parentKey) {
           event.preventDefault();
           focusNode(entry.parentKey);
+        }
+        break;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        if (entry.hasChildren && entry.isFolder && entry.key) {
+          toggleNode(entry.key);
+          return;
+        }
+        if (entry.node.path) {
+          onNavigatePath(entry.node.path);
         }
         break;
       case "Home":
@@ -261,14 +293,20 @@ export const WorkspaceNavigationSection = ({
                       }
                     }}
                     onKeyDown={(event) => handleNodeKeyDown(event, entry)}
+                    onFocus={() => setFocusedKey(key)}
                     aria-current={isActive ? "page" : undefined}
+                    aria-selected={isActive}
                     aria-expanded={hasChildren ? isExpanded : undefined}
-                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1 text-left transition-all ${
+                    tabIndex={focusedKey === key ? 0 : -1}
+                    title={node.workspacePath?.segments?.join("/") ?? node.label ?? node.title}
+                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-sm border px-2 py-1 text-left transition-all ${
                       isActive
-                        ? "bg-white/10 text-white"
+                        ? "border-white/20 bg-white/12 text-white shadow-[inset_2px_0_0_0_rgba(255,255,255,0.85)]"
                         : isAncestorActive
-                          ? "bg-white/5 text-slate-100"
-                          : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
+                          ? "border-white/10 bg-white/6 text-slate-100"
+                          : focusedKey === key
+                            ? "border-white/10 bg-white/4 text-slate-100"
+                            : "border-transparent text-slate-400 hover:border-white/10 hover:bg-white/5 hover:text-slate-100"
                     }`}
                     style={{ paddingLeft: `${0.5 + depth * 0.8}rem` }}
                   >
@@ -323,11 +361,13 @@ export const CreatePersonalDocumentModal = ({
   const [title, setTitle] = useState("");
   const [bodyMarkdown, setBodyMarkdown] = useState("");
   const [workspacePathInput, setWorkspacePathInput] = useState("");
+  const parentPathSegments = workspacePath?.segments ?? [];
+  const parentPathLabel = parentPathSegments.join("/");
 
   useEffect(() => {
     setTitle("");
     setBodyMarkdown("");
-    setWorkspacePathInput(workspacePath?.segments?.join("/") ?? "");
+    setWorkspacePathInput("");
   }, [layer, workspacePath]);
 
   if (!layer) return null;
@@ -371,14 +411,21 @@ export const CreatePersonalDocumentModal = ({
           </div>
           <div>
             <Label>폴더 경로</Label>
+            {parentPathSegments.length ? (
+              <div className="mb-2 rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-600">
+                생성 위치: <span className="font-semibold text-slate-900">{parentPathLabel}</span>
+              </div>
+            ) : null}
             <input
               value={workspacePathInput}
               onChange={(event) => setWorkspacePathInput(event.target.value)}
-              placeholder="projects/alpha"
+              placeholder={parentPathSegments.length ? "subfolder/child-note" : "projects/alpha"}
               className="w-full rounded-sm border border-slate-300 px-4 py-3 text-sm font-medium text-slate-900 outline-none ring-0 transition-colors focus:border-indigo-500"
             />
             <p className="mt-1 text-[11px] font-medium text-slate-500">
-              비워두면 root에 만들고, `folder/subfolder` 형식은 선택한 위치 아래에 생성됩니다.
+              {parentPathSegments.length
+                ? "비워두면 현재 폴더에 만들고, `folder/subfolder` 형식은 현재 폴더 아래에 이어 붙습니다."
+                : "비워두면 root에 만들고, `folder/subfolder` 형식으로 입력하면 해당 경로 아래에 생성됩니다."}
             </p>
           </div>
           {error ? (
@@ -400,21 +447,28 @@ export const CreatePersonalDocumentModal = ({
               type="button"
               disabled={isSubmitting || !title.trim() || !bodyMarkdown.trim()}
               onClick={() =>
-                onSubmit({
-                  layer,
-                  title: title.trim(),
-                  bodyMarkdown: bodyMarkdown.trim(),
-                  ...(workspacePathInput.trim()
-                    ? {
-                        workspacePath: {
-                          segments: workspacePathInput
-                            .split("/")
-                            .map((segment) => segment.trim())
-                            .filter(Boolean),
-                        },
-                      }
-                    : {}),
-                })
+                {
+                  const enteredSegments = workspacePathInput
+                    .split("/")
+                    .map((segment) => segment.trim())
+                    .filter(Boolean);
+                  const mergedSegments = parentPathSegments.length
+                    ? [...parentPathSegments, ...enteredSegments]
+                    : enteredSegments;
+
+                  onSubmit({
+                    layer,
+                    title: title.trim(),
+                    bodyMarkdown: bodyMarkdown.trim(),
+                    ...(mergedSegments.length
+                      ? {
+                          workspacePath: {
+                            segments: mergedSegments,
+                          },
+                        }
+                      : {}),
+                  });
+                }
               }
               className="rounded-sm bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:opacity-40"
             >

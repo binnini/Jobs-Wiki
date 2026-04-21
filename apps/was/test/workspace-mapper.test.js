@@ -92,3 +92,67 @@ test("mapWorkspace keeps layered navigation items and active projection", () => 
     },
   })
 })
+
+test("mapWorkspace sorts personal tree nodes predictably after path changes", () => {
+  const result = mapWorkspace({
+    sections: [
+      {
+        sectionId: "personal_raw",
+        label: "personal/raw",
+        items: [
+          {
+            objectId: "personal_raw:pdoc_z",
+            objectKind: "document",
+            title: "zeta",
+            kind: "document",
+            layer: "personal_raw",
+            path: "/documents/personal_raw%3Apdoc_z",
+            workspacePath: {
+              sectionId: "personal_raw",
+              nodeType: "document",
+              segments: ["projects", "zeta"],
+              label: "zeta",
+            },
+          },
+          {
+            objectId: "personal_raw:pdoc_alpha",
+            objectKind: "document",
+            title: "alpha",
+            kind: "document",
+            layer: "personal_raw",
+            path: "/documents/personal_raw%3Apdoc_alpha",
+            workspacePath: {
+              sectionId: "personal_raw",
+              nodeType: "document",
+              segments: ["projects", "alpha"],
+              label: "alpha",
+            },
+          },
+          {
+            objectId: "personal_raw:pdoc_resume",
+            objectKind: "document",
+            title: "resume",
+            kind: "document",
+            layer: "personal_raw",
+            path: "/documents/personal_raw%3Apdoc_resume",
+            workspacePath: {
+              sectionId: "personal_raw",
+              nodeType: "document",
+              segments: ["inbox", "resume"],
+              label: "resume",
+            },
+          },
+        ],
+      },
+    ],
+  })
+
+  const rawTree = result.navigation.sections[0].tree
+
+  assert.equal(rawTree[0].label, "inbox")
+  assert.equal(rawTree[1].label, "projects")
+  assert.deepEqual(
+    rawTree[1].children.map((child) => child.label),
+    ["alpha", "zeta"],
+  )
+})

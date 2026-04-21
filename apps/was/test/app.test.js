@@ -221,12 +221,14 @@ test("GET /api/workspace returns layered shell navigation with active projection
     assert.equal(sharedTree[0].kind, "report")
     assert.equal(sharedTree[0].objectRef.title, "기본 리포트")
     assert.equal(sharedTree[1].kind, "calendar")
-    assert.equal(sharedTree[2].kind, "folder")
-    assert.equal(sharedTree[2].children[0].kind, "document")
-    assert.equal(sharedTree[2].children[0].objectRef.title, "일본 백엔드 채용 트렌드")
-    assert.equal(sharedTree[3].kind, "folder")
-    assert.equal(sharedTree[3].children[0].kind, "opportunity")
-    assert.equal(sharedTree[3].children[1].objectRef.title, "Report Runtime Engineer")
+    const referencesFolder = sharedTree.find((node) => node.kind === "folder" && node.label === "references")
+    const opportunitiesFolder = sharedTree.find((node) => node.kind === "folder" && node.label === "opportunities")
+    assert.ok(referencesFolder)
+    assert.ok(opportunitiesFolder)
+    assert.equal(referencesFolder.children[0].kind, "document")
+    assert.equal(referencesFolder.children[0].objectRef.title, "일본 백엔드 채용 트렌드")
+    assert.equal(opportunitiesFolder.children[0].kind, "opportunity")
+    assert.equal(opportunitiesFolder.children[1].objectRef.title, "Report Runtime Engineer")
 
     const rawTree = response.body.navigation.sections[1].tree
     assert.equal(rawTree.length, 1)
@@ -306,8 +308,11 @@ test("personal document CRUD and asset registration round-trip through the works
       workspaceAfterCreate.body.navigation.sections[1].items[0].objectRef.objectId,
       createdDocumentId,
     )
-    assert.equal(workspaceAfterCreate.body.navigation.sections[1].tree[0].label, "projects")
-    assert.equal(workspaceAfterCreate.body.navigation.sections[1].tree[0].children[0].kind, "document")
+    const projectsFolder = workspaceAfterCreate.body.navigation.sections[1].tree.find(
+      (node) => node.kind === "folder" && node.label === "projects",
+    )
+    assert.ok(projectsFolder)
+    assert.equal(projectsFolder.children[0].kind, "document")
 
     const assetResponse = await invokeApp(app, {
       method: "POST",
@@ -364,9 +369,13 @@ test("personal document CRUD and asset registration round-trip through the works
     const workspaceAfterUpdate = await invokeApp(app, {
       url: "/api/workspace",
     })
-    assert.equal(workspaceAfterUpdate.body.navigation.sections[1].tree[0].children[0].kind, "document")
+    const updatedProjectsFolder = workspaceAfterUpdate.body.navigation.sections[1].tree.find(
+      (node) => node.kind === "folder" && node.label === "projects",
+    )
+    assert.ok(updatedProjectsFolder)
+    assert.equal(updatedProjectsFolder.children[0].kind, "document")
     assert.equal(
-      workspaceAfterUpdate.body.navigation.sections[1].tree[0].children[0].label,
+      updatedProjectsFolder.children[0].label,
       "새 개인 노트 v2",
     )
 
