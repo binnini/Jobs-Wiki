@@ -79,6 +79,43 @@ function validateAnchorArray(value, fieldName) {
   })
 }
 
+function validateWorkspacePath(value) {
+  if (value === undefined) {
+    return undefined
+  }
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw createValidationError("`workspacePath` must be an object when provided.")
+  }
+
+  const sectionId = validateOptionalString(value.sectionId, "workspacePath.sectionId")
+  const label = validateOptionalString(value.label, "workspacePath.label")
+
+  if (!Array.isArray(value.segments)) {
+    throw createValidationError("`workspacePath.segments` must be an array of strings.")
+  }
+
+  const segments = value.segments.map((entry, index) => {
+    if (typeof entry !== "string" || entry.trim() === "") {
+      throw createValidationError(
+        `\`workspacePath.segments[${index}]\` must be a non-empty string.`,
+      )
+    }
+
+    return entry.trim()
+  })
+
+  if (segments.length === 0) {
+    throw createValidationError("`workspacePath.segments` must contain at least one entry.")
+  }
+
+  return {
+    sectionId,
+    label,
+    segments,
+  }
+}
+
 export function validateCreateDocumentRequest(body = {}) {
   const layer = validateOptionalString(body.layer, "layer")
 
@@ -95,6 +132,7 @@ export function validateCreateDocumentRequest(body = {}) {
   const bodyMarkdown = validateOptionalString(body.bodyMarkdown, "bodyMarkdown")
   const assetRefs = validateStringArray(body.assetRefs, "assetRefs")
   const kind = validateOptionalString(body.kind, "kind") ?? "note"
+  const workspacePath = validateWorkspacePath(body.workspacePath)
 
   if (!bodyMarkdown && (!assetRefs || assetRefs.length === 0)) {
     throw createValidationError(
@@ -109,6 +147,7 @@ export function validateCreateDocumentRequest(body = {}) {
     title,
     bodyMarkdown,
     assetRefs: assetRefs ?? [],
+    workspacePath,
   }
 }
 
@@ -123,6 +162,7 @@ export function validateUpdateDocumentRequest(body = {}) {
             throw createValidationError("`bodyMarkdown` must be a string.")
           })()
   const assetRefs = validateStringArray(body.assetRefs, "assetRefs")
+  const workspacePath = validateWorkspacePath(body.workspacePath)
   const ifVersion = Number(body.ifVersion)
 
   if (!Number.isInteger(ifVersion) || ifVersion <= 0) {
@@ -140,6 +180,7 @@ export function validateUpdateDocumentRequest(body = {}) {
     title,
     bodyMarkdown,
     assetRefs,
+    workspacePath,
   }
 }
 

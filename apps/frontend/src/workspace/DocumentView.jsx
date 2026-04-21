@@ -139,6 +139,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const [isEditing, setIsEditing] = useState(false);
   const [editorTitle, setEditorTitle] = useState("");
   const [editorBody, setEditorBody] = useState("");
+  const [editorWorkspacePath, setEditorWorkspacePath] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isRegisteringAsset, setIsRegisteringAsset] = useState(false);
@@ -180,6 +181,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
       const detail = mapDocumentResponse(response);
       setEditorTitle(detail.title ?? "");
       setEditorBody(detail.bodyMarkdown ?? "");
+      setEditorWorkspacePath(detail.workspacePath?.segments?.join("/") ?? "");
       setError(null);
       setRefreshError(null);
     } catch (requestError) {
@@ -212,6 +214,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     suggestionRequestIdRef.current += 1;
     attachRequestIdRef.current += 1;
     setIsAssetAdvancedMode(false);
+    setEditorWorkspacePath("");
     if (!documentId) { setIsLoading(false); return undefined; }
     loadDocument();
     return () => { requestIdRef.current += 1; };
@@ -269,15 +272,11 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const isHighConfidenceLink = (item) => Number(item.confidence ?? 0) >= AUTO_ATTACH_CONFIDENCE_THRESHOLD;
   const pendingLinkSuggestions = linkSuggestions.filter((item) => !autoAttachedLinkKeySet.has(buildLinkKey(item)));
   const attachableLinkSuggestions = pendingLinkSuggestions;
-
-  useEffect(() => {
-    if (!generation || detail.layer !== "personal_wiki" || !detail.writable || linkSuggestions.length > 0) {
-      return undefined;
-    }
-
-    void loadLinkSuggestions({ showNotice: false });
-    return undefined;
-  }, [detail.documentId, detail.layer, detail.writable, generation?.generatedAt]);
+  const canEditWorkspacePath = detail.writable && detail.layer !== "shared";
+  const normalizedWorkspacePath = editorWorkspacePath
+    .split("/")
+    .map((segment) => segment.trim())
+    .filter(Boolean);
 
   const refreshWorkspace = async () => { await onWorkspaceChanged?.(); };
 
@@ -309,6 +308,15 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
       }
     }
   };
+
+  useEffect(() => {
+    if (!generation || detail.layer !== "personal_wiki" || !detail.writable || linkSuggestions.length > 0) {
+      return undefined;
+    }
+
+    void loadLinkSuggestions({ showNotice: false });
+    return undefined;
+  }, [detail.documentId, detail.layer, detail.writable, generation?.generatedAt]);
 
   useEffect(() => {
     if (
@@ -505,6 +513,13 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
         title: editorTitle,
         bodyMarkdown: nextBodyMarkdown,
         assetRefs: nextAssetRefs,
+        ...(canEditWorkspacePath
+          ? {
+              workspacePath: normalizedWorkspacePath.length
+                ? { segments: normalizedWorkspacePath }
+                : null,
+            }
+          : {}),
       });
       await loadDocument({ preserveData: true });
       await refreshWorkspace();
@@ -559,11 +574,23 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
       }
 
       const { nextAssetRefs, nextBody } = await registerPendingAsset(assetRegistrationInput);
-      await updateDocument(detail.documentId, { ifVersion: detail.version, title: editorTitle, bodyMarkdown: nextBody, assetRefs: nextAssetRefs });
+      await updateDocument(detail.documentId, {
+        ifVersion: detail.version,
+        title: editorTitle,
+        bodyMarkdown: nextBody,
+        assetRefs: nextAssetRefs,
+        ...(canEditWorkspacePath
+          ? {
+              workspacePath: normalizedWorkspacePath.length
+                ? { segments: normalizedWorkspacePath }
+                : null,
+            }
+          : {}),
+      });
       setAssetFilename("");
       setAssetMediaType("application/pdf");
       setAssetStorageRef("");
-      setShowAdvancedAssetSettings(false);
+      setIsAssetAdvancedMode(false);
       await loadDocument({ preserveData: true });
       await refreshWorkspace();
       setIsEditing(true);
@@ -633,6 +660,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                     setMutationNotice(null);
                     setEditorTitle(detail.title ?? "");
                     setEditorBody(detail.bodyMarkdown ?? "");
+                    setEditorWorkspacePath(detail.workspacePath?.segments?.join("/") ?? "");
                   }}
                   className="rounded-sm border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
                 >
@@ -684,6 +712,20 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                   onChange={(event) => setEditorTitle(event.target.value)}
                   className="w-full rounded-sm border border-slate-300 px-4 py-3 text-lg font-bold text-slate-900 outline-none transition-colors focus:border-indigo-500"
                 />
+                {canEditWorkspacePath ? (
+                  <div>
+                    <Label>폴더 경로</Label>
+                    <input
+                      value={editorWorkspacePath}
+                      onChange={(event) => setEditorWorkspacePath(event.target.value)}
+                      placeholder="projects/alpha"
+                      className="w-full rounded-sm border border-slate-300 px-4 py-3 text-sm font-medium text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                    />
+                    <p className="mt-1 text-[11px] font-medium text-slate-500">
+                      `folder/subfolder` 형식으로 입력하면 문서를 이동합니다.
+                    </p>
+                  </div>
+                ) : null}
                 <textarea
                   value={editorBody}
                   onChange={(event) => setEditorBody(event.target.value)}
@@ -692,7 +734,12 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                 <div className="flex flex-wrap justify-end gap-3">
                   <button
                     type="button"
-                    onClick={() => { setIsEditing(false); setEditorTitle(detail.title ?? ""); setEditorBody(detail.bodyMarkdown ?? ""); }}
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditorTitle(detail.title ?? "");
+                      setEditorBody(detail.bodyMarkdown ?? "");
+                      setEditorWorkspacePath(detail.workspacePath?.segments?.join("/") ?? "");
+                    }}
                     className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm"
                   >
                     취소

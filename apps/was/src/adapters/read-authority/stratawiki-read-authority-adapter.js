@@ -642,6 +642,7 @@ function mapPersonalDocument(parsedDocumentId, record) {
   const assetRefs = Array.isArray(record?.asset_refs)
     ? record.asset_refs.filter((value) => typeof value === "string" && value.trim() !== "")
     : undefined
+  const workspacePath = record?.workspace_path ?? record?.workspacePath
 
   return {
     documentId: `${parsedDocumentId.layer}:${record.document_id ?? record.id}`,
@@ -667,6 +668,15 @@ function mapPersonalDocument(parsedDocumentId, record) {
       assetRefs,
       status: record?.status,
     }),
+    workspacePath: workspacePath
+      ? normalizeWorkspacePath({
+          sectionId: workspacePath.section_id ?? parsedDocumentId.layer,
+          nodeType: "document",
+          segments: Array.isArray(workspacePath.segments) ? workspacePath.segments : [],
+          label: workspacePath.label ?? title,
+          path: `/documents/${encodeURIComponent(`${parsedDocumentId.layer}:${record.document_id ?? record.id}`)}`,
+        })
+      : undefined,
     relatedObjects: undefined,
   }
 }

@@ -1693,7 +1693,7 @@ export default function JobsWikiPrototype() {
   const [isRefreshingWorkspaceSync, setIsRefreshingWorkspaceSync] = useState(false);
   const [isTriggeringWorkspaceSync, setIsTriggeringWorkspaceSync] = useState(false);
   const [activeWorkspaceCommandId, setActiveWorkspaceCommandId] = useState(null);
-  const [createDocumentLayer, setCreateDocumentLayer] = useState(null);
+  const [createDocumentTarget, setCreateDocumentTarget] = useState(null);
   const [createDocumentError, setCreateDocumentError] = useState(null);
   const [isCreatingDocument, setIsCreatingDocument] = useState(false);
   const workspaceRequestIdRef = useRef(0);
@@ -1864,12 +1864,12 @@ export default function JobsWikiPrototype() {
     window.history[method]({}, "", nextLocation);
   };
 
-  const handleOpenCreatePersonalDocument = (layer) => {
-    setCreateDocumentLayer(layer);
+  const handleOpenCreatePersonalDocument = (target) => {
+    setCreateDocumentTarget(target);
     setCreateDocumentError(null);
   };
 
-  const handleCreatePersonalDocument = async ({ layer, title, bodyMarkdown }) => {
+  const handleCreatePersonalDocument = async ({ layer, title, bodyMarkdown, workspacePath }) => {
     setIsCreatingDocument(true);
     setCreateDocumentError(null);
 
@@ -1879,6 +1879,7 @@ export default function JobsWikiPrototype() {
         title,
         bodyMarkdown,
         kind: "note",
+        ...(workspacePath ? { workspacePath } : {}),
       });
       await loadWorkspaceNavigation();
       const createdDocumentId = response.item?.documentRef?.objectId ?? null;
@@ -1887,7 +1888,7 @@ export default function JobsWikiPrototype() {
         navigateToPath(`/documents/${encodeURIComponent(createdDocumentId)}`);
       }
 
-      setCreateDocumentLayer(null);
+      setCreateDocumentTarget(null);
     } catch (requestError) {
       setCreateDocumentError(
         requestError instanceof WasClientError
@@ -2285,12 +2286,13 @@ export default function JobsWikiPrototype() {
       </aside>
 
       <CreatePersonalDocumentModal
-        layer={createDocumentLayer}
+        layer={createDocumentTarget?.layer ?? null}
+        workspacePath={createDocumentTarget?.workspacePath ?? null}
         isSubmitting={isCreatingDocument}
         error={createDocumentError}
         onClose={() => {
           if (!isCreatingDocument) {
-            setCreateDocumentLayer(null);
+            setCreateDocumentTarget(null);
             setCreateDocumentError(null);
           }
         }}

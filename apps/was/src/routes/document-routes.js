@@ -44,6 +44,34 @@ function mapPersonalWikiGenerationResult(result) {
   }
 }
 
+function mapDocumentPayloadFromMutation(input, result) {
+  const workspacePath = result.workspace_path ?? result.workspacePath ?? input.workspacePath
+
+  return mapDocumentDetail({
+    documentId: `${input.layer}:${result.document_id}`,
+    title: result.title,
+    layer: input.layer,
+    writable: true,
+    bodyMarkdown: result.body_markdown ?? "",
+    summary: result.body_markdown ?? null,
+    workspacePath,
+    metadata: {
+      source: {
+        provider:
+          Array.isArray(result.asset_refs) && result.asset_refs.length > 0
+            ? "stratawiki_personal_asset"
+            : "stratawiki_personal",
+        sourceId: result.document_id,
+      },
+      updatedAt: result.updated_at ?? result.created_at,
+      version: result.version,
+      assetRefs: result.asset_refs ?? [],
+      status: result.status,
+    },
+    relatedObjects: [],
+  })
+}
+
 export function createDocumentRoutes({ adapters }) {
   return [
     {
@@ -85,28 +113,7 @@ export function createDocumentRoutes({ adapters }) {
 
         return {
           status: 201,
-          body: mapDocumentDetail({
-            documentId: `${input.layer}:${result.document_id}`,
-            title: result.title,
-            layer: input.layer,
-            writable: true,
-            bodyMarkdown: result.body_markdown ?? "",
-            summary: result.body_markdown ?? null,
-            metadata: {
-              source: {
-                provider:
-                  Array.isArray(result.asset_refs) && result.asset_refs.length > 0
-                    ? "stratawiki_personal_asset"
-                    : "stratawiki_personal",
-                sourceId: result.document_id,
-              },
-              updatedAt: result.updated_at ?? result.created_at,
-              version: result.version,
-              assetRefs: result.asset_refs ?? [],
-              status: result.status,
-            },
-            relatedObjects: [],
-          }),
+          body: mapDocumentPayloadFromMutation(input, result),
         }
       },
     },
@@ -222,28 +229,13 @@ export function createDocumentRoutes({ adapters }) {
 
         return {
           status: 200,
-          body: mapDocumentDetail({
-            documentId,
-            title: result.title,
-            layer: documentId.startsWith("personal_wiki:") ? "personal_wiki" : "personal_raw",
-            writable: result.status !== "deleted",
-            bodyMarkdown: result.body_markdown ?? "",
-            summary: result.body_markdown ?? null,
-            metadata: {
-              source: {
-                provider:
-                  Array.isArray(result.asset_refs) && result.asset_refs.length > 0
-                    ? "stratawiki_personal_asset"
-                    : "stratawiki_personal",
-                sourceId: result.document_id,
-              },
-              updatedAt: result.updated_at,
-              version: result.version,
-              assetRefs: result.asset_refs ?? [],
-              status: result.status,
+          body: mapDocumentPayloadFromMutation(
+            {
+              ...input,
+              layer: documentId.startsWith("personal_wiki:") ? "personal_wiki" : "personal_raw",
             },
-            relatedObjects: [],
-          }),
+            result,
+          ),
         }
       },
     },

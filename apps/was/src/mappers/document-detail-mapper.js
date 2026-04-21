@@ -64,6 +64,7 @@ export function mapDocumentDetail(record) {
         status: record.metadata?.status,
         generation: mapDocumentGeneration(record.metadata?.generation),
       }),
+      workspacePath: record.workspacePath,
       relatedObjects: record.relatedObjects?.map((item) =>
         mapKnowledgeObjectRef(item.objectId, item.objectKind, item.title),
       ),

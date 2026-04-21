@@ -284,6 +284,9 @@ test("personal document CRUD and asset registration round-trip through the works
         layer: "personal_raw",
         title: "새 개인 노트",
         bodyMarkdown: "## Draft\n\n첫 번째 버전",
+        workspacePath: {
+          segments: ["projects", "drafts"],
+        },
       },
     })
 
@@ -291,6 +294,10 @@ test("personal document CRUD and asset registration round-trip through the works
     const createdDocumentId = createResponse.body.item.documentRef.objectId
     assert.match(createdDocumentId, /^personal_raw:pdoc_mock_/)
     assert.equal(createResponse.body.item.metadata.version, 1)
+    assert.deepEqual(createResponse.body.item.workspacePath.segments, [
+      "projects",
+      "drafts",
+    ])
 
     const workspaceAfterCreate = await invokeApp(app, {
       url: "/api/workspace",
@@ -299,6 +306,8 @@ test("personal document CRUD and asset registration round-trip through the works
       workspaceAfterCreate.body.navigation.sections[1].items[0].objectRef.objectId,
       createdDocumentId,
     )
+    assert.equal(workspaceAfterCreate.body.navigation.sections[1].tree[0].label, "projects")
+    assert.equal(workspaceAfterCreate.body.navigation.sections[1].tree[0].children[0].kind, "document")
 
     const assetResponse = await invokeApp(app, {
       method: "POST",
@@ -327,6 +336,9 @@ test("personal document CRUD and asset registration round-trip through the works
         title: "새 개인 노트 v2",
         bodyMarkdown: "## Draft\n\n두 번째 버전",
         assetRefs: [assetResponse.body.assetId],
+        workspacePath: {
+          segments: ["projects", "archive"],
+        },
       },
     })
     assert.equal(updateResponse.status, 200)
@@ -334,12 +346,29 @@ test("personal document CRUD and asset registration round-trip through the works
     assert.deepEqual(updateResponse.body.item.metadata.assetRefs, [
       assetResponse.body.assetId,
     ])
+    assert.deepEqual(updateResponse.body.item.workspacePath.segments, [
+      "projects",
+      "archive",
+    ])
 
     const detailAfterUpdate = await invokeApp(app, {
       url: `/api/documents/${encodeURIComponent(createdDocumentId)}`,
     })
     assert.equal(detailAfterUpdate.body.item.surface.title, "새 개인 노트 v2")
     assert.equal(detailAfterUpdate.body.item.metadata.version, 2)
+    assert.deepEqual(detailAfterUpdate.body.item.workspacePath.segments, [
+      "projects",
+      "archive",
+    ])
+
+    const workspaceAfterUpdate = await invokeApp(app, {
+      url: "/api/workspace",
+    })
+    assert.equal(workspaceAfterUpdate.body.navigation.sections[1].tree[0].children[0].kind, "document")
+    assert.equal(
+      workspaceAfterUpdate.body.navigation.sections[1].tree[0].children[0].label,
+      "새 개인 노트 v2",
+    )
 
     const deleteResponse = await invokeApp(app, {
       method: "DELETE",

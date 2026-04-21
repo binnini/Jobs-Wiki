@@ -217,7 +217,7 @@ export const WorkspaceNavigationSection = ({
         {canCreate ? (
           <button
             type="button"
-            onClick={() => onCreatePersonalDocument(section.sectionId)}
+            onClick={() => onCreatePersonalDocument({ layer: section.sectionId })}
             className="rounded px-1.5 py-0.5 text-[10px] font-bold text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-200"
             title="새 문서 만들기"
           >
@@ -243,46 +243,62 @@ export const WorkspaceNavigationSection = ({
               const Icon = isFolder ? (isExpanded ? FolderOpen : Folder) : getWorkspaceItemIcon(node.kind);
 
               return (
-                <button
-                  key={key}
-                  ref={(element) => {
-                    if (element) {
-                      rowRefs.current.set(key, element);
-                    } else {
-                      rowRefs.current.delete(key);
-                    }
-                  }}
-                  type="button"
-                  onClick={() => {
-                    if (hasChildren && isFolder && key) {
-                      toggleNode(key);
-                    } else if (node.path) {
-                      onNavigatePath(node.path);
-                    }
-                  }}
-                  onKeyDown={(event) => handleNodeKeyDown(event, entry)}
-                  aria-current={isActive ? "page" : undefined}
-                  aria-expanded={hasChildren ? isExpanded : undefined}
-                  className={`flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-all ${
-                    isActive
-                      ? "bg-indigo-600 text-white"
-                      : isAncestorActive
-                        ? "bg-slate-800/80 text-white"
-                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                  }`}
-                  style={{ paddingLeft: `${0.5 + depth * 0.8}rem` }}
-                >
-                  {hasChildren ? (
-                    <ChevronRight
-                      size={11}
-                      className={`flex-shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
-                    />
-                  ) : (
-                    <span className="h-[11px] w-[11px] flex-shrink-0" />
-                  )}
-                  <Icon size={12} className="flex-shrink-0 opacity-80" />
-                  <span className="truncate text-xs font-medium">{node.label ?? node.title}</span>
-                </button>
+                <div key={key} className="flex items-center gap-1">
+                  <button
+                    ref={(element) => {
+                      if (element) {
+                        rowRefs.current.set(key, element);
+                      } else {
+                        rowRefs.current.delete(key);
+                      }
+                    }}
+                    type="button"
+                    onClick={() => {
+                      if (hasChildren && isFolder && key) {
+                        toggleNode(key);
+                      } else if (node.path) {
+                        onNavigatePath(node.path);
+                      }
+                    }}
+                    onKeyDown={(event) => handleNodeKeyDown(event, entry)}
+                    aria-current={isActive ? "page" : undefined}
+                    aria-expanded={hasChildren ? isExpanded : undefined}
+                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-all ${
+                      isActive
+                        ? "bg-indigo-600 text-white"
+                        : isAncestorActive
+                          ? "bg-slate-800/80 text-white"
+                          : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    }`}
+                    style={{ paddingLeft: `${0.5 + depth * 0.8}rem` }}
+                  >
+                    {hasChildren ? (
+                      <ChevronRight
+                        size={11}
+                        className={`flex-shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                      />
+                    ) : (
+                      <span className="h-[11px] w-[11px] flex-shrink-0" />
+                    )}
+                    <Icon size={12} className="flex-shrink-0 opacity-80" />
+                    <span className="truncate text-xs font-medium">{node.label ?? node.title}</span>
+                  </button>
+                  {canCreate && isFolder && node.workspacePath ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onCreatePersonalDocument({
+                          layer: section.sectionId,
+                          workspacePath: node.workspacePath,
+                        })
+                      }
+                      className="rounded px-1.5 py-0.5 text-[10px] font-bold text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-200"
+                      title="이 폴더에 새 문서 만들기"
+                    >
+                      +
+                    </button>
+                  ) : null}
+                </div>
               );
             })}
           </div>
@@ -324,6 +340,7 @@ export const WorkspaceNavigationSection = ({
 
 export const CreatePersonalDocumentModal = ({
   layer,
+  workspacePath,
   isSubmitting,
   error,
   onClose,
@@ -331,11 +348,13 @@ export const CreatePersonalDocumentModal = ({
 }) => {
   const [title, setTitle] = useState("");
   const [bodyMarkdown, setBodyMarkdown] = useState("");
+  const [workspacePathInput, setWorkspacePathInput] = useState("");
 
   useEffect(() => {
     setTitle("");
     setBodyMarkdown("");
-  }, [layer]);
+    setWorkspacePathInput(workspacePath?.segments?.join("/") ?? "");
+  }, [layer, workspacePath]);
 
   if (!layer) return null;
 
@@ -376,6 +395,18 @@ export const CreatePersonalDocumentModal = ({
               className="custom-scrollbar min-h-[220px] w-full rounded-sm border border-slate-300 px-4 py-3 text-sm font-medium leading-relaxed text-slate-900 outline-none transition-colors focus:border-indigo-500"
             />
           </div>
+          <div>
+            <Label>폴더 경로</Label>
+            <input
+              value={workspacePathInput}
+              onChange={(event) => setWorkspacePathInput(event.target.value)}
+              placeholder="projects/alpha"
+              className="w-full rounded-sm border border-slate-300 px-4 py-3 text-sm font-medium text-slate-900 outline-none ring-0 transition-colors focus:border-indigo-500"
+            />
+            <p className="mt-1 text-[11px] font-medium text-slate-500">
+              비워두면 root에 만들고, `folder/subfolder` 형식은 선택한 위치 아래에 생성됩니다.
+            </p>
+          </div>
           {error ? (
             <InlineNotice
               title="문서를 만들지 못했습니다"
@@ -399,6 +430,16 @@ export const CreatePersonalDocumentModal = ({
                   layer,
                   title: title.trim(),
                   bodyMarkdown: bodyMarkdown.trim(),
+                  ...(workspacePathInput.trim()
+                    ? {
+                        workspacePath: {
+                          segments: workspacePathInput
+                            .split("/")
+                            .map((segment) => segment.trim())
+                            .filter(Boolean),
+                        },
+                      }
+                    : {}),
                 })
               }
               className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800 disabled:opacity-40"

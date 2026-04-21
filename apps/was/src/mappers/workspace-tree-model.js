@@ -93,10 +93,13 @@ export function buildWorkspaceTreeNodes(items, sectionId) {
   for (const item of items ?? []) {
     const normalizedItem = normalizeWorkspaceNavigationItem(item, sectionId)
     const workspacePath = normalizedItem.workspacePath
+    const itemLabel =
+      workspacePath?.label ?? item.title ?? normalizedItem.objectRef?.title ?? null
 
     if (!workspacePath?.segments?.length) {
       roots.push({
         ...normalizedItem,
+        label: itemLabel,
         nodeType: workspacePath?.nodeType ?? "document",
         children: [],
       })
@@ -114,6 +117,7 @@ export function buildWorkspaceTreeNodes(items, sectionId) {
       if (isLeaf) {
         siblings.push({
           ...normalizedItem,
+          label: itemLabel,
           nodeType: workspacePath.nodeType ?? "document",
           workspacePath: compactObject({
             ...workspacePath,

@@ -10,6 +10,13 @@ test("mapDocumentDetail preserves layer and writable affordance", () => {
     writable: true,
     bodyMarkdown: "## Resume",
     summary: "raw document",
+    workspacePath: {
+      sectionId: "personal_raw",
+      nodeType: "document",
+      segments: ["projects", "resume-v3"],
+      label: "이력서_v3 작업본",
+      path: "/documents/personal_raw%3Apersonal%3Aresume-v3",
+    },
     metadata: {
       source: {
         provider: "upload",
@@ -57,6 +64,10 @@ test("mapDocumentDetail preserves layer and writable affordance", () => {
   assert.equal(result.item.metadata.source.provider, "upload")
   assert.equal(result.item.metadata.generation.operation, "summarize")
   assert.equal(result.item.metadata.generation.trace[0].step, "source")
+  assert.deepEqual(result.item.workspacePath.segments, [
+    "projects",
+    "resume-v3",
+  ])
   assert.deepEqual(result.item.relatedObjects, [
     {
       objectId: "opportunity:backend_platform",

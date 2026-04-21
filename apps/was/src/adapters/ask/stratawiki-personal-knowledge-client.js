@@ -455,6 +455,7 @@ export function createStratawikiPersonalKnowledgeClient({
       bodyMarkdown,
       assetRefs,
       anchors,
+      workspacePath,
     }) {
       const payload = {
         domain,
@@ -467,6 +468,15 @@ export function createStratawikiPersonalKnowledgeClient({
         ...(bodyMarkdown !== undefined ? { body_markdown: bodyMarkdown } : {}),
         ...(assetRefs !== undefined ? { asset_refs: assetRefs } : {}),
         ...(anchors !== undefined ? { anchors } : {}),
+        ...(workspacePath
+          ? {
+              workspace_path: {
+                ...(workspacePath.sectionId ? { section_id: workspacePath.sectionId } : {}),
+                segments: workspacePath.segments,
+                ...(workspacePath.label ? { label: workspacePath.label } : {}),
+              },
+            }
+          : {}),
       }
 
       return await withFallback({
@@ -498,6 +508,7 @@ export function createStratawikiPersonalKnowledgeClient({
       bodyMarkdown,
       assetRefs,
       anchors,
+      workspacePath,
     }) {
       const payload = {
         domain,
@@ -510,6 +521,15 @@ export function createStratawikiPersonalKnowledgeClient({
         ...(bodyMarkdown !== undefined ? { body_markdown: bodyMarkdown } : {}),
         ...(assetRefs !== undefined ? { asset_refs: assetRefs } : {}),
         ...(anchors !== undefined ? { anchors } : {}),
+        ...(workspacePath
+          ? {
+              workspace_path: {
+                ...(workspacePath.sectionId ? { section_id: workspacePath.sectionId } : {}),
+                segments: workspacePath.segments,
+                ...(workspacePath.label ? { label: workspacePath.label } : {}),
+              },
+            }
+          : {}),
       }
 
       return await withFallback({

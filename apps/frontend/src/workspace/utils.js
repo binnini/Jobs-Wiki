@@ -701,6 +701,7 @@ export function mapDocumentResponse(response) {
     writable: Boolean(item.writable),
     bodyMarkdown: item.surface?.bodyMarkdown ?? "",
     summary: item.surface?.summary ?? null,
+    workspacePath: item.workspacePath ?? null,
     metadata: item.metadata ?? null,
     version: item.metadata?.version ?? null,
     assetRefs: Array.isArray(item.metadata?.assetRefs) ? item.metadata.assetRefs : [],

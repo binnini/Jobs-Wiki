@@ -63,25 +63,42 @@ function findDocumentRecord(state, documentId) {
   return record
 }
 
-function buildWorkspaceNavigationItem(record) {
+function resolveDocumentWorkspacePath(record, workspacePath) {
   const layer = record.layer
   const defaultFolder = layer === "personal_wiki" ? "notes" : "inbox"
   const recordSlug = record.documentId.split(":").slice(1).join(":")
+  const basePath = `/documents/${encodeURIComponent(record.documentId)}`
+
+  if (workspacePath && Array.isArray(workspacePath.segments) && workspacePath.segments.length > 0) {
+    return normalizeWorkspacePath({
+      sectionId: workspacePath.sectionId ?? getPersonalSectionId(layer),
+      nodeType: "document",
+      segments: workspacePath.segments,
+      label: workspacePath.label ?? record.title,
+      path: basePath,
+    })
+  }
+
+  return normalizeWorkspacePath({
+    sectionId: layer,
+    nodeType: "document",
+    segments: [defaultFolder, recordSlug],
+    label: record.title,
+    path: basePath,
+  })
+}
+
+function buildWorkspaceNavigationItem(record) {
+  const workspacePath = resolveDocumentWorkspacePath(record, record.workspacePath)
 
   return {
     objectId: record.documentId,
     objectKind: "document",
     title: record.title,
     kind: "document",
-    layer,
-    path: `/documents/${encodeURIComponent(record.documentId)}`,
-    workspacePath: normalizeWorkspacePath({
-      sectionId: layer,
-      nodeType: "document",
-      segments: [defaultFolder, recordSlug],
-      label: record.title,
-      path: `/documents/${encodeURIComponent(record.documentId)}`,
-    }),
+    layer: record.layer,
+    path: workspacePath.path ?? `/documents/${encodeURIComponent(record.documentId)}`,
+    workspacePath,
   }
 }
 
@@ -120,6 +137,7 @@ function createMockDocumentRecord({
   tags,
   relatedObjects = [],
   generation,
+  workspacePath,
 }) {
   const normalizedTags =
     tags ?? ["personal", layer === "personal_wiki" ? "wiki" : "raw"]
@@ -146,6 +164,7 @@ function createMockDocumentRecord({
       status,
       generation,
     },
+    workspacePath: resolveDocumentWorkspacePath({ documentId, layer, title }, workspacePath),
     relatedObjects,
     sync: {
       visibility: "applied",
@@ -292,6 +311,7 @@ export function createMockReadAuthorityAdapter() {
         bodyMarkdown: input.bodyMarkdown ?? "",
         assetRefs: input.assetRefs ?? [],
         updatedAt,
+        workspacePath: input.workspacePath,
       })
 
       state.documentDetails[documentId] = record
@@ -307,6 +327,7 @@ export function createMockReadAuthorityAdapter() {
         status: record.metadata.status,
         updated_at: updatedAt,
         created_at: updatedAt,
+        workspace_path: record.workspacePath,
       }
     },
 
@@ -336,6 +357,12 @@ export function createMockReadAuthorityAdapter() {
           : "stratawiki_personal"
       }
 
+      if (input.workspacePath !== undefined) {
+        existing.workspacePath = resolveDocumentWorkspacePath(existing, input.workspacePath)
+      } else {
+        existing.workspacePath = resolveDocumentWorkspacePath(existing, existing.workspacePath)
+      }
+
       upsertWorkspaceNavigationItem(state, existing)
 
       return {
@@ -347,6 +374,7 @@ export function createMockReadAuthorityAdapter() {
         version: existing.metadata.version,
         status: existing.metadata.status,
         updated_at: existing.metadata.updatedAt,
+        workspace_path: existing.workspacePath,
       }
     },
 

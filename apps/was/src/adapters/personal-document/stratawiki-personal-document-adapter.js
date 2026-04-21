@@ -156,6 +156,7 @@ export function createStratawikiPersonalDocumentAdapter({
         bodyMarkdown: input.bodyMarkdown,
         assetRefs: input.assetRefs,
         anchors: input.anchors,
+        workspacePath: input.workspacePath,
       })
 
       return response?.document ?? response
@@ -185,6 +186,7 @@ export function createStratawikiPersonalDocumentAdapter({
           bodyMarkdown: input.bodyMarkdown,
           assetRefs: input.assetRefs,
           anchors: input.anchors,
+          workspacePath: input.workspacePath,
         })
 
         return response?.document ?? response

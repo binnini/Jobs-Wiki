@@ -95,7 +95,14 @@ export function getDocumentDetail(documentId) {
   return request(`/api/documents/${encodeURIComponent(documentId)}`)
 }
 
-export function createDocument({ layer, title, bodyMarkdown, assetRefs, kind }) {
+export function createDocument({
+  layer,
+  title,
+  bodyMarkdown,
+  assetRefs,
+  kind,
+  workspacePath,
+}) {
   return request("/api/documents", {
     method: "POST",
     headers: buildDemoUserContextHeaders(),
@@ -105,11 +112,15 @@ export function createDocument({ layer, title, bodyMarkdown, assetRefs, kind }) 
       bodyMarkdown,
       assetRefs,
       kind,
+      ...(workspacePath ? { workspacePath } : {}),
     },
   })
 }
 
-export function updateDocument(documentId, { ifVersion, title, bodyMarkdown, assetRefs }) {
+export function updateDocument(
+  documentId,
+  { ifVersion, title, bodyMarkdown, assetRefs, workspacePath },
+) {
   return request(`/api/documents/${encodeURIComponent(documentId)}`, {
     method: "PATCH",
     headers: buildDemoUserContextHeaders(),
@@ -118,6 +129,7 @@ export function updateDocument(documentId, { ifVersion, title, bodyMarkdown, ass
       title,
       bodyMarkdown,
       assetRefs,
+      ...(workspacePath ? { workspacePath } : {}),
     },
   })
 }
