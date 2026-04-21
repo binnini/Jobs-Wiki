@@ -81,3 +81,51 @@ test("keeps the mapper pack version aligned with the recruiting pack artifact", 
 
   assert.equal(RECRUITING_PACK_VERSION, pack.manifest.packVersion);
 });
+
+test("normalizes WorkNet HTML entities and mixed line breaks in posting text fields", async () => {
+  const payload = await loadJsonFixture<RecruitingSourcePayload>(
+    "worknet-open-recruitment-source.json",
+  );
+
+  payload.posting.summary = "플랫폼 API 개발&#xd;&nbsp;";
+  payload.posting.acceptanceAnnouncement = " 개별 안내&#10; ";
+  payload.recruitmentSections = [
+    {
+      title: "플랫폼팀",
+      roleDescription: "API 설계 및 개발&#xd;",
+      selectionDescription: "코딩 테스트&#xd;",
+      location: " 서울&nbsp;",
+      careerRequirement: "3년 이상&#xd;",
+      educationRequirement: "대졸",
+      otherRequirement: " Node.js 경험&nbsp;",
+      openings: "2",
+      note: "우대사항 있음",
+    },
+  ];
+  payload.selectionSteps = [
+    {
+      name: "서류전형",
+      schedule: "4월 2주",
+      description: "서류 검토&#xd;",
+      note: "합격자 개별 통보&nbsp;",
+    },
+  ];
+
+  const batch = mapRecruitingSourceToDomainProposalBatch(payload);
+  const posting = batch.facts.find((fact) => fact.entityType === "job_posting");
+
+  assert.ok(posting);
+  assert.equal(
+    posting.attributes.summary,
+    "플랫폼 API 개발\n\n플랫폼팀: API 설계 및 개발",
+  );
+  assert.equal(posting.attributes.location_text, "플랫폼팀: 서울");
+  assert.equal(
+    posting.attributes.requirements_text,
+    "플랫폼팀 경력: 3년 이상\n플랫폼팀 학력: 대졸\n플랫폼팀 기타 요건: Node.js 경험",
+  );
+  assert.equal(
+    posting.attributes.selection_process_text,
+    "플랫폼팀: 코딩 테스트\n서류전형 | 일정: 4월 2주 | 설명: 서류 검토 | 비고: 합격자 개별 통보\n합격 발표: 개별 안내",
+  );
+});

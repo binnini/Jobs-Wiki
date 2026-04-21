@@ -82,9 +82,36 @@ type RoleMapping = {
   evidencePointers: string[];
 };
 
+const HTML_ENTITY_MAP: Record<string, string> = {
+  amp: "&",
+  lt: "<",
+  gt: ">",
+  quot: "\"",
+  apos: "'",
+  nbsp: " ",
+};
+
+function decodeHtmlEntities(value: string): string {
+  return value.replace(/&(#x?[0-9a-fA-F]+|[a-zA-Z]+);/g, (match, entity) => {
+    if (entity[0] === "#") {
+      const numeric = entity[1]?.toLowerCase() === "x"
+        ? Number.parseInt(entity.slice(2), 16)
+        : Number.parseInt(entity.slice(1), 10);
+      return Number.isFinite(numeric) ? String.fromCodePoint(numeric) : match;
+    }
+
+    return HTML_ENTITY_MAP[entity] ?? match;
+  });
+}
+
 function normalizeText(value?: string): string | undefined {
   if (value == null) return undefined;
-  const normalized = value.replace(/\r\n/g, "\n").trim();
+  const normalized = decodeHtmlEntities(value)
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t\f\v]+\n/g, "\n")
+    .replace(/\n[ \t\f\v]+/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
   return normalized === "" ? undefined : normalized;
 }
 
