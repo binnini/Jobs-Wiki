@@ -17,6 +17,12 @@ test("mapWorkspace keeps layered navigation items and active projection", () => 
             layer: "shared",
             path: "/workspace",
             active: true,
+            workspacePath: {
+              sectionId: "shared",
+              nodeType: "special_view",
+              segments: ["workspace"],
+              label: "기본 리포트",
+            },
           },
         ],
       },
@@ -31,6 +37,12 @@ test("mapWorkspace keeps layered navigation items and active projection", () => 
             kind: "document",
             layer: "personal_raw",
             path: "/documents/personal_raw%3Apersonal%3Aresume-v3",
+            workspacePath: {
+              sectionId: "personal_raw",
+              nodeType: "document",
+              segments: ["inbox", "resume-v3"],
+              label: "이력서_v3 작업본",
+            },
           },
         ],
       },
@@ -58,7 +70,19 @@ test("mapWorkspace keeps layered navigation items and active projection", () => 
     layer: "shared",
     path: "/workspace",
     active: true,
+    workspacePath: {
+      sectionId: "shared",
+      nodeType: "special_view",
+      segments: ["workspace"],
+      leaf: "workspace",
+      key: "shared:workspace",
+      parentKey: null,
+      label: "기본 리포트",
+      path: "/workspace",
+    },
   })
+  assert.equal(result.navigation.sections[1].tree[0].kind, "folder")
+  assert.equal(result.navigation.sections[1].tree[0].children[0].kind, "document")
   assert.deepEqual(result.activeProjection, {
     projection: "report",
     objectRef: {

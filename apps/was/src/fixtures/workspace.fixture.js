@@ -12,6 +12,12 @@ export const workspaceFixture = {
           layer: "shared",
           path: "/workspace",
           active: true,
+          workspacePath: {
+            sectionId: "shared",
+            nodeType: "special_view",
+            segments: ["workspace"],
+            label: "기본 리포트",
+          },
         },
         {
           objectId: "calendar:applications",
@@ -20,6 +26,12 @@ export const workspaceFixture = {
           kind: "calendar",
           layer: "shared",
           path: "/calendar",
+          workspacePath: {
+            sectionId: "shared",
+            nodeType: "special_view",
+            segments: ["calendar"],
+            label: "지원 일정",
+          },
         },
         {
           objectId: "shared:interp:market-trend-jp-backend",
@@ -28,6 +40,12 @@ export const workspaceFixture = {
           kind: "document",
           layer: "shared",
           path: "/documents/shared%3Ainterp%3Amarket-trend-jp-backend",
+          workspacePath: {
+            sectionId: "shared",
+            nodeType: "document",
+            segments: ["references", "market-trend-jp-backend"],
+            label: "일본 백엔드 채용 트렌드",
+          },
         },
         {
           objectId: "opportunity:backend_platform",
@@ -36,6 +54,12 @@ export const workspaceFixture = {
           kind: "opportunity",
           layer: "shared",
           path: "/opportunities/opp_backend_platform",
+          workspacePath: {
+            sectionId: "shared",
+            nodeType: "special_view",
+            segments: ["opportunities", "backend-platform-engineer"],
+            label: "Backend Platform Engineer",
+          },
         },
         {
           objectId: "opportunity:report_runtime",
@@ -44,6 +68,12 @@ export const workspaceFixture = {
           kind: "opportunity",
           layer: "shared",
           path: "/opportunities/opp_report_runtime",
+          workspacePath: {
+            sectionId: "shared",
+            nodeType: "special_view",
+            segments: ["opportunities", "report-runtime-engineer"],
+            label: "Report Runtime Engineer",
+          },
         },
       ],
     },
@@ -58,6 +88,12 @@ export const workspaceFixture = {
           kind: "document",
           layer: "personal_raw",
           path: "/documents/personal_raw%3Apersonal%3Aresume-v3",
+          workspacePath: {
+            sectionId: "personal_raw",
+            nodeType: "document",
+            segments: ["inbox", "resume-v3"],
+            label: "이력서_v3 작업본",
+          },
         },
       ],
     },
@@ -72,6 +108,12 @@ export const workspaceFixture = {
           kind: "document",
           layer: "personal_wiki",
           path: "/documents/personal_wiki%3Apersonal%3Abackend-application-strategy",
+          workspacePath: {
+            sectionId: "personal_wiki",
+            nodeType: "document",
+            segments: ["notes", "backend-application-strategy"],
+            label: "Backend 지원 전략 노트",
+          },
         },
       ],
     },

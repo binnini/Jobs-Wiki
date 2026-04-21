@@ -7,6 +7,7 @@ import {
 } from "../../fixtures/opportunities.fixture.js"
 import { workspaceFixture } from "../../fixtures/workspace.fixture.js"
 import { workspaceSummaryFixture } from "../../fixtures/workspace-summary.fixture.js"
+import { normalizeWorkspacePath } from "../../mappers/workspace-tree-model.js"
 
 function clone(value) {
   return structuredClone(value)
@@ -63,13 +64,24 @@ function findDocumentRecord(state, documentId) {
 }
 
 function buildWorkspaceNavigationItem(record) {
+  const layer = record.layer
+  const defaultFolder = layer === "personal_wiki" ? "notes" : "inbox"
+  const recordSlug = record.documentId.split(":").slice(1).join(":")
+
   return {
     objectId: record.documentId,
     objectKind: "document",
     title: record.title,
     kind: "document",
-    layer: record.layer,
+    layer,
     path: `/documents/${encodeURIComponent(record.documentId)}`,
+    workspacePath: normalizeWorkspacePath({
+      sectionId: layer,
+      nodeType: "document",
+      segments: [defaultFolder, recordSlug],
+      label: record.title,
+      path: `/documents/${encodeURIComponent(record.documentId)}`,
+    }),
   }
 }
 

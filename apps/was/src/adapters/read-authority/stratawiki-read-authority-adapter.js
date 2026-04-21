@@ -11,6 +11,7 @@ import {
   createTemporarilyUnavailableError,
   createUnknownFailureError,
 } from "../../http/errors.js"
+import { normalizeWorkspacePath } from "../../mappers/workspace-tree-model.js"
 
 const CLOSE_SOON_DAYS = 7
 const DAY_MS = 24 * 60 * 60 * 1000
@@ -687,6 +688,13 @@ function mapPersonalWorkspaceItem(record, { subspace } = {}) {
     kind: "document",
     layer,
     path: `/documents/${encodeURIComponent(`${layer}:${recordId}`)}`,
+    workspacePath: normalizeWorkspacePath({
+      sectionId: layer,
+      nodeType: "document",
+      segments: [layer === "personal_wiki" ? "notes" : "inbox", recordId],
+      label: record?.title ?? recordId,
+      path: `/documents/${encodeURIComponent(`${layer}:${recordId}`)}`,
+    }),
   }
 }
 
@@ -838,6 +846,13 @@ async function buildWorkspaceRecord(
             layer: "shared",
             path: "/workspace",
             active: true,
+            workspacePath: normalizeWorkspacePath({
+              sectionId: "shared",
+              nodeType: "special_view",
+              segments: ["workspace"],
+              label: "기본 리포트",
+              path: "/workspace",
+            }),
           },
           {
             objectId: "calendar:applications",
@@ -846,6 +861,13 @@ async function buildWorkspaceRecord(
             kind: "calendar",
             layer: "shared",
             path: "/calendar",
+            workspacePath: normalizeWorkspacePath({
+              sectionId: "shared",
+              nodeType: "special_view",
+              segments: ["calendar"],
+              label: "지원 일정",
+              path: "/calendar",
+            }),
           },
           ...readModel.opportunityItems.slice(0, 3).map((item) => ({
             objectId: item.objectId,
@@ -854,6 +876,13 @@ async function buildWorkspaceRecord(
             kind: "opportunity",
             layer: "shared",
             path: `/opportunities/${encodeURIComponent(item.opportunityId)}`,
+            workspacePath: normalizeWorkspacePath({
+              sectionId: "shared",
+              nodeType: "special_view",
+              segments: ["opportunities", item.title ?? item.opportunityId ?? "item"],
+              label: item.title,
+              path: `/opportunities/${encodeURIComponent(item.opportunityId)}`,
+            }),
           })),
         ],
       },

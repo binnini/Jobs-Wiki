@@ -113,95 +113,132 @@ test("GET /api/workspace returns layered shell navigation with active projection
     assert.equal(response.status, 200)
     assert.equal(response.body.projection, "workspace")
     assert.equal(response.body.navigation.sections.length, 3)
-    assert.deepEqual(response.body.navigation.sections[0], {
-      sectionId: "shared",
-      label: "shared",
-      items: [
-        {
-          objectRef: {
-            objectId: "report:baseline",
-            objectKind: "report",
-            title: "기본 리포트",
-          },
-          kind: "report",
-          layer: "shared",
-          path: "/workspace",
-          active: true,
+    assert.deepEqual(response.body.navigation.sections[0].items, [
+      {
+        objectRef: {
+          objectId: "report:baseline",
+          objectKind: "report",
+          title: "기본 리포트",
         },
-        {
-          objectRef: {
-            objectId: "calendar:applications",
-            objectKind: "calendar",
-            title: "지원 일정",
-          },
-          kind: "calendar",
-          layer: "shared",
+        kind: "report",
+        layer: "shared",
+        path: "/workspace",
+        active: true,
+        workspacePath: {
+          sectionId: "shared",
+          nodeType: "special_view",
+          segments: ["workspace"],
+          leaf: "workspace",
+          key: "shared:workspace",
+          parentKey: null,
+          label: "기본 리포트",
+          path: "/workspace",
+        },
+      },
+      {
+        objectRef: {
+          objectId: "calendar:applications",
+          objectKind: "calendar",
+          title: "지원 일정",
+        },
+        kind: "calendar",
+        layer: "shared",
+        path: "/calendar",
+        workspacePath: {
+          sectionId: "shared",
+          nodeType: "special_view",
+          segments: ["calendar"],
+          leaf: "calendar",
+          key: "shared:calendar",
+          parentKey: null,
+          label: "지원 일정",
           path: "/calendar",
         },
-        {
-          objectRef: {
-            objectId: "shared:interp:market-trend-jp-backend",
-            objectKind: "document",
-            title: "일본 백엔드 채용 트렌드",
-          },
-          kind: "document",
-          layer: "shared",
+      },
+      {
+        objectRef: {
+          objectId: "shared:interp:market-trend-jp-backend",
+          objectKind: "document",
+          title: "일본 백엔드 채용 트렌드",
+        },
+        kind: "document",
+        layer: "shared",
+        path: "/documents/shared%3Ainterp%3Amarket-trend-jp-backend",
+        workspacePath: {
+          sectionId: "shared",
+          nodeType: "document",
+          segments: ["references", "market-trend-jp-backend"],
+          leaf: "market-trend-jp-backend",
+          key: "shared:references/market-trend-jp-backend",
+          parentKey: "shared:references",
+          label: "일본 백엔드 채용 트렌드",
           path: "/documents/shared%3Ainterp%3Amarket-trend-jp-backend",
         },
-        {
-          objectRef: {
-            objectId: "opportunity:backend_platform",
-            objectKind: "opportunity",
-            title: "Backend Platform Engineer",
-          },
-          kind: "opportunity",
-          layer: "shared",
+      },
+      {
+        objectRef: {
+          objectId: "opportunity:backend_platform",
+          objectKind: "opportunity",
+          title: "Backend Platform Engineer",
+        },
+        kind: "opportunity",
+        layer: "shared",
+        path: "/opportunities/opp_backend_platform",
+        workspacePath: {
+          sectionId: "shared",
+          nodeType: "special_view",
+          segments: ["opportunities", "backend-platform-engineer"],
+          leaf: "backend-platform-engineer",
+          key: "shared:opportunities/backend-platform-engineer",
+          parentKey: "shared:opportunities",
+          label: "Backend Platform Engineer",
           path: "/opportunities/opp_backend_platform",
         },
-        {
-          objectRef: {
-            objectId: "opportunity:report_runtime",
-            objectKind: "opportunity",
-            title: "Report Runtime Engineer",
-          },
-          kind: "opportunity",
-          layer: "shared",
+      },
+      {
+        objectRef: {
+          objectId: "opportunity:report_runtime",
+          objectKind: "opportunity",
+          title: "Report Runtime Engineer",
+        },
+        kind: "opportunity",
+        layer: "shared",
+        path: "/opportunities/opp_report_runtime",
+        workspacePath: {
+          sectionId: "shared",
+          nodeType: "special_view",
+          segments: ["opportunities", "report-runtime-engineer"],
+          leaf: "report-runtime-engineer",
+          key: "shared:opportunities/report-runtime-engineer",
+          parentKey: "shared:opportunities",
+          label: "Report Runtime Engineer",
           path: "/opportunities/opp_report_runtime",
         },
-      ],
-    })
-    assert.deepEqual(response.body.navigation.sections[1], {
-      sectionId: "personal_raw",
-      label: "personal/raw",
-      items: [
-        {
-          objectRef: {
-            objectId: "personal_raw:personal:resume-v3",
-            objectKind: "document",
-            title: "이력서_v3 작업본",
-          },
-          kind: "document",
-          layer: "personal_raw",
-          path: "/documents/personal_raw%3Apersonal%3Aresume-v3",
-        },
-      ],
-    })
-    assert.deepEqual(response.body.navigation.sections[2], {
-      sectionId: "personal_wiki",
-      label: "personal/wiki",
-      items: [
-        {
-          objectRef: {
-            objectId: "personal_wiki:personal:backend-application-strategy",
-            objectKind: "document",
-            title: "Backend 지원 전략 노트",
-          },
-          kind: "document",
-          layer: "personal_wiki",
-          path: "/documents/personal_wiki%3Apersonal%3Abackend-application-strategy",
-        },
-      ],
-    })
+      },
+    ])
+    const sharedTree = response.body.navigation.sections[0].tree
+    assert.equal(sharedTree.length, 4)
+    assert.equal(sharedTree[0].kind, "report")
+    assert.equal(sharedTree[0].objectRef.title, "기본 리포트")
+    assert.equal(sharedTree[1].kind, "calendar")
+    assert.equal(sharedTree[2].kind, "folder")
+    assert.equal(sharedTree[2].children[0].kind, "document")
+    assert.equal(sharedTree[2].children[0].objectRef.title, "일본 백엔드 채용 트렌드")
+    assert.equal(sharedTree[3].kind, "folder")
+    assert.equal(sharedTree[3].children[0].kind, "opportunity")
+    assert.equal(sharedTree[3].children[1].objectRef.title, "Report Runtime Engineer")
+
+    const rawTree = response.body.navigation.sections[1].tree
+    assert.equal(rawTree.length, 1)
+    assert.equal(rawTree[0].kind, "folder")
+    assert.equal(rawTree[0].label, "inbox")
+    assert.equal(rawTree[0].children[0].kind, "document")
+
+    const wikiTree = response.body.navigation.sections[2].tree
+    assert.equal(wikiTree.length, 1)
+    assert.equal(wikiTree[0].kind, "folder")
+    assert.equal(wikiTree[0].label, "notes")
+    assert.equal(wikiTree[0].children[0].kind, "document")
     assert.deepEqual(response.body.activeProjection, {
       projection: "report",
       objectRef: {

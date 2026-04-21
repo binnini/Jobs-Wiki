@@ -2,6 +2,10 @@ import {
   mapKnowledgeObjectRef,
   mapProjectionSync,
 } from "./shared.js"
+import {
+  buildWorkspaceTreeNodes,
+  normalizeWorkspaceNavigationItem,
+} from "./workspace-tree-model.js"
 
 function compactObject(value) {
   return Object.fromEntries(
@@ -10,12 +14,11 @@ function compactObject(value) {
 }
 
 function mapWorkspaceNavigationItem(item) {
+  const normalizedItem = normalizeWorkspaceNavigationItem(item, item.layer)
+
   return compactObject({
+    ...normalizedItem,
     objectRef: mapKnowledgeObjectRef(item.objectId, item.objectKind, item.title),
-    kind: item.kind ?? item.objectKind,
-    layer: item.layer,
-    path: item.path,
-    active: item.active,
   })
 }
 
@@ -56,6 +59,7 @@ export function mapWorkspace(record) {
         sectionId: section.sectionId,
         label: section.label,
         items: (section.items ?? []).map(mapWorkspaceNavigationItem),
+        tree: buildWorkspaceTreeNodes(section.items ?? [], section.sectionId),
       })),
     },
     activeProjection: mapActiveProjection(record),

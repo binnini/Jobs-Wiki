@@ -490,6 +490,18 @@ export function getSurfaceSyncGuidance(surface, sync) {
 }
 
 export function mapWorkspaceNavigationResponse(response) {
+  const mapTreeNode = (node) => ({
+    kind: node.kind ?? node.nodeType ?? "document",
+    nodeType: node.nodeType ?? node.kind ?? "document",
+    label: node.label ?? node.title ?? node.objectRef?.title ?? "제목 없음",
+    layer: node.layer ?? null,
+    path: node.path ?? null,
+    active: Boolean(node.active),
+    workspacePath: node.workspacePath ?? null,
+    objectRef: node.objectRef ?? null,
+    children: Array.isArray(node.children) ? node.children.map(mapTreeNode) : [],
+  })
+
   return {
     sync: response?.sync ?? null,
     activeProjection: response?.activeProjection ?? null,
@@ -505,8 +517,10 @@ export function mapWorkspaceNavigationResponse(response) {
                 layer: item.layer ?? section.sectionId,
                 path: item.path ?? null,
                 active: Boolean(item.active),
+                workspacePath: item.workspacePath ?? null,
               }))
             : [],
+          tree: Array.isArray(section.tree) ? section.tree.map(mapTreeNode) : [],
         }))
       : [],
   };
