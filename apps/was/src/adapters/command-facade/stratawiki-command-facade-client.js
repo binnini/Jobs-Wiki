@@ -17,8 +17,15 @@ function normalizeProjectionState(state) {
   return compactObject({
     projection: state?.projection,
     visibility: state?.visibility,
-    version: state?.version ?? state?.lastKnownVersion,
-    visibleAt: state?.visibleAt ?? state?.lastVisibleAt,
+    version:
+      state?.version ??
+      state?.lastKnownVersion ??
+      state?.last_known_version,
+    visibleAt:
+      state?.visibleAt ??
+      state?.lastVisibleAt ??
+      state?.visible_at ??
+      state?.last_visible_at,
   })
 }
 
@@ -38,14 +45,27 @@ function normalizeCommandError(error) {
   })
 }
 
+function filterStringArray(value) {
+  return value?.filter?.((entry) => typeof entry === "string") ?? undefined
+}
+
 function normalizeSubmissionResponse(rawResponse) {
   const acceptedRecord = rawResponse?.command ?? rawResponse
   const projectionStates =
-    acceptedRecord?.projectionStates?.map(normalizeProjectionState).filter(Boolean) ?? []
+    (
+      acceptedRecord?.projectionStates ??
+      acceptedRecord?.projection_states
+    )?.map(normalizeProjectionState).filter(Boolean) ?? []
+  const commandId = acceptedRecord?.commandId ?? acceptedRecord?.command_id
+  const acceptedAt =
+    acceptedRecord?.acceptedAt ??
+    acceptedRecord?.accepted_at ??
+    acceptedRecord?.submitted_at
+  const status = acceptedRecord?.status ?? acceptedRecord?.state
 
   if (
-    typeof acceptedRecord?.commandId !== "string" ||
-    typeof acceptedRecord?.acceptedAt !== "string"
+    typeof commandId !== "string" ||
+    typeof acceptedAt !== "string"
   ) {
     throw createUnknownFailureError(
       "The StrataWiki command facade submit response is missing required fields.",
@@ -56,21 +76,23 @@ function normalizeSubmissionResponse(rawResponse) {
   }
 
   return compactObject({
-    commandId: acceptedRecord.commandId,
-    status:
-      typeof acceptedRecord.status === "string" ? acceptedRecord.status : "accepted",
-    acceptedAt: acceptedRecord.acceptedAt,
+    commandId,
+    status: typeof status === "string" ? status : "accepted",
+    acceptedAt,
+    finishedAt: acceptedRecord?.finishedAt ?? acceptedRecord?.finished_at,
     outcome:
-      typeof acceptedRecord.outcome === "string" ? acceptedRecord.outcome : undefined,
-    affectedObjectRefs:
-      acceptedRecord?.affectedObjectRefs?.filter((value) => typeof value === "string") ??
-      undefined,
-    affectedRelationRefs:
-      acceptedRecord?.affectedRelationRefs?.filter((value) => typeof value === "string") ??
-      undefined,
-    refreshScopes:
-      acceptedRecord?.refreshScopes?.filter((value) => typeof value === "string") ??
-      undefined,
+      typeof acceptedRecord?.outcome === "string"
+        ? acceptedRecord.outcome
+        : undefined,
+    affectedObjectRefs: filterStringArray(
+      acceptedRecord?.affectedObjectRefs ?? acceptedRecord?.affected_object_refs,
+    ),
+    affectedRelationRefs: filterStringArray(
+      acceptedRecord?.affectedRelationRefs ?? acceptedRecord?.affected_relation_refs,
+    ),
+    refreshScopes: filterStringArray(
+      acceptedRecord?.refreshScopes ?? acceptedRecord?.refresh_scopes,
+    ),
     projectionStates: projectionStates.length > 0 ? projectionStates : undefined,
     error: normalizeCommandError(acceptedRecord?.error),
   })
@@ -79,11 +101,16 @@ function normalizeSubmissionResponse(rawResponse) {
 function normalizeStatusResponse(rawResponse) {
   const commandRecord = rawResponse?.command ?? rawResponse
   const projectionStates =
-    commandRecord?.projectionStates?.map(normalizeProjectionState).filter(Boolean) ?? []
+    (
+      commandRecord?.projectionStates ??
+      commandRecord?.projection_states
+    )?.map(normalizeProjectionState).filter(Boolean) ?? []
+  const commandId = commandRecord?.commandId ?? commandRecord?.command_id
+  const status = commandRecord?.status ?? commandRecord?.state
 
   if (
-    typeof commandRecord?.commandId !== "string" ||
-    typeof commandRecord?.status !== "string"
+    typeof commandId !== "string" ||
+    typeof status !== "string"
   ) {
     throw createUnknownFailureError(
       "The StrataWiki command facade status response is missing required fields.",
@@ -94,21 +121,24 @@ function normalizeStatusResponse(rawResponse) {
   }
 
   return compactObject({
-    commandId: commandRecord.commandId,
-    status: commandRecord.status,
+    commandId,
+    status,
     outcome:
       typeof commandRecord.outcome === "string" ? commandRecord.outcome : undefined,
-    acceptedAt: commandRecord.acceptedAt,
-    finishedAt: commandRecord.finishedAt,
-    affectedObjectRefs:
-      commandRecord?.affectedObjectRefs?.filter((value) => typeof value === "string") ??
-      undefined,
-    affectedRelationRefs:
-      commandRecord?.affectedRelationRefs?.filter((value) => typeof value === "string") ??
-      undefined,
-    refreshScopes:
-      commandRecord?.refreshScopes?.filter((value) => typeof value === "string") ??
-      undefined,
+    acceptedAt:
+      commandRecord?.acceptedAt ??
+      commandRecord?.accepted_at ??
+      commandRecord?.submitted_at,
+    finishedAt: commandRecord?.finishedAt ?? commandRecord?.finished_at,
+    affectedObjectRefs: filterStringArray(
+      commandRecord?.affectedObjectRefs ?? commandRecord?.affected_object_refs,
+    ),
+    affectedRelationRefs: filterStringArray(
+      commandRecord?.affectedRelationRefs ?? commandRecord?.affected_relation_refs,
+    ),
+    refreshScopes: filterStringArray(
+      commandRecord?.refreshScopes ?? commandRecord?.refresh_scopes,
+    ),
     projectionStates: projectionStates.length > 0 ? projectionStates : undefined,
     error: normalizeCommandError(commandRecord?.error),
   })

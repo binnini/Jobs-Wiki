@@ -29,6 +29,20 @@ function buildQueryString(query = {}) {
   return queryString ? `?${queryString}` : ""
 }
 
+function requiredPayloadString(payload, key) {
+  const value = payload?.[key]
+
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new Error(`Payload field ${key} is required for the StrataWiki HTTP path.`)
+  }
+
+  return value.trim()
+}
+
+function buildUserScopedPath({ tenantId, userId, resourcePath }) {
+  return `/api/v1/users/${encodeURIComponent(tenantId)}/${encodeURIComponent(userId)}/${resourcePath}`
+}
+
 export class StratawikiHttpError extends Error {
   constructor({
     message,
@@ -270,11 +284,13 @@ export function createStratawikiHttpClient({
     }) {
       const response = await request({
         method: "GET",
-        path: "/api/v1/personal-documents",
+        path: buildUserScopedPath({
+          tenantId,
+          userId,
+          resourcePath: "personal-documents",
+        }),
         query: {
           domain,
-          tenant_id: tenantId,
-          user_id: userId,
           subspace,
           status,
           kind,
@@ -286,11 +302,13 @@ export function createStratawikiHttpClient({
     async getPersonalDocument({ domain, tenantId, userId, documentId, requestId }) {
       const response = await request({
         method: "GET",
-        path: `/api/v1/personal-documents/${encodeURIComponent(documentId)}`,
+        path: buildUserScopedPath({
+          tenantId,
+          userId,
+          resourcePath: `personal-documents/${encodeURIComponent(documentId)}`,
+        }),
         query: {
           domain,
-          tenant_id: tenantId,
-          user_id: userId,
         },
         requestId,
       })
@@ -301,9 +319,15 @@ export function createStratawikiHttpClient({
       requestId,
       idempotencyKey,
     }) {
+      const tenantId = requiredPayloadString(payload, "tenant_id")
+      const userId = requiredPayloadString(payload, "user_id")
       const response = await request({
         method: "POST",
-        path: "/api/v1/personal-documents",
+        path: buildUserScopedPath({
+          tenantId,
+          userId,
+          resourcePath: "personal-documents",
+        }),
         json: payload,
         requestId,
         idempotencyKey,
@@ -316,9 +340,15 @@ export function createStratawikiHttpClient({
       requestId,
       idempotencyKey,
     }) {
+      const tenantId = requiredPayloadString(payload, "tenant_id")
+      const userId = requiredPayloadString(payload, "user_id")
       const response = await request({
         method: "PATCH",
-        path: `/api/v1/personal-documents/${encodeURIComponent(documentId)}`,
+        path: buildUserScopedPath({
+          tenantId,
+          userId,
+          resourcePath: `personal-documents/${encodeURIComponent(documentId)}`,
+        }),
         json: payload,
         requestId,
         idempotencyKey,
@@ -331,9 +361,15 @@ export function createStratawikiHttpClient({
       requestId,
       idempotencyKey,
     }) {
+      const tenantId = requiredPayloadString(payload, "tenant_id")
+      const userId = requiredPayloadString(payload, "user_id")
       const response = await request({
         method: "DELETE",
-        path: `/api/v1/personal-documents/${encodeURIComponent(documentId)}`,
+        path: buildUserScopedPath({
+          tenantId,
+          userId,
+          resourcePath: `personal-documents/${encodeURIComponent(documentId)}`,
+        }),
         json: payload,
         requestId,
         idempotencyKey,
@@ -345,9 +381,15 @@ export function createStratawikiHttpClient({
       requestId,
       idempotencyKey,
     }) {
+      const tenantId = requiredPayloadString(payload, "tenant_id")
+      const userId = requiredPayloadString(payload, "user_id")
       const response = await request({
         method: "POST",
-        path: "/api/v1/personal-assets",
+        path: buildUserScopedPath({
+          tenantId,
+          userId,
+          resourcePath: "personal-assets",
+        }),
         json: payload,
         requestId,
         idempotencyKey,
@@ -359,9 +401,16 @@ export function createStratawikiHttpClient({
       requestId,
       idempotencyKey,
     }) {
+      const tenantId = requiredPayloadString(payload, "tenant_id")
+      const userId = requiredPayloadString(payload, "user_id")
+      const documentId = requiredPayloadString(payload?.source_document_ref, "document_id")
       const response = await request({
         method: "POST",
-        path: "/api/v1/personal-wiki-generations/summarize",
+        path: buildUserScopedPath({
+          tenantId,
+          userId,
+          resourcePath: `personal-documents/${encodeURIComponent(documentId)}/summarize-wiki`,
+        }),
         json: payload,
         requestId,
         idempotencyKey,
@@ -373,9 +422,16 @@ export function createStratawikiHttpClient({
       requestId,
       idempotencyKey,
     }) {
+      const tenantId = requiredPayloadString(payload, "tenant_id")
+      const userId = requiredPayloadString(payload, "user_id")
+      const documentId = requiredPayloadString(payload?.source_document_ref, "document_id")
       const response = await request({
         method: "POST",
-        path: "/api/v1/personal-wiki-generations/rewrite",
+        path: buildUserScopedPath({
+          tenantId,
+          userId,
+          resourcePath: `personal-documents/${encodeURIComponent(documentId)}/rewrite-wiki`,
+        }),
         json: payload,
         requestId,
         idempotencyKey,
@@ -387,9 +443,16 @@ export function createStratawikiHttpClient({
       requestId,
       idempotencyKey,
     }) {
+      const tenantId = requiredPayloadString(payload, "tenant_id")
+      const userId = requiredPayloadString(payload, "user_id")
+      const documentId = requiredPayloadString(payload?.source_document_ref, "document_id")
       const response = await request({
         method: "POST",
-        path: "/api/v1/personal-wiki-generations/structure",
+        path: buildUserScopedPath({
+          tenantId,
+          userId,
+          resourcePath: `personal-documents/${encodeURIComponent(documentId)}/structure-wiki`,
+        }),
         json: payload,
         requestId,
         idempotencyKey,
@@ -401,9 +464,16 @@ export function createStratawikiHttpClient({
       requestId,
       idempotencyKey,
     }) {
+      const tenantId = requiredPayloadString(payload, "tenant_id")
+      const userId = requiredPayloadString(payload, "user_id")
+      const documentId = requiredPayloadString(payload, "wiki_document_id")
       const response = await request({
         method: "POST",
-        path: "/api/v1/personal-wiki-links/suggest",
+        path: buildUserScopedPath({
+          tenantId,
+          userId,
+          resourcePath: `personal-documents/${encodeURIComponent(documentId)}/suggest-links`,
+        }),
         json: payload,
         requestId,
         idempotencyKey,
@@ -415,9 +485,16 @@ export function createStratawikiHttpClient({
       requestId,
       idempotencyKey,
     }) {
+      const tenantId = requiredPayloadString(payload, "tenant_id")
+      const userId = requiredPayloadString(payload, "user_id")
+      const documentId = requiredPayloadString(payload, "wiki_document_id")
       const response = await request({
         method: "POST",
-        path: "/api/v1/personal-wiki-links/attach",
+        path: buildUserScopedPath({
+          tenantId,
+          userId,
+          resourcePath: `personal-documents/${encodeURIComponent(documentId)}/attach-links`,
+        }),
         json: payload,
         requestId,
         idempotencyKey,

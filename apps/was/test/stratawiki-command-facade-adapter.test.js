@@ -111,6 +111,84 @@ test("command facade client normalizes status responses", async () => {
   })
 })
 
+test("command facade client normalizes snake_case runtime responses", async () => {
+  const client = createStratawikiCommandFacadeClient({
+    httpClient: {
+      async submitCommand() {
+        return {
+          command_id: "cmd_002",
+          state: "succeeded",
+          submitted_at: "2026-04-21T09:19:24.227749Z",
+          finished_at: "2026-04-21T09:19:24.227919Z",
+          refresh_scopes: ["workspace_summary"],
+          projection_states: [
+            {
+              projection: "workspace_summary",
+              visibility: "applied",
+              visible_at: "2026-04-21T09:19:24.227919Z",
+            },
+          ],
+        }
+      },
+      async getCommandStatus() {
+        return {
+          command: {
+            command_id: "cmd_002",
+            state: "failed",
+            submitted_at: "2026-04-21T09:19:24.227749Z",
+            finished_at: "2026-04-21T09:19:25.000000Z",
+            refresh_scopes: ["workspace_summary"],
+            error: {
+              code: "validation_failed",
+              message: "producer is required",
+              retryable: false,
+            },
+          },
+        }
+      },
+    },
+  })
+
+  const accepted = await client.submitCommand({
+    command: {
+      name: "jobs_wiki.ingestion.trigger_worknet",
+      payload: {
+        sourceId: "worknet.recruiting",
+      },
+    },
+  })
+  const status = await client.getCommandStatus({
+    commandId: "cmd_002",
+  })
+
+  assert.deepEqual(accepted, {
+    commandId: "cmd_002",
+    status: "succeeded",
+    acceptedAt: "2026-04-21T09:19:24.227749Z",
+    finishedAt: "2026-04-21T09:19:24.227919Z",
+    refreshScopes: ["workspace_summary"],
+    projectionStates: [
+      {
+        projection: "workspace_summary",
+        visibility: "applied",
+        visibleAt: "2026-04-21T09:19:24.227919Z",
+      },
+    ],
+  })
+  assert.deepEqual(status, {
+    commandId: "cmd_002",
+    status: "failed",
+    acceptedAt: "2026-04-21T09:19:24.227749Z",
+    finishedAt: "2026-04-21T09:19:25.000000Z",
+    refreshScopes: ["workspace_summary"],
+    error: {
+      code: "validation_failed",
+      message: "producer is required",
+      retryable: false,
+    },
+  })
+})
+
 test("command facade adapter builds the worknet trigger envelope on top of the thin client", async () => {
   const httpClient = createHttpClientStub()
   const adapter = createStratawikiCommandFacadeAdapter({

@@ -242,3 +242,16 @@ StrataWiki HTTP smoke:
 ```bash
 npm run smoke:http
 ```
+
+Cross-repo HTTP baseline smoke:
+
+```bash
+npm run smoke:http:cross-repo
+```
+
+이 smoke 는 이미 실행 중인 `Jobs-Wiki WAS` 와 `StrataWiki HTTP runtime` 을 대상으로 아래 경계를 빠르게 확인합니다.
+
+- `Jobs-Wiki /health`
+- `StrataWiki /healthz`
+- `Jobs-Wiki -> StrataWiki` personal document create/read/delete
+- `StrataWiki /api/v1/commands` submit/status
