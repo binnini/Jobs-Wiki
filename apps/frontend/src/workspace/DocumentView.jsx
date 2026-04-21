@@ -620,6 +620,37 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
           <Panel>
             <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">문서 메타데이터</h3>
             <div className="space-y-4 text-sm font-medium text-slate-700">
+              {detail.layer === "personal_wiki" && generation ? (
+                <div className="rounded-sm border border-emerald-200 bg-emerald-50 p-4">
+                  <div className="mb-3 text-xs font-bold uppercase tracking-widest text-emerald-700">Generation provenance</div>
+                  <div className="space-y-3">
+                    <div>
+                      <Label className="mb-1">Operation</Label>
+                      <div className="font-bold text-emerald-950">{generation.operation ?? "unknown"}</div>
+                    </div>
+                    <div>
+                      <Label className="mb-1">Provider</Label>
+                      <div className="font-bold text-emerald-950">{generation.provider ?? "unknown"}</div>
+                    </div>
+                    <div>
+                      <Label className="mb-1">Model</Label>
+                      <div className="font-bold text-emerald-950">{generation.model ?? "unknown"}</div>
+                    </div>
+                    <div>
+                      <Label className="mb-1">Source document</Label>
+                      <div className="font-bold text-emerald-950">
+                        {generation.sourceDocument?.title ?? generation.sourceDocument?.documentId ?? "unknown"}
+                      </div>
+                    </div>
+                    <div>
+                      <Label className="mb-1">Generated at</Label>
+                      <div className="font-bold text-emerald-950">
+                        {formatKoreanDateTime(generation.generatedAt) ?? "unknown"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div>
                 <Label className="mb-1">Source</Label>
                 <div>{detail.metadata?.source?.provider ?? "출처 정보 없음"}</div>
