@@ -138,6 +138,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const [assetStorageRef, setAssetStorageRef] = useState("");
   const [linkSuggestions, setLinkSuggestions] = useState([]);
   const requestIdRef = useRef(0);
+  const suggestionRequestIdRef = useRef(0);
 
   const loadDocument = async ({ preserveData = false } = {}) => {
     if (!documentId) { setIsLoading(false); return; }
@@ -188,6 +189,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     setMutationError(null);
     setMutationNotice(null);
     setLinkSuggestions([]);
+    suggestionRequestIdRef.current += 1;
     if (!documentId) { setIsLoading(false); return undefined; }
     loadDocument();
     return () => { requestIdRef.current += 1; };
@@ -241,7 +243,45 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const generationTrace = Array.isArray(generation?.trace) ? generation.trace : [];
   const showGenerationTrace = detail.layer === "personal_wiki" && generationTrace.length > 0;
 
+  useEffect(() => {
+    if (!generation || detail.layer !== "personal_wiki" || !detail.writable || linkSuggestions.length > 0) {
+      return undefined;
+    }
+
+    void loadLinkSuggestions({ showNotice: false });
+    return undefined;
+  }, [detail.documentId, detail.layer, detail.writable, generation?.generatedAt]);
+
   const refreshWorkspace = async () => { await onWorkspaceChanged?.(); };
+
+  const loadLinkSuggestions = async ({ showNotice = true } = {}) => {
+    if (detail.layer !== "personal_wiki" || !detail.writable || isSuggestingLinks) return;
+
+    const requestId = suggestionRequestIdRef.current + 1;
+    suggestionRequestIdRef.current = requestId;
+
+    setIsSuggestingLinks(true);
+    setMutationError(null);
+    if (showNotice) {
+      setMutationNotice(null);
+    }
+
+    try {
+      const response = await suggestWikiLinks(detail.documentId, { maxSuggestions: 5 });
+      if (requestId !== suggestionRequestIdRef.current) return;
+      setLinkSuggestions(response.suggestions ?? []);
+      if (showNotice) {
+        setMutationNotice("link suggestion은 preview only이며 shared를 변경하지 않습니다.");
+      }
+    } catch (requestError) {
+      if (requestId !== suggestionRequestIdRef.current) return;
+      setMutationError(requestError instanceof WasClientError ? requestError : new WasClientError({ message: "link suggestion을 불러오지 못했습니다." }));
+    } finally {
+      if (requestId === suggestionRequestIdRef.current) {
+        setIsSuggestingLinks(false);
+      }
+    }
+  };
 
   const handleGenerateWiki = async (operation) => {
     if (detail.layer !== "personal_raw" || !detail.writable || isGeneratingWiki) return;
@@ -266,19 +306,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   };
 
   const handleSuggestLinks = async () => {
-    if (detail.layer !== "personal_wiki" || !detail.writable || isSuggestingLinks) return;
-    setIsSuggestingLinks(true);
-    setMutationError(null);
-    setMutationNotice(null);
-    try {
-      const response = await suggestWikiLinks(detail.documentId, { maxSuggestions: 5 });
-      setLinkSuggestions(response.suggestions ?? []);
-      setMutationNotice("link suggestion은 preview only이며 shared를 변경하지 않습니다.");
-    } catch (requestError) {
-      setMutationError(requestError instanceof WasClientError ? requestError : new WasClientError({ message: "link suggestion을 불러오지 못했습니다." }));
-    } finally {
-      setIsSuggestingLinks(false);
-    }
+    await loadLinkSuggestions({ showNotice: true });
   };
 
   const handleAttachSuggestedLinks = async () => {
