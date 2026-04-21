@@ -58,6 +58,20 @@
   npm run smoke:http
   ```
 
+- one-command local stack smoke:
+
+  ```bash
+  npm run smoke:stack
+  ```
+
+  이 경로는 local `Jobs-Wiki WAS` 와 `StrataWiki HTTP runtime` 을 tmux 세션 기준으로 시작 또는 재시작하고,
+  예상 포트와 health endpoint 를 확인한 뒤 `npm run smoke:http:cross-repo` 를 이어서 실행합니다.
+  느린 real-Ollama publish smoke 까지 같이 보려면:
+
+  ```bash
+  npm run smoke:stack -- --with-ollama-publish
+  ```
+
 - 수동 WorkNet 갱신:
   - frontend sync 패널은 `POST /api/admin/ingestions/worknet/:sourceId` 를 사용합니다.
   - 이 경로는 현재 runtime 에 `STRATAWIKI_COMMAND_SUBMIT_TOOL`, `STRATAWIKI_COMMAND_STATUS_TOOL` 이 실제로 노출되어 있어야 동작합니다.

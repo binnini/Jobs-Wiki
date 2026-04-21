@@ -255,3 +255,17 @@ npm run smoke:http:cross-repo
 - `StrataWiki /healthz`
 - `Jobs-Wiki -> StrataWiki` personal document create/read/delete
 - `StrataWiki /api/v1/commands` submit/status
+
+Operator-friendly local stack smoke:
+
+```bash
+npm run smoke:stack
+```
+
+이 경로는 local `Jobs-Wiki WAS` 와 sibling `stratawiki` HTTP runtime 을 tmux 세션 기준으로 시작 또는 재시작하고,
+health 확인 후 baseline cross-repo smoke 를 실행합니다.
+느린 real-provider smoke 까지 같이 보려면:
+
+```bash
+npm run smoke:stack -- --with-ollama-publish
+```
