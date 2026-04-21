@@ -37,7 +37,9 @@ import {
   SyncNotice,
 } from "./primitives.jsx";
 
-const AUTO_ATTACH_CONFIDENCE_THRESHOLD = 0.95;
+const AUTO_ATTACH_CONFIDENCE_THRESHOLD = 0.97;
+const LINK_SUGGESTION_MIN_CONFIDENCE = 0.7;
+const AUTO_ATTACH_MAX_COUNT = 2;
 
 const ASSET_TYPE_OPTIONS = [
   { value: "application/pdf", label: "PDF 문서" },
@@ -45,6 +47,24 @@ const ASSET_TYPE_OPTIONS = [
   { value: "text/plain", label: "텍스트 메모" },
   { value: "image/png", label: "이미지" },
 ];
+
+const GENERATION_OPERATION_META = {
+  summarize: {
+    label: "summarize",
+    notice: "핵심 포인트와 다음 액션이 바로 보이도록 짧고 읽기 쉽게 정리합니다.",
+    request: { summaryStyle: "concise" },
+  },
+  rewrite: {
+    label: "rewrite",
+    notice: "지원/준비 관점에서 더 설득력 있게 다시 씁니다.",
+    request: { rewriteGoal: "job-prep" },
+  },
+  structure: {
+    label: "structure",
+    notice: "섹션이 분명한 wiki note 형태로 구조화합니다.",
+    request: { structureTemplate: "job-brief" },
+  },
+};
 
 function createDefaultAssetStorageRef(filename) {
   const safeName = String(filename ?? "")
@@ -94,6 +114,41 @@ function buildAssetReferenceEntry(assetRef) {
     id: trimmedRef,
     filename,
   };
+}
+
+function normalizeGeneratedBody(text) {
+  return String(text ?? "")
+    .replace(/\r\n/g, "\n")
+    .replace(/^\s*(#{1,3}\s*)?(final answer|final output|generated wiki|result)\s*:?\s*\n+/i, "")
+    .replace(/^\s*(final answer|final output|generated wiki|result)\s*:\s*/i, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function normalizeLinkSuggestions(items) {
+  const seenKeys = new Set();
+
+  return (Array.isArray(items) ? items : [])
+    .filter((item) => item?.layer && item?.id)
+    .filter((item) => {
+      const key = `${item.layer}:${item.id}`;
+      if (seenKeys.has(key)) {
+        return false;
+      }
+      seenKeys.add(key);
+      return true;
+    })
+    .filter((item) => {
+      if (typeof item.confidence !== "number") {
+        return true;
+      }
+      return item.confidence >= LINK_SUGGESTION_MIN_CONFIDENCE;
+    })
+    .sort((left, right) => {
+      const leftConfidence = typeof left.confidence === "number" ? left.confidence : -1;
+      const rightConfidence = typeof right.confidence === "number" ? right.confidence : -1;
+      return rightConfidence - leftConfidence;
+    });
 }
 
 function buildDocumentDetailStateFallback() {
@@ -321,6 +376,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const assetRefs = detail.assetRefs ?? [];
   const connectedAssetEntries = assetRefs.map(buildAssetReferenceEntry);
   const generation = detail.metadata?.generation ?? null;
+  const normalizedBodyMarkdown = normalizeGeneratedBody(detail.bodyMarkdown || detail.summary || "");
   const generationTrace = Array.isArray(generation?.trace) ? generation.trace : [];
   const showGenerationTrace = detail.layer === "personal_wiki" && generationTrace.length > 0;
   const autoAttachedLinkKeySet = new Set(autoAttachedLinkKeys);
@@ -364,11 +420,16 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     }
 
     try {
-      const response = await suggestWikiLinks(detail.documentId, { maxSuggestions: 5 });
+      const response = await suggestWikiLinks(detail.documentId, { maxSuggestions: 3 });
       if (requestId !== suggestionRequestIdRef.current) return;
-      setLinkSuggestions(response.suggestions ?? []);
+      const normalizedSuggestions = normalizeLinkSuggestions(response.suggestions ?? []);
+      setLinkSuggestions(normalizedSuggestions);
       if (showNotice) {
-        setMutationNotice("link suggestion은 preview only이며 shared를 변경하지 않습니다.");
+        setMutationNotice(
+          normalizedSuggestions.length
+            ? "신뢰도가 낮은 후보를 제외하고, 더 유용한 link suggestion만 preview로 보여줍니다."
+            : "지금 문맥에서 바로 붙일 만한 link suggestion을 찾지 못했습니다.",
+        );
       }
     } catch (requestError) {
       if (requestId !== suggestionRequestIdRef.current) return;
@@ -408,7 +469,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
       await loadDocument({ preserveData: true });
       await refreshWorkspace();
       setMutationNotice(
-        `confidence ${AUTO_ATTACH_CONFIDENCE_THRESHOLD.toFixed(2)} 이상 link ${suggestions.length}개를 auto-attach했습니다.`,
+        `confidence ${AUTO_ATTACH_CONFIDENCE_THRESHOLD.toFixed(2)} 이상인 link ${suggestions.length}개를 자동으로 attach했습니다.`,
       );
     } catch (requestError) {
       if (requestId !== attachRequestIdRef.current) return;
@@ -445,14 +506,16 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
 
     const autoAttachableSuggestions = linkSuggestions.filter(
       (item) =>
-        isHighConfidenceLink(item) && !autoAttachedLinkKeySet.has(buildLinkKey(item)),
+        isHighConfidenceLink(item) &&
+        Boolean(item.reason) &&
+        !autoAttachedLinkKeySet.has(buildLinkKey(item)),
     );
 
     if (autoAttachableSuggestions.length === 0) {
       return undefined;
     }
 
-    void autoAttachHighConfidenceLinks(autoAttachableSuggestions);
+    void autoAttachHighConfidenceLinks(autoAttachableSuggestions.slice(0, AUTO_ATTACH_MAX_COUNT));
     return undefined;
   }, [
     detail.documentId,
@@ -582,13 +645,16 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     setMutationError(null);
     setMutationNotice(null);
     try {
-      const response = await generateWikiDocument(detail.documentId, { operation });
+      const response = await generateWikiDocument(detail.documentId, {
+        operation,
+        ...(GENERATION_OPERATION_META[operation]?.request ?? {}),
+      });
       const generatedDocumentId = response.item?.documentRef?.objectId ?? null;
       await refreshWorkspace();
       setMutationNotice(
-        operation === "summarize" ? "personal/wiki summary를 생성했습니다."
-          : operation === "rewrite" ? "personal/wiki rewrite 결과를 생성했습니다."
-          : "personal/wiki structured note를 생성했습니다.",
+        operation === "summarize" ? "핵심만 빠르게 읽을 수 있는 personal/wiki summary를 생성했습니다."
+          : operation === "rewrite" ? "지원/정리 관점으로 다시 다듬은 personal/wiki 문서를 생성했습니다."
+          : "섹션이 정돈된 personal/wiki structured note를 생성했습니다.",
       );
       if (generatedDocumentId) onOpenDocument?.({ documentId: generatedDocumentId });
     } catch (requestError) {
@@ -824,14 +890,22 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
               </p>
               <div className="flex flex-wrap gap-3">
                 <button type="button" onClick={() => handleGenerateWiki("summarize")} disabled={isGeneratingWiki} className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 disabled:opacity-40">
-                  {isGeneratingWiki ? "생성 중..." : "summarize"}
+                  {isGeneratingWiki ? "생성 중..." : GENERATION_OPERATION_META.summarize.label}
                 </button>
                 <button type="button" onClick={() => handleGenerateWiki("rewrite")} disabled={isGeneratingWiki} className="rounded-sm border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-800 disabled:opacity-40">
-                  {isGeneratingWiki ? "생성 중..." : "rewrite"}
+                  {isGeneratingWiki ? "생성 중..." : GENERATION_OPERATION_META.rewrite.label}
                 </button>
                 <button type="button" onClick={() => handleGenerateWiki("structure")} disabled={isGeneratingWiki} className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 disabled:opacity-40">
-                  {isGeneratingWiki ? "생성 중..." : "structure"}
+                  {isGeneratingWiki ? "생성 중..." : GENERATION_OPERATION_META.structure.label}
                 </button>
+              </div>
+              <div className="mt-4 grid gap-3 text-xs font-medium text-slate-600 md:grid-cols-3">
+                {Object.values(GENERATION_OPERATION_META).map((item) => (
+                  <div key={item.label} className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2">
+                    <div className="font-bold text-slate-900">{item.label}</div>
+                    <div className="mt-1 leading-relaxed">{item.notice}</div>
+                  </div>
+                ))}
               </div>
             </Panel>
           ) : null}
@@ -989,7 +1063,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
               </div>
             ) : (
               <div className="space-y-6">
-                <StructuredResponse text={detail.bodyMarkdown || detail.summary || "표시할 문서 본문이 아직 없습니다."} />
+                <StructuredResponse text={normalizedBodyMarkdown || "표시할 문서 본문이 아직 없습니다."} />
                 {showGenerationTrace ? (
                   <div className="rounded-sm border border-slate-200 bg-slate-50 p-4">
                     <button
@@ -1069,7 +1143,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                 <span>
                   <span className="block font-bold text-slate-900">Auto-attach high-confidence links</span>
                   <span className="block text-xs leading-relaxed text-slate-500">
-                    confidence {AUTO_ATTACH_CONFIDENCE_THRESHOLD.toFixed(2)} 이상만 자동으로 attach하고, 나머지는 suggestion으로 남깁니다.
+                    confidence {AUTO_ATTACH_CONFIDENCE_THRESHOLD.toFixed(2)} 이상이고 이유가 분명한 후보만 최대 {AUTO_ATTACH_MAX_COUNT}개까지 자동 attach합니다.
                   </span>
                 </span>
               </label>
@@ -1088,7 +1162,11 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                       <div className="flex flex-wrap items-center gap-2">
                         <span>{item.layer}: {item.id}</span>
                         <span className={`rounded border px-1.5 py-0.5 text-[10px] font-bold ${autoAttachedLinkKeySet.has(buildLinkKey(item)) ? "border-emerald-200 bg-emerald-50 text-emerald-700" : isHighConfidenceLink(item) && isAutoAttachEnabled ? "border-amber-200 bg-amber-50 text-amber-700" : "border-slate-200 bg-white text-slate-500"}`}>
-                          {autoAttachedLinkKeySet.has(buildLinkKey(item)) ? "auto-attached" : isHighConfidenceLink(item) ? "suggested" : "suggested"}
+                          {autoAttachedLinkKeySet.has(buildLinkKey(item))
+                            ? "auto-attached"
+                            : isHighConfidenceLink(item)
+                              ? "high-confidence"
+                              : "review"}
                         </span>
                         {typeof item.confidence === "number" ? (
                           <span className="text-[10px] font-bold text-slate-400">confidence {item.confidence.toFixed(2)}</span>
