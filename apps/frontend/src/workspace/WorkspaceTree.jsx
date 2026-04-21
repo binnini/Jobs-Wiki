@@ -209,8 +209,8 @@ export const WorkspaceNavigationSection = ({
     <div>
       <div className="flex items-center justify-between px-1 py-1">
         <div className="flex items-center gap-1">
-          <ChevronRight size={11} className="flex-shrink-0 text-slate-600" />
-          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
+          <ChevronRight size={11} className="flex-shrink-0 text-slate-500" />
+          <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
             {sectionLabel}
           </span>
         </div>
@@ -218,7 +218,7 @@ export const WorkspaceNavigationSection = ({
           <button
             type="button"
             onClick={() => onCreatePersonalDocument({ layer: section.sectionId })}
-            className="rounded px-1.5 py-0.5 text-[10px] font-bold text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-200"
+            className="rounded px-1.5 py-0.5 text-[10px] font-bold text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-200"
             title="새 문서 만들기"
           >
             +
@@ -226,7 +226,7 @@ export const WorkspaceNavigationSection = ({
         ) : null}
       </div>
 
-      <div className="ml-3 border-l border-slate-800/60 pl-2">
+      <div className="ml-3 border-l border-white/10 pl-2">
         {sectionTree ? (
           <div className="space-y-px">
             {visibleEntries.map((entry) => {
@@ -265,10 +265,10 @@ export const WorkspaceNavigationSection = ({
                     aria-expanded={hasChildren ? isExpanded : undefined}
                     className={`flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-all ${
                       isActive
-                        ? "bg-indigo-600 text-white"
+                        ? "bg-white/10 text-white"
                         : isAncestorActive
-                          ? "bg-slate-800/80 text-white"
-                          : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                          ? "bg-white/5 text-slate-100"
+                          : "text-slate-400 hover:bg-white/5 hover:text-slate-100"
                     }`}
                     style={{ paddingLeft: `${0.5 + depth * 0.8}rem` }}
                   >
@@ -292,7 +292,7 @@ export const WorkspaceNavigationSection = ({
                           workspacePath: node.workspacePath,
                         })
                       }
-                      className="rounded px-1.5 py-0.5 text-[10px] font-bold text-slate-500 transition-colors hover:bg-slate-800 hover:text-slate-200"
+                      className="rounded px-1.5 py-0.5 text-[10px] font-bold text-slate-500 transition-colors hover:bg-white/5 hover:text-slate-200"
                       title="이 폴더에 새 문서 만들기"
                     >
                       +
@@ -302,34 +302,8 @@ export const WorkspaceNavigationSection = ({
               );
             })}
           </div>
-        ) : section.items.length ? (
-          <div className="space-y-px">
-            {section.items.map((item) => {
-              const Icon = getWorkspaceItemIcon(item.kind);
-              const isActive = Boolean(item.path) && item.path === currentPath;
-              const isDisabled = !item.path;
-              return (
-                <button
-                  key={`${section.sectionId}-${item.objectRef?.objectId ?? item.title}`}
-                  type="button"
-                  disabled={isDisabled}
-                  onClick={() => item.path && onNavigatePath(item.path)}
-                  className={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-all ${
-                    isActive
-                      ? "bg-indigo-600 text-white"
-                      : isDisabled
-                        ? "cursor-not-allowed text-slate-700"
-                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
-                  }`}
-                >
-                  <Icon size={12} className="flex-shrink-0 opacity-70" />
-                  <span className="truncate text-xs font-medium">{item.title}</span>
-                </button>
-              );
-            })}
-          </div>
         ) : (
-          <div className="py-1 text-[11px] font-medium text-slate-700">
+          <div className="py-1 text-[11px] font-medium text-slate-500">
             {layerMeta.emptyLabel}
           </div>
         )}

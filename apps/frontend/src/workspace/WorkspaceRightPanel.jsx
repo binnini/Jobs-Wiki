@@ -20,10 +20,10 @@ export const WorkspaceRightPanel = ({
   onLoadWorkspaceSync,
   onTriggerWorkspaceIngestion,
 }) => (
-  <aside className="flex w-72 flex-shrink-0 flex-col border-l border-slate-200 bg-white overflow-y-auto">
+  <aside className="flex w-72 flex-shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-[#fbf8f2]">
     {currentView === "document" && activeDocumentContext ? (
       <div className="border-b border-slate-100 px-5 py-4">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">문서</div>
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">문서</div>
         <div className="text-sm font-bold text-slate-900 truncate">
           {activeDocumentContext.title ?? "문서"}
         </div>
@@ -40,7 +40,7 @@ export const WorkspaceRightPanel = ({
       </div>
     ) : currentView === "detail" && activeOpportunityContext ? (
       <div className="border-b border-slate-100 px-5 py-4">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">공고</div>
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">공고</div>
         <div className="text-sm font-bold text-slate-900 truncate">{activeOpportunityContext.title}</div>
         {activeOpportunityContext.company ? (
           <div className="mt-0.5 text-xs font-medium text-slate-600">{activeOpportunityContext.company}</div>
@@ -58,7 +58,7 @@ export const WorkspaceRightPanel = ({
       </div>
     ) : currentView === "ask" && (activeDocumentContext ?? activeOpportunityContext) ? (
       <div className="border-b border-slate-100 px-5 py-4">
-        <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">분석 컨텍스트</div>
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">분석 컨텍스트</div>
         <div className="text-xs font-medium text-slate-700 truncate">
           {activeDocumentContext?.title ?? activeOpportunityContext?.title ?? "워크스페이스 전체"}
         </div>
@@ -77,8 +77,8 @@ export const WorkspaceRightPanel = ({
         onClick={() => onOpenAsk(activeDocumentContext ?? activeOpportunityContext)}
         className={`w-full rounded-sm border px-3 py-2.5 text-left text-sm font-bold transition-all ${
           currentView === "ask"
-            ? "border-indigo-500 bg-indigo-600 text-white"
-            : "border-slate-200 text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-900"
+            ? "border-slate-300 bg-white text-slate-900 shadow-sm"
+            : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-white hover:text-slate-900"
         }`}
       >
         <span className="flex items-center">
@@ -92,7 +92,7 @@ export const WorkspaceRightPanel = ({
       <div className="space-y-3 px-4 py-4">
         <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Sync</div>
         {workspaceSyncState.command?.commandId ? (
-          <div className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2">
+          <div className="rounded-sm border border-slate-200 bg-white px-3 py-2">
             {(() => {
               const meta = getCommandStatusMeta(workspaceSyncState.command.status);
               return meta ? (
@@ -106,7 +106,7 @@ export const WorkspaceRightPanel = ({
         {(workspaceSyncState.projections ?? []).map((p) => {
           const meta = getSyncMeta(p);
           return (
-            <div key={p.projection} className="flex items-center justify-between rounded-sm border border-slate-100 px-3 py-2">
+            <div key={p.projection} className="flex items-center justify-between rounded-sm border border-slate-100 bg-white px-3 py-2">
               <span className="text-xs font-bold text-slate-700">{formatProjectionLabel(p.projection)}</span>
               {meta?.badgeLabel ? (
                 <span className={`rounded-sm border px-1.5 py-0.5 text-[10px] font-bold ${meta.badgeClassName}`}>
@@ -120,7 +120,7 @@ export const WorkspaceRightPanel = ({
           <button
             onClick={() => onLoadWorkspaceSync({ preserveData: true })}
             disabled={isRefreshingWorkspaceSync}
-            className="flex flex-1 items-center justify-center rounded-sm border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center rounded-sm border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
           >
             <RefreshCw size={13} className={`mr-1.5 ${isRefreshingWorkspaceSync ? "animate-spin" : ""}`} />
             새로고침
@@ -128,7 +128,7 @@ export const WorkspaceRightPanel = ({
           <button
             onClick={onTriggerWorkspaceIngestion}
             disabled={isTriggeringWorkspaceSync || Boolean(activeWorkspaceCommandId)}
-            className="flex flex-1 items-center justify-center rounded-sm border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center rounded-sm border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
           >
             <Zap size={13} className="mr-1.5" />
             {isTriggeringWorkspaceSync ? "요청 중..." : Boolean(activeWorkspaceCommandId) ? "처리 중..." : "수동 갱신"}

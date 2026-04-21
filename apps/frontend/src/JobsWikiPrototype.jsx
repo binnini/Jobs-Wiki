@@ -2198,9 +2198,9 @@ export default function JobsWikiPrototype() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900 selection:bg-indigo-100 selection:text-indigo-900">
-      <aside className="flex w-56 flex-shrink-0 flex-col border-r border-slate-800 bg-slate-900 text-slate-300">
-        <div className="border-b border-slate-800/50 px-4 py-4">
+    <div className="flex h-screen overflow-hidden bg-[#f4efe6] font-sans text-slate-900 selection:bg-stone-200 selection:text-stone-950">
+      <aside className="flex w-56 flex-shrink-0 flex-col border-r border-[#262626] bg-[#171717] text-slate-300">
+        <div className="border-b border-[#262626] px-4 py-4">
           <button
             onClick={() => navigateTo("workspace")}
             className="flex items-center text-sm font-extrabold tracking-tight text-white transition-colors hover:text-indigo-200"
@@ -2218,8 +2218,8 @@ export default function JobsWikiPrototype() {
               onClick={() => navigateTo("report")}
               className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-xs font-bold transition-all ${
                 currentView === "report"
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  ? "bg-white/10 text-white"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-50"
               }`}
             >
               <FileText size={14} className="flex-shrink-0 opacity-80" />
@@ -2229,8 +2229,8 @@ export default function JobsWikiPrototype() {
               onClick={() => navigateTo("calendar")}
               className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-xs font-bold transition-all ${
                 currentView === "calendar"
-                  ? "bg-indigo-600 text-white"
-                  : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  ? "bg-white/10 text-white"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-50"
               }`}
             >
               <CalIcon size={14} className="flex-shrink-0 opacity-80" />
@@ -2238,18 +2238,18 @@ export default function JobsWikiPrototype() {
             </button>
           </div>
 
-          <div className="mt-3 border-t border-slate-800/60 px-2 pt-3">
+          <div className="mt-3 border-t border-[#262626] px-2 pt-3">
             {isLoadingWorkspaceNavigation && !workspaceNavigation.sections.length ? (
               <div className="space-y-3">
-                <div className="h-2.5 w-20 animate-pulse rounded bg-slate-800" />
-                <div className="h-5 animate-pulse rounded bg-slate-800" />
-                <div className="h-5 animate-pulse rounded bg-slate-800" />
-                <div className="h-5 animate-pulse rounded bg-slate-800" />
+                <div className="h-2.5 w-20 animate-pulse rounded bg-white/10" />
+                <div className="h-5 animate-pulse rounded bg-white/10" />
+                <div className="h-5 animate-pulse rounded bg-white/10" />
+                <div className="h-5 animate-pulse rounded bg-white/10" />
               </div>
             ) : null}
 
             {workspaceNavigationError && !workspaceNavigation.sections.length ? (
-              <div className="rounded-sm border border-amber-300/30 bg-amber-400/10 px-3 py-2 text-[11px] font-medium text-amber-100">
+              <div className="rounded-sm border border-amber-300/20 bg-amber-400/10 px-3 py-2 text-[11px] font-medium text-amber-100">
                 {workspaceNavigationError.message}
               </div>
             ) : null}
@@ -2268,9 +2268,9 @@ export default function JobsWikiPrototype() {
           </div>
         </nav>
 
-        <div className="border-t border-slate-800/50 px-4 py-3">
+        <div className="border-t border-[#262626] px-4 py-3">
           <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white flex-shrink-0">
+            <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white">
               {displayProfileSnapshot.targetRole.charAt(0)}
             </div>
             <div className="min-w-0">
@@ -2299,7 +2299,7 @@ export default function JobsWikiPrototype() {
         onSubmit={handleCreatePersonalDocument}
       />
 
-      <main className="flex-1 min-w-0 overflow-y-auto bg-slate-100/50">
+      <main className="flex-1 min-w-0 overflow-y-auto bg-transparent">
         <div className="p-8 md:p-10 lg:p-12">
           <style>{`
             .custom-scrollbar::-webkit-scrollbar { width: 6px; }
