@@ -691,6 +691,7 @@ export function mapDocumentResponse(response) {
     version: item.metadata?.version ?? null,
     assetRefs: Array.isArray(item.metadata?.assetRefs) ? item.metadata.assetRefs : [],
     status: item.metadata?.status ?? null,
+    generation: item.metadata?.generation ?? null,
     relatedObjects: Array.isArray(item.relatedObjects) ? item.relatedObjects : [],
   };
 }

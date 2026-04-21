@@ -15,6 +15,24 @@ test("mapDocumentDetail preserves layer and writable affordance", () => {
         provider: "upload",
         sourceId: "resume-v3.pdf",
       },
+      generation: {
+        operation: "summarize",
+        provider: "mock",
+        model: "mock_wiki_generation",
+        generatedAt: "2026-04-20T04:00:00.000Z",
+        sourceDocument: {
+          documentId: "personal_raw:personal:resume-v3",
+          title: "이력서_v3 작업본",
+          layer: "personal_raw",
+          version: 1,
+        },
+        trace: [
+          {
+            step: "source",
+            message: "trace kept out of the body",
+          },
+        ],
+      },
       updatedAt: "2026-04-20T03:30:00.000Z",
       tags: ["personal", "raw"],
     },
@@ -37,6 +55,8 @@ test("mapDocumentDetail preserves layer and writable affordance", () => {
   assert.equal(result.item.writable, true)
   assert.equal(result.item.surface.title, "이력서_v3 작업본")
   assert.equal(result.item.metadata.source.provider, "upload")
+  assert.equal(result.item.metadata.generation.operation, "summarize")
+  assert.equal(result.item.metadata.generation.trace[0].step, "source")
   assert.deepEqual(result.item.relatedObjects, [
     {
       objectId: "opportunity:backend_platform",

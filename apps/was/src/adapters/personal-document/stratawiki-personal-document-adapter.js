@@ -115,6 +115,19 @@ function buildSourceDocumentRef(document) {
   }
 }
 
+function buildGenerationTrace({ operation, sourceDocumentRef }) {
+  return [
+    {
+      step: "source",
+      message: `source_document_ref=${sourceDocumentRef.document_id}; subspace=${sourceDocumentRef.subspace}; version=${sourceDocumentRef.version}`,
+    },
+    {
+      step: "operation",
+      message: `${operation} output persisted only to personal/wiki.`,
+    },
+  ]
+}
+
 export function createStratawikiPersonalDocumentAdapter({
   env = {},
   personalKnowledgeClient = createStratawikiPersonalKnowledgeClient({ env }),
@@ -262,6 +275,7 @@ export function createStratawikiPersonalDocumentAdapter({
         documentId: parsedDocumentId.recordId,
       })
       const sourceDocumentRef = buildSourceDocumentRef(sourceDocument)
+      const updatedAt = new Date().toISOString()
       const baseInput = {
         tenantId: profileContextEntry.tenantId,
         userId: profileContextEntry.userId,
@@ -278,8 +292,27 @@ export function createStratawikiPersonalDocumentAdapter({
           ...baseInput,
           summaryStyle: input.summaryStyle,
         })
+        const document = response?.document ?? response ?? {}
 
-        return response?.document ?? response
+        return {
+          ...document,
+          generation: {
+            operation: input.operation,
+            provider: "stratawiki",
+            model: env.personalQueryModelProfile,
+            generatedAt: document?.updated_at ?? response?.updated_at ?? updatedAt,
+            sourceDocument: {
+              documentId,
+              title: sourceDocument.title ?? sourceDocumentRef.document_id,
+              layer: parsedDocumentId.layer,
+              version: sourceDocument.version ?? sourceDocumentRef.version,
+            },
+            trace: response?.trace ?? document?.trace ?? buildGenerationTrace({
+              operation: input.operation,
+              sourceDocumentRef,
+            }),
+          },
+        }
       }
 
       if (input.operation === "rewrite") {
@@ -287,8 +320,27 @@ export function createStratawikiPersonalDocumentAdapter({
           ...baseInput,
           rewriteGoal: input.rewriteGoal,
         })
+        const document = response?.document ?? response ?? {}
 
-        return response?.document ?? response
+        return {
+          ...document,
+          generation: {
+            operation: input.operation,
+            provider: "stratawiki",
+            model: env.personalQueryModelProfile,
+            generatedAt: document?.updated_at ?? response?.updated_at ?? updatedAt,
+            sourceDocument: {
+              documentId,
+              title: sourceDocument.title ?? sourceDocumentRef.document_id,
+              layer: parsedDocumentId.layer,
+              version: sourceDocument.version ?? sourceDocumentRef.version,
+            },
+            trace: response?.trace ?? document?.trace ?? buildGenerationTrace({
+              operation: input.operation,
+              sourceDocumentRef,
+            }),
+          },
+        }
       }
 
       if (input.operation === "structure") {
@@ -296,8 +348,27 @@ export function createStratawikiPersonalDocumentAdapter({
           ...baseInput,
           structureTemplate: input.structureTemplate,
         })
+        const document = response?.document ?? response ?? {}
 
-        return response?.document ?? response
+        return {
+          ...document,
+          generation: {
+            operation: input.operation,
+            provider: "stratawiki",
+            model: env.personalQueryModelProfile,
+            generatedAt: document?.updated_at ?? response?.updated_at ?? updatedAt,
+            sourceDocument: {
+              documentId,
+              title: sourceDocument.title ?? sourceDocumentRef.document_id,
+              layer: parsedDocumentId.layer,
+              version: sourceDocument.version ?? sourceDocumentRef.version,
+            },
+            trace: response?.trace ?? document?.trace ?? buildGenerationTrace({
+              operation: input.operation,
+              sourceDocumentRef,
+            }),
+          },
+        }
       }
 
       throw createValidationError("Unsupported personal wiki generation operation.", {

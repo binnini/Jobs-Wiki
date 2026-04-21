@@ -107,6 +107,7 @@ function createMockDocumentRecord({
   sourceId,
   tags,
   relatedObjects = [],
+  generation,
 }) {
   const normalizedTags =
     tags ?? ["personal", layer === "personal_wiki" ? "wiki" : "raw"]
@@ -131,6 +132,7 @@ function createMockDocumentRecord({
       version,
       assetRefs,
       status,
+      generation,
     },
     relatedObjects,
     sync: {
@@ -161,6 +163,23 @@ function buildGenerationTitle(operation, sourceTitle) {
   }
 
   return `${sourceTitle} 구조화 노트`
+}
+
+function buildGenerationTrace({ operation, sourceRecord, updatedAt }) {
+  return [
+    {
+      step: "source",
+      message: `${sourceRecord.documentId} (${sourceRecord.title})를 personal/raw 입력으로 사용했습니다.`,
+    },
+    {
+      step: "operation",
+      message: `${operation} 결과를 personal/wiki final output으로 생성했습니다.`,
+    },
+    {
+      step: "saved",
+      message: `generatedAt=${updatedAt}; saveTarget=personal/wiki`,
+    },
+  ]
 }
 
 export function createMockReadAuthorityAdapter() {
@@ -378,6 +397,23 @@ export function createMockReadAuthorityAdapter() {
       state.nextDocumentSequence += 1
       const generatedDocumentId = `personal_wiki:${recordId}`
       const updatedAt = getNowStamp(15)
+      const generation = {
+        operation: input.operation,
+        provider: "mock",
+        model: "mock_wiki_generation",
+        generatedAt: updatedAt,
+        sourceDocument: {
+          documentId: sourceRecord.documentId,
+          title: sourceRecord.title,
+          layer: sourceRecord.layer,
+          version: sourceRecord.metadata?.version ?? 1,
+        },
+        trace: buildGenerationTrace({
+          operation: input.operation,
+          sourceRecord,
+          updatedAt,
+        }),
+      }
       const record = createMockDocumentRecord({
         documentId: generatedDocumentId,
         layer: "personal_wiki",
@@ -388,6 +424,7 @@ export function createMockReadAuthorityAdapter() {
         sourceProvider: "jobs_wiki_generation",
         sourceId: generatedDocumentId,
         tags: ["personal", "wiki", input.operation],
+        generation,
       })
 
       state.documentDetails[generatedDocumentId] = record
@@ -412,6 +449,7 @@ export function createMockReadAuthorityAdapter() {
         updated_at: updatedAt,
         created_at: updatedAt,
         status: "active",
+        generation,
       }
     },
 

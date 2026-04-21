@@ -440,6 +440,13 @@ test("personal raw-to-wiki generation and wiki link actions stay within the pers
     assert.equal(summarizeResponse.body.operation, "summarize")
     const wikiDocumentId = summarizeResponse.body.item.documentRef.objectId
     assert.match(wikiDocumentId, /^personal_wiki:/)
+    assert.equal(summarizeResponse.body.item.metadata.generation.operation, "summarize")
+    assert.equal(summarizeResponse.body.item.metadata.generation.provider, "mock")
+    assert.ok(Array.isArray(summarizeResponse.body.item.metadata.generation.trace))
+    assert.ok(
+      !summarizeResponse.body.item.surface.bodyMarkdown.includes("generatedAt="),
+      "final body should not contain generation trace details",
+    )
 
     const workspaceAfterGeneration = await invokeApp(app, {
       url: "/api/workspace",

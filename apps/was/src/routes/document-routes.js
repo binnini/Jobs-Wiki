@@ -36,6 +36,7 @@ function mapPersonalWikiGenerationResult(result) {
         version: result.version,
         assetRefs: result.asset_refs ?? [],
         status: result.status,
+        generation: result.generation ?? undefined,
       },
       relatedObjects: [],
     }).item,

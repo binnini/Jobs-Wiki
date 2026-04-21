@@ -26,6 +26,22 @@ function mapDocumentSource(source) {
   })
 }
 
+function mapDocumentGeneration(generation) {
+  return compactOptionalObject({
+    operation: generation?.operation,
+    provider: generation?.provider,
+    model: generation?.model,
+    generatedAt: generation?.generatedAt,
+    sourceDocument: compactOptionalObject({
+      documentId: generation?.sourceDocument?.documentId,
+      title: generation?.sourceDocument?.title,
+      layer: generation?.sourceDocument?.layer,
+      version: generation?.sourceDocument?.version,
+    }),
+    trace: Array.isArray(generation?.trace) ? generation.trace : undefined,
+  })
+}
+
 export function mapDocumentDetail(record) {
   return {
     projection: "document",
@@ -46,6 +62,7 @@ export function mapDocumentDetail(record) {
         version: record.metadata?.version,
         assetRefs: record.metadata?.assetRefs,
         status: record.metadata?.status,
+        generation: mapDocumentGeneration(record.metadata?.generation),
       }),
       relatedObjects: record.relatedObjects?.map((item) =>
         mapKnowledgeObjectRef(item.objectId, item.objectKind, item.title),
