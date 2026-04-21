@@ -1,13 +1,45 @@
+import { existsSync } from "node:fs"
+import { dirname, resolve } from "node:path"
+import { fileURLToPath } from "node:url"
+
 const VALID_DATA_MODES = new Set(["mock", "real"])
 const VALID_INTEGRATION_MODES = new Set(["auto", "http", "wrapper"])
 
-try {
-  process.loadEnvFile?.()
-} catch (error) {
-  if (error?.code !== "ENOENT") {
-    throw error
-  }
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url))
+
+export function resolveEnvCandidatePaths(cwd = process.cwd()) {
+  return Array.from(
+    new Set([
+      resolve(cwd, ".env"),
+      resolve(MODULE_DIR, "../../../../.env"),
+    ]),
+  )
 }
+
+export function loadNearestEnvFile({
+  cwd = process.cwd(),
+  existsSyncImpl = existsSync,
+  loadEnvFileImpl = process.loadEnvFile?.bind(process),
+} = {}) {
+  for (const candidate of resolveEnvCandidatePaths(cwd)) {
+    if (!existsSyncImpl(candidate)) {
+      continue
+    }
+
+    try {
+      loadEnvFileImpl?.(candidate)
+      return candidate
+    } catch (error) {
+      if (error?.code !== "ENOENT") {
+        throw error
+      }
+    }
+  }
+
+  return undefined
+}
+
+loadNearestEnvFile()
 
 function parsePort(rawPort) {
   const port = Number(rawPort)
