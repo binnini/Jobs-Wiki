@@ -207,7 +207,7 @@ export const WorkspaceNavigationSection = ({
 
   return (
     <div>
-      <div className="flex items-center justify-between px-1 py-1">
+        <div className="flex items-center justify-between px-1 py-0.5">
         <div className="flex items-center gap-1">
           <ChevronRight size={11} className="flex-shrink-0 text-slate-500" />
           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
@@ -263,7 +263,7 @@ export const WorkspaceNavigationSection = ({
                     onKeyDown={(event) => handleNodeKeyDown(event, entry)}
                     aria-current={isActive ? "page" : undefined}
                     aria-expanded={hasChildren ? isExpanded : undefined}
-                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-all ${
+                    className={`flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1 text-left transition-all ${
                       isActive
                         ? "bg-white/10 text-white"
                         : isAncestorActive
@@ -337,7 +337,7 @@ export const CreatePersonalDocumentModal = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4">
-      <div className="w-full max-w-2xl rounded-sm border border-slate-200 bg-white p-8 shadow-2xl">
+      <div className="w-full max-w-2xl rounded-sm border border-slate-200 bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-lg font-bold text-slate-900">{titleLabel}</h2>
@@ -350,14 +350,14 @@ export const CreatePersonalDocumentModal = ({
             닫기
           </button>
         </div>
-        <div className="mt-6 space-y-5">
+        <div className="mt-5 space-y-4">
           <div>
             <Label>제목</Label>
             <input
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="문서 제목"
-              className="w-full rounded-sm border border-slate-300 px-4 py-3 text-sm font-medium text-slate-900 outline-none ring-0 transition-colors focus:border-indigo-500"
+              className="w-full rounded-sm border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-900 outline-none ring-0 transition-colors focus:border-indigo-500"
             />
           </div>
           <div>
@@ -366,7 +366,7 @@ export const CreatePersonalDocumentModal = ({
               value={bodyMarkdown}
               onChange={(event) => setBodyMarkdown(event.target.value)}
               placeholder="## Notes"
-              className="custom-scrollbar min-h-[220px] w-full rounded-sm border border-slate-300 px-4 py-3 text-sm font-medium leading-relaxed text-slate-900 outline-none transition-colors focus:border-indigo-500"
+              className="custom-scrollbar min-h-[200px] w-full rounded-sm border border-slate-300 px-4 py-2.5 text-sm font-medium leading-relaxed text-slate-900 outline-none transition-colors focus:border-indigo-500"
             />
           </div>
           <div>
@@ -392,7 +392,7 @@ export const CreatePersonalDocumentModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700"
+              className="rounded-sm border border-slate-300 bg-white px-5 py-2.5 text-sm font-bold text-slate-700"
             >
               취소
             </button>
@@ -416,7 +416,7 @@ export const CreatePersonalDocumentModal = ({
                     : {}),
                 })
               }
-              className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:opacity-40"
+              className="rounded-sm bg-slate-900 px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:opacity-40"
             >
               {isSubmitting ? "만드는 중..." : "만들기"}
             </button>

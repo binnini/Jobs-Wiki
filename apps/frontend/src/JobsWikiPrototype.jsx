@@ -2212,7 +2212,7 @@ export default function JobsWikiPrototype() {
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto py-3">
+        <nav className="flex-1 overflow-y-auto py-2">
           <div className="space-y-px px-2">
             <button
               onClick={() => navigateTo("report")}
@@ -2268,7 +2268,7 @@ export default function JobsWikiPrototype() {
           </div>
         </nav>
 
-        <div className="border-t border-[#262626] px-4 py-3">
+        <div className="border-t border-[#262626] px-4 py-2.5">
           <div className="flex items-center gap-2">
             <div className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-white/10 text-[11px] font-bold text-white">
               {displayProfileSnapshot.targetRole.charAt(0)}
@@ -2300,7 +2300,7 @@ export default function JobsWikiPrototype() {
       />
 
       <main className="flex-1 min-w-0 overflow-y-auto bg-transparent">
-        <div className="p-8 md:p-10 lg:p-12">
+        <div className="p-6 md:p-8 lg:p-10">
           <style>{`
             .custom-scrollbar::-webkit-scrollbar { width: 6px; }
             .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }

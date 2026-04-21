@@ -604,7 +604,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 animate-in slide-in-from-right-4 duration-500">
+    <div className="mx-auto max-w-5xl space-y-6 animate-in slide-in-from-right-4 duration-500">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 pb-4">
         <button onClick={onBack} className="flex items-center text-sm font-bold text-slate-600 transition-colors hover:text-slate-900">
           <ArrowLeft size={16} className="mr-2" />
@@ -681,8 +681,8 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
         </div>
       </header>
 
-      <div className="grid grid-cols-1 gap-10 md:grid-cols-12">
-        <div className="space-y-8 md:col-span-8">
+      <div className="grid grid-cols-1 gap-8 md:grid-cols-12">
+        <div className="space-y-6 md:col-span-8">
           {detail.writable && detail.layer === "personal_raw" ? (
             <Panel>
               <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">raw to wiki generation</h3>
@@ -703,14 +703,14 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
             </Panel>
           ) : null}
 
-          <section className="rounded-sm border border-slate-200 bg-white p-8">
+          <section className="rounded-sm border border-slate-200 bg-white p-6">
             <Label>문서 본문</Label>
             {detail.writable && isEditing ? (
               <div className="space-y-4">
                 <input
                   value={editorTitle}
                   onChange={(event) => setEditorTitle(event.target.value)}
-                  className="w-full rounded-sm border border-slate-300 px-4 py-3 text-lg font-bold text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                  className="w-full rounded-sm border border-slate-300 px-4 py-2.5 text-lg font-bold text-slate-900 outline-none transition-colors focus:border-indigo-500"
                 />
                 {canEditWorkspacePath ? (
                   <div>
@@ -729,7 +729,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                 <textarea
                   value={editorBody}
                   onChange={(event) => setEditorBody(event.target.value)}
-                  className="custom-scrollbar min-h-[360px] w-full rounded-sm border border-slate-300 px-4 py-3 text-sm font-medium leading-relaxed text-slate-900 outline-none transition-colors focus:border-indigo-500"
+                  className="custom-scrollbar min-h-[320px] w-full rounded-sm border border-slate-300 px-4 py-2.5 text-sm font-medium leading-relaxed text-slate-900 outline-none transition-colors focus:border-indigo-500"
                 />
                 <div className="flex flex-wrap justify-end gap-3">
                   <button
@@ -819,7 +819,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
           </section>
         </div>
 
-        <div className="space-y-8 md:col-span-4">
+        <div className="space-y-6 md:col-span-4">
           {detail.writable && detail.layer === "personal_wiki" ? (
             <Panel>
               <h3 className="mb-4 border-b border-slate-200 pb-3 text-sm font-bold text-slate-900">wiki link actions</h3>

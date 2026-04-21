@@ -467,9 +467,9 @@ export const AskWorkspaceView = ({ activeContext, profileSnapshot, initialPrompt
   const generatedAt = formatKoreanDateTime(askResult?.generatedAt);
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-6rem)] w-full max-w-[1400px] flex-col gap-8 animate-in fade-in lg:flex-row">
+    <div className="mx-auto flex h-[calc(100vh-6rem)] w-full max-w-[1400px] flex-col gap-6 animate-in fade-in lg:flex-row">
       <div className="min-w-[600px] flex-1 overflow-hidden rounded-sm border border-slate-200 bg-white">
-        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-8 py-5">
+        <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-6 py-4">
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900">메인 분석 패널</h2>
             <p className="mt-1 text-sm font-medium text-slate-600">
@@ -484,8 +484,8 @@ export const AskWorkspaceView = ({ activeContext, profileSnapshot, initialPrompt
           ) : null}
         </div>
 
-        <div className="custom-scrollbar h-[calc(100%-150px)] overflow-y-auto bg-white p-10" ref={scrollRef}>
-          <div className="mx-auto max-w-3xl space-y-8">
+        <div className="custom-scrollbar h-[calc(100%-138px)] overflow-y-auto bg-white p-8" ref={scrollRef}>
+          <div className="mx-auto max-w-3xl space-y-6">
             <SyncNotice
               surface="ask"
               sync={currentSync}
@@ -505,7 +505,7 @@ export const AskWorkspaceView = ({ activeContext, profileSnapshot, initialPrompt
             {submittedQuestion ? (
               <div className="border-b border-slate-100 pb-8">
                 <Label className="mb-3 text-indigo-600">분석 요청 사항</Label>
-                <div className="whitespace-pre-wrap text-xl font-bold leading-relaxed text-slate-900">{submittedQuestion}</div>
+                <div className="whitespace-pre-wrap text-lg font-bold leading-relaxed text-slate-900">{submittedQuestion}</div>
               </div>
             ) : (
               <Panel className="border-dashed bg-slate-50">
@@ -541,7 +541,7 @@ export const AskWorkspaceView = ({ activeContext, profileSnapshot, initialPrompt
           </div>
         </div>
 
-        <div className="border-t border-slate-200 bg-slate-50 p-6">
+        <div className="border-t border-slate-200 bg-slate-50 p-5">
           <div className="relative mx-auto flex max-w-3xl items-center rounded-sm border border-slate-300 bg-white transition-all focus-within:border-indigo-600 focus-within:ring-1 focus-within:ring-indigo-600">
             <div className="pl-4 text-slate-400"><Search size={20} /></div>
             <textarea
@@ -549,7 +549,7 @@ export const AskWorkspaceView = ({ activeContext, profileSnapshot, initialPrompt
               onChange={(event) => setInput(event.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="연구 주제 또는 추가 분석 요청을 입력해 주세요..."
-              className="custom-scrollbar h-14 w-full resize-none overflow-hidden bg-transparent py-4 pl-3 pr-16 text-sm font-bold text-slate-800 outline-none"
+              className="custom-scrollbar h-12 w-full resize-none overflow-hidden bg-transparent py-3.5 pl-3 pr-16 text-sm font-bold text-slate-800 outline-none"
             />
             <button
               onClick={() => handleSend()}

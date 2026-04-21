@@ -3,7 +3,7 @@ import { AlertCircle, RefreshCw } from "lucide-react";
 import { formatSurfaceLabel, getSurfaceRetryLabel, getSurfaceSyncGuidance } from "./utils.js";
 
 export const Label = ({ children, className = "" }) => (
-  <div className={`mb-2 text-xs font-bold uppercase tracking-wide text-slate-500 ${className}`}>
+  <div className={`mb-1.5 text-[11px] font-bold uppercase tracking-[0.12em] text-slate-500 ${className}`}>
     {children}
   </div>
 );
@@ -16,7 +16,7 @@ export const MetaTag = ({ icon: Icon, children }) => (
 );
 
 export const Panel = ({ children, className = "", noPadding = false }) => (
-  <div className={`rounded-sm border border-slate-200/80 bg-white/95 ${noPadding ? "" : "p-6"} ${className}`}>
+  <div className={`rounded-sm border border-slate-200/80 bg-white/95 ${noPadding ? "" : "p-5"} ${className}`}>
     {children}
   </div>
 );
@@ -35,12 +35,12 @@ export function renderInlineBold(text, keyPrefix) {
 export function StructuredResponse({ text }) {
   const lines = text.split("\n");
   return (
-    <div className="space-y-4 text-base leading-loose text-slate-800">
+    <div className="space-y-4 text-[15px] leading-7 text-slate-800">
       {lines.map((line, index) => {
         if (!line.trim()) return <div key={`sp-${index}`} className="h-2" />;
         if (line.startsWith("### ")) {
           return (
-            <h3 key={`h3-${index}`} className="border-b border-slate-100 pb-2 pt-4 text-xl font-bold text-slate-900">
+            <h3 key={`h3-${index}`} className="border-b border-slate-100 pb-2 pt-4 text-lg font-bold text-slate-900">
               {line.replace("### ", "")}
             </h3>
           );
@@ -65,10 +65,10 @@ export const InlineNotice = ({ title, message, className = "" }) => (
 );
 
 export const RetryPanel = ({ title, message, onRetry, retryLabel = "다시 시도", secondaryAction }) => (
-  <div className="mx-auto max-w-3xl rounded-sm border border-slate-200/80 bg-white/95 p-8">
+  <div className="mx-auto max-w-3xl rounded-sm border border-slate-200/80 bg-white/95 p-6">
     <div className="mb-4 flex items-center text-amber-700">
       <AlertCircle size={20} className="mr-3" />
-      <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
+      <h2 className="text-xl font-bold text-slate-900">{title}</h2>
     </div>
     <p className="mb-6 text-sm leading-relaxed text-slate-600">{message}</p>
     <div className="flex flex-wrap gap-3">

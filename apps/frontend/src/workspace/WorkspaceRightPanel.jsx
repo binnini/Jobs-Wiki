@@ -22,7 +22,7 @@ export const WorkspaceRightPanel = ({
 }) => (
     <aside className="flex w-72 flex-shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-[#fbf8f2]">
     {currentView === "document" && activeDocumentContext ? (
-      <div className="border-b border-slate-100 px-5 py-4">
+      <div className="border-b border-slate-100 px-4 py-3">
         <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">문서</div>
         <div className="text-sm font-bold text-slate-900 truncate">
           {activeDocumentContext.title ?? "문서"}
@@ -39,7 +39,7 @@ export const WorkspaceRightPanel = ({
         </div>
       </div>
     ) : currentView === "detail" && activeOpportunityContext ? (
-      <div className="border-b border-slate-100 px-5 py-4">
+      <div className="border-b border-slate-100 px-4 py-3">
         <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">공고</div>
         <div className="text-sm font-bold text-slate-900 truncate">{activeOpportunityContext.title}</div>
         {activeOpportunityContext.company ? (
@@ -57,7 +57,7 @@ export const WorkspaceRightPanel = ({
         ) : null}
       </div>
     ) : currentView === "ask" && (activeDocumentContext ?? activeOpportunityContext) ? (
-      <div className="border-b border-slate-100 px-5 py-4">
+      <div className="border-b border-slate-100 px-4 py-3">
         <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">분석 컨텍스트</div>
         <div className="text-xs font-medium text-slate-700 truncate">
           {activeDocumentContext?.title ?? activeOpportunityContext?.title ?? "워크스페이스 전체"}
@@ -72,7 +72,7 @@ export const WorkspaceRightPanel = ({
       </div>
     ) : null}
 
-    <div className="border-b border-slate-100 px-4 py-4">
+    <div className="border-b border-slate-100 px-3 py-3">
       <button
         onClick={() => onOpenAsk(activeDocumentContext ?? activeOpportunityContext)}
         className={`w-full rounded-sm border px-3 py-2.5 text-left text-sm font-bold transition-all ${
@@ -89,7 +89,7 @@ export const WorkspaceRightPanel = ({
     </div>
 
     <div className="flex-1 overflow-y-auto">
-      <div className="space-y-3 px-4 py-4">
+      <div className="space-y-2.5 px-3 py-3">
         <div className="text-[11px] font-bold uppercase tracking-widest text-slate-400">Sync</div>
         {workspaceSyncState.command?.commandId ? (
           <div className="rounded-sm border border-slate-200 bg-white px-3 py-2">
@@ -120,7 +120,7 @@ export const WorkspaceRightPanel = ({
           <button
             onClick={() => onLoadWorkspaceSync({ preserveData: true })}
             disabled={isRefreshingWorkspaceSync}
-            className="flex flex-1 items-center justify-center rounded-sm border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center rounded-sm border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-600 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
           >
             <RefreshCw size={13} className={`mr-1.5 ${isRefreshingWorkspaceSync ? "animate-spin" : ""}`} />
             새로고침
@@ -128,7 +128,7 @@ export const WorkspaceRightPanel = ({
           <button
             onClick={onTriggerWorkspaceIngestion}
             disabled={isTriggeringWorkspaceSync || Boolean(activeWorkspaceCommandId)}
-            className="flex flex-1 items-center justify-center rounded-sm border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
+            className="flex flex-1 items-center justify-center rounded-sm border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 disabled:opacity-50"
           >
             <Zap size={13} className="mr-1.5" />
             {isTriggeringWorkspaceSync ? "요청 중..." : Boolean(activeWorkspaceCommandId) ? "처리 중..." : "수동 갱신"}
