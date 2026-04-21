@@ -73,7 +73,7 @@ const ContextPanel = ({ activeContext, profileSnapshot, isLoadingContext = false
         <div>
           <Label className="mb-1">현재 Ask 기준</Label>
           {contextType === "opportunity" ? (
-            <div className="space-y-3 rounded-sm border border-indigo-100 bg-indigo-50 p-4 shadow-sm">
+            <div className="space-y-3 rounded-sm border border-indigo-100 bg-indigo-50/70 p-4">
               <div>
                 <div className="mb-1 text-xs font-bold text-indigo-900">{activeContext.company ?? "공고 컨텍스트"}</div>
                 <div className="text-sm font-bold text-indigo-700">{activeContext.title}</div>
@@ -89,7 +89,7 @@ const ContextPanel = ({ activeContext, profileSnapshot, isLoadingContext = false
               ) : null}
             </div>
           ) : contextType === "document" ? (
-            <div className="space-y-3 rounded-sm border border-amber-200 bg-amber-50 p-4 shadow-sm">
+            <div className="space-y-3 rounded-sm border border-amber-200 bg-amber-50/70 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`rounded-sm border px-2 py-0.5 text-[11px] font-bold ${getDocumentLayerBadgeClassName(activeContext.layer)}`}>
                   {formatDocumentLayerLabel(activeContext.layer)}
@@ -110,7 +110,7 @@ const ContextPanel = ({ activeContext, profileSnapshot, isLoadingContext = false
             <p className="mt-3 text-xs font-bold text-slate-500">현재 컨텍스트를 보강하는 중입니다.</p>
           ) : null}
           {contextError ? (
-            <div className="mt-3 rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 shadow-sm">
+            <div className="mt-3 rounded-sm border border-amber-200 bg-amber-50/80 px-3 py-2 text-xs font-bold text-amber-900">
               {contextError.message}
             </div>
           ) : null}
@@ -251,7 +251,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
         message={error.message}
         onRetry={() => loadDocument()}
         secondaryAction={
-          <button onClick={onBack} className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm">
+          <button onClick={onBack} className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700">
             워크스페이스로 돌아가기
           </button>
         }
@@ -612,14 +612,14 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
         </button>
         <div className="flex items-center gap-3">
           {syncMeta?.badgeLabel ? (
-            <div className={`rounded-sm border px-3 py-1.5 text-xs font-bold shadow-sm ${syncMeta.badgeClassName}`}>
+            <div className={`rounded-sm border px-3 py-1.5 text-xs font-bold ${syncMeta.badgeClassName}`}>
               {syncMeta.badgeLabel}
             </div>
           ) : null}
           <button
             onClick={() => loadDocument({ preserveData: Boolean(documentResponse) })}
             disabled={isRefreshing}
-            className="flex items-center rounded-sm border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
+            className="flex items-center rounded-sm border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
           >
             <RefreshCw size={16} className={`mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
             새로고침
@@ -642,7 +642,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
         <InlineNotice title="personal write 실패" message={mutationError.message} className="border-rose-200 bg-rose-50 text-rose-900" />
       ) : null}
 
-      <header className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
+      <header className="rounded-sm border border-slate-200 bg-white p-8">
         <div className="flex flex-col gap-6 md:flex-row md:items-start md:justify-between">
           <div>
             <h1 className="text-2xl font-bold leading-tight tracking-tight text-slate-900">{detail.title}</h1>
@@ -662,7 +662,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                     setEditorBody(detail.bodyMarkdown ?? "");
                     setEditorWorkspacePath(detail.workspacePath?.segments?.join("/") ?? "");
                   }}
-                  className="rounded-sm border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+                  className="rounded-sm border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50"
                 >
                   <Pencil size={14} className="mr-2 inline-flex" />
                   {isEditing ? "편집 닫기" : "편집"}
@@ -670,7 +670,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                 <button
                   onClick={handleDeleteDocument}
                   disabled={isDeleting}
-                  className="rounded-sm border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700 shadow-sm transition-colors hover:bg-rose-100 disabled:opacity-40"
+                  className="rounded-sm border border-rose-200 bg-rose-50 px-5 py-3 text-sm font-bold text-rose-700 transition-colors hover:bg-rose-100 disabled:opacity-40"
                 >
                   <Trash2 size={14} className="mr-2 inline-flex" />
                   {isDeleting ? "삭제 중..." : "삭제"}
@@ -690,20 +690,20 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                 이 액션은 shared를 publish하지 않고, 현재 personal/raw 문서를 기반으로 personal/wiki 결과만 생성합니다.
               </p>
               <div className="flex flex-wrap gap-3">
-                <button type="button" onClick={() => handleGenerateWiki("summarize")} disabled={isGeneratingWiki} className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 shadow-sm disabled:opacity-40">
+                <button type="button" onClick={() => handleGenerateWiki("summarize")} disabled={isGeneratingWiki} className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 disabled:opacity-40">
                   {isGeneratingWiki ? "생성 중..." : "summarize"}
                 </button>
-                <button type="button" onClick={() => handleGenerateWiki("rewrite")} disabled={isGeneratingWiki} className="rounded-sm border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-800 shadow-sm disabled:opacity-40">
+                <button type="button" onClick={() => handleGenerateWiki("rewrite")} disabled={isGeneratingWiki} className="rounded-sm border border-sky-200 bg-sky-50 px-4 py-3 text-sm font-bold text-sky-800 disabled:opacity-40">
                   {isGeneratingWiki ? "생성 중..." : "rewrite"}
                 </button>
-                <button type="button" onClick={() => handleGenerateWiki("structure")} disabled={isGeneratingWiki} className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 shadow-sm disabled:opacity-40">
+                <button type="button" onClick={() => handleGenerateWiki("structure")} disabled={isGeneratingWiki} className="rounded-sm border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-bold text-amber-800 disabled:opacity-40">
                   {isGeneratingWiki ? "생성 중..." : "structure"}
                 </button>
               </div>
             </Panel>
           ) : null}
 
-          <section className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
+          <section className="rounded-sm border border-slate-200 bg-white p-8">
             <Label>문서 본문</Label>
             {detail.writable && isEditing ? (
               <div className="space-y-4">
@@ -841,10 +841,10 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                 </span>
               </label>
               <div className="flex flex-wrap gap-3">
-                <button type="button" onClick={handleSuggestLinks} disabled={isSuggestingLinks} className="rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700 shadow-sm disabled:opacity-40">
+                <button type="button" onClick={handleSuggestLinks} disabled={isSuggestingLinks} className="rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700 disabled:opacity-40">
                   {isSuggestingLinks ? "조회 중..." : "suggest links"}
                 </button>
-                <button type="button" onClick={handleAttachSuggestedLinks} disabled={isAttachingLinks || attachableLinkSuggestions.length === 0} className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 shadow-sm disabled:opacity-40">
+                <button type="button" onClick={handleAttachSuggestedLinks} disabled={isAttachingLinks || attachableLinkSuggestions.length === 0} className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 disabled:opacity-40">
                   {isAttachingLinks ? "적용 중..." : "attach links"}
                 </button>
               </div>
@@ -992,7 +992,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                 {assetRefs.length ? (
                   <div className="space-y-2">
                     {assetRefs.map((assetRef) => (
-                      <div key={assetRef} className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">{assetRef}</div>
+                  <div key={assetRef} className="rounded-sm border border-slate-200 bg-slate-50/80 px-3 py-2 text-xs font-bold text-slate-700">{assetRef}</div>
                     ))}
                   </div>
                 ) : <div>연결된 asset이 없습니다.</div>}
@@ -1005,7 +1005,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
             {detail.relatedObjects.length ? (
               <div className="space-y-3">
                 {detail.relatedObjects.map((object) => (
-                  <div key={object.objectId} className="rounded-sm border border-slate-200 bg-slate-50 p-4 shadow-sm">
+                  <div key={object.objectId} className="rounded-sm border border-slate-200 bg-slate-50/80 p-4">
                     <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{object.objectKind}</div>
                     <div className="mt-1 text-sm font-bold text-slate-900">{object.title ?? object.objectId}</div>
                   </div>

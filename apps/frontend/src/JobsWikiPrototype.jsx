@@ -122,7 +122,7 @@ const OnboardingView = ({ onNext }) => {
   return (
     <div className="mx-auto grid max-w-5xl grid-cols-1 gap-16 md:grid-cols-2">
       <div className="flex flex-col justify-center">
-        <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-sm bg-slate-900 text-white shadow-sm">
+        <div className="mb-8 flex h-12 w-12 items-center justify-center rounded-sm bg-slate-900 text-white">
           <Database size={24} strokeWidth={1.5} />
         </div>
         <h1 className="mb-6 text-4xl font-bold leading-tight tracking-tight text-slate-900">
@@ -153,7 +153,7 @@ const OnboardingView = ({ onNext }) => {
         </div>
       </div>
 
-      <div className="flex flex-col justify-center rounded-sm border border-slate-200 bg-white p-10 shadow-sm">
+      <div className="flex flex-col justify-center rounded-sm border border-slate-200 bg-white p-10">
         <div className="space-y-8">
           <div>
             <Label>이력서 / 포트폴리오 업로드</Label>
@@ -172,7 +172,7 @@ const OnboardingView = ({ onNext }) => {
                 </p>
               </button>
             ) : (
-              <div className="flex items-center justify-between rounded-sm border border-indigo-200 bg-indigo-50 p-4 shadow-sm">
+              <div className="flex items-center justify-between rounded-sm border border-indigo-200 bg-indigo-50/70 p-4">
                 <div className="flex items-center">
                   <FileText size={20} className="mr-3 text-indigo-600" />
                   <div>
@@ -250,7 +250,7 @@ const OnboardingView = ({ onNext }) => {
           <button
             type="button"
             onClick={onNext}
-            className="flex w-full items-center justify-center rounded-sm bg-slate-900 py-4 text-sm font-bold tracking-wide text-white shadow-md transition-colors hover:bg-slate-800"
+            className="flex w-full items-center justify-center rounded-sm bg-slate-900 py-4 text-sm font-bold tracking-wide text-white transition-colors hover:bg-slate-800"
           >
             프로필 분석 및 리포트 생성하기
             <MoveRight size={16} className="ml-2" />
@@ -273,13 +273,13 @@ const ExtractionReviewView = ({ onNext }) => (
       </p>
     </div>
 
-    <div className="mb-10 rounded-sm border border-slate-200 bg-white shadow-sm">
+    <div className="mb-10 rounded-sm border border-slate-200 bg-white">
       <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-8 py-5">
         <div className="flex items-center text-sm font-bold text-slate-800">
           <Database size={16} className="mr-2 text-slate-500" />
           도출된 프로필 데이터 요약
         </div>
-        <div className="rounded-sm border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 shadow-sm">
+        <div className="rounded-sm border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700">
           분석 신뢰도: 매우 높음
         </div>
       </div>
@@ -317,7 +317,7 @@ const ExtractionReviewView = ({ onNext }) => (
             {ONBOARDING_PROFILE_FIXTURE.skills.map((skill) => (
               <span
                 key={skill}
-                className="rounded-sm border border-slate-200 bg-slate-100 px-3 py-1.5 text-sm font-bold text-slate-800 shadow-sm"
+                className="rounded-sm border border-slate-200 bg-slate-100 px-3 py-1.5 text-sm font-bold text-slate-800"
               >
                 {skill}
               </span>
@@ -348,12 +348,12 @@ const ExtractionReviewView = ({ onNext }) => (
     </div>
 
     <div className="flex justify-end space-x-4">
-      <button className="rounded-sm border border-slate-300 px-6 py-3.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50">
+      <button className="rounded-sm border border-slate-300 px-6 py-3.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">
         프로필 내용 수정
       </button>
       <button
         onClick={onNext}
-        className="flex items-center rounded-sm bg-slate-900 px-8 py-3.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-slate-800"
+        className="flex items-center rounded-sm bg-slate-900 px-8 py-3.5 text-sm font-bold text-white transition-colors hover:bg-slate-800"
       >
         확인 완료 및 워크스페이스 열기
         <MoveRight size={16} className="ml-2.5" />
@@ -386,7 +386,7 @@ const ReportLoadingView = () => (
         {Array.from({ length: 3 }).map((_, index) => (
           <div
             key={index}
-            className="rounded-sm border border-slate-200 bg-white p-8 shadow-sm"
+            className="rounded-sm border border-slate-200 bg-white p-8"
           >
             <div className="mb-5 h-7 w-3/5 rounded bg-slate-200" />
             <div className="mb-3 h-4 w-full rounded bg-slate-100" />
@@ -523,7 +523,7 @@ const BaselineReportView = ({
           <button
             onClick={() => loadSummary({ preserveData: Boolean(summary) })}
             disabled={isRefreshing}
-            className="flex items-center rounded-sm border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
+            className="flex items-center rounded-sm border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
           >
             <RefreshCw size={13} className={`mr-1.5 ${isRefreshing ? "animate-spin" : ""}`} />
             새로고침
@@ -539,10 +539,10 @@ const BaselineReportView = ({
         isRetrying={isRefreshing}
       />
 
-      <div className="flex flex-wrap items-center rounded-sm border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-center rounded-sm border border-slate-200 bg-white p-6">
         <div className="flex flex-1 flex-wrap items-center gap-x-8 gap-y-4">
           <div className="flex items-center">
-            <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-sm bg-slate-900 text-sm font-bold text-white shadow-sm">
+            <div className="mr-4 flex h-10 w-10 items-center justify-center rounded-sm bg-slate-900 text-sm font-bold text-white">
               {profileSnapshot.targetRole?.charAt(0) ?? "J"}
             </div>
             <div>
@@ -572,7 +572,7 @@ const BaselineReportView = ({
         </div>
         <button
           onClick={onEditProfile}
-          className="rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 shadow-sm transition-colors hover:bg-indigo-100"
+          className="rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-2 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100"
         >
           프로필 다시 보기
         </button>
@@ -609,13 +609,13 @@ const BaselineReportView = ({
                           "현재 조건을 완화하면 어떤 방향의 공고를 우선 검토해야 할지 분석해 줘.",
                       })
                     }
-                    className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm"
+                    className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white"
                   >
                     조건 완화 방향 분석하기
                   </button>
                   <button
                     onClick={onOpenCalendar}
-                    className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm"
+                    className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700"
                   >
                     다른 일정 보기
                   </button>
@@ -626,7 +626,7 @@ const BaselineReportView = ({
                 {recommendedOpportunities.map((job) => (
                   <div
                     key={job.opportunityId}
-                    className="group cursor-pointer rounded-sm border border-slate-200 bg-white shadow-sm transition-all hover:border-indigo-600 hover:shadow-md"
+                    className="group cursor-pointer rounded-sm border border-slate-200 bg-white transition-all hover:border-slate-300"
                     onClick={() => onJobClick(job)}
                   >
                     <div className="p-6 md:p-8">
@@ -637,7 +637,7 @@ const BaselineReportView = ({
                               {job.company}
                             </span>
                             <span
-                              className={`rounded-sm border px-2.5 py-1 text-xs font-bold shadow-sm ${getStatusBadgeClassName(job.status)}`}
+                              className={`rounded-sm border px-2.5 py-1 text-xs font-bold ${getStatusBadgeClassName(job.status)}`}
                             >
                               {formatStatusLabel(job.status)}
                             </span>
@@ -711,7 +711,7 @@ const BaselineReportView = ({
               가장 먼저 해야 할 가이드
             </h2>
             {summary.actionQueue?.length ? (
-              <div className="rounded-sm bg-slate-900 p-8 text-white shadow-md">
+              <div className="rounded-sm bg-slate-900 p-8 text-white">
                 <ul className="space-y-6">
                   {summary.actionQueue.map((action, index) => {
                     const relatedOpportunity = recommendedOpportunities.find(
@@ -795,7 +795,7 @@ const BaselineReportView = ({
                       {summary.marketBrief.risingSkills.map((skill) => (
                         <span
                           key={skill}
-                          className="rounded-sm border border-slate-200 bg-slate-100 px-2.5 py-1 text-sm font-bold text-slate-800 shadow-sm"
+                          className="rounded-sm border border-slate-200 bg-slate-100 px-2.5 py-1 text-sm font-bold text-slate-800"
                         >
                           {skill}
                         </span>
@@ -835,7 +835,7 @@ const BaselineReportView = ({
                     <AlertCircle size={16} className="mr-2 text-amber-500" />
                     지금 보완하면 좋은 역량
                   </div>
-                  <div className="rounded-sm border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900 shadow-sm">
+                  <div className="rounded-sm border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-900">
                     {summary.skillsGap.recommendedToStrengthen?.join(", ") ||
                       "보완 권장 역량 없음"}
                   </div>
@@ -866,7 +866,7 @@ const BaselineReportView = ({
                         prefillQuestion: followUp,
                       })
                     }
-                    className="flex w-full items-start rounded-sm border border-slate-200 bg-white p-4 text-left text-sm font-semibold text-slate-900 shadow-sm transition-colors hover:border-indigo-600"
+                    className="flex w-full items-start rounded-sm border border-slate-200 bg-white p-4 text-left text-sm font-semibold text-slate-900 transition-colors hover:border-slate-300"
                   >
                     <MessageSquare
                       size={18}
@@ -1008,7 +1008,7 @@ const OpportunityDetailView = ({
         secondaryAction={
           <button
             onClick={onBack}
-            className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm"
+            className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700"
           >
             기본 리포트로 돌아가기
           </button>
@@ -1026,7 +1026,7 @@ const OpportunityDetailView = ({
         secondaryAction={
           <button
             onClick={onBack}
-            className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm"
+            className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700"
           >
             기본 리포트로 돌아가기
           </button>
@@ -1057,7 +1057,7 @@ const OpportunityDetailView = ({
         <div className="flex items-center gap-3">
           {syncMeta?.badgeLabel ? (
             <div
-              className={`rounded-sm border px-3 py-1.5 text-xs font-bold shadow-sm ${syncMeta.badgeClassName}`}
+              className={`rounded-sm border px-3 py-1.5 text-xs font-bold ${syncMeta.badgeClassName}`}
             >
               {syncMeta.badgeLabel}
             </div>
@@ -1065,7 +1065,7 @@ const OpportunityDetailView = ({
           <button
             onClick={() => loadDetail({ preserveData: Boolean(detailResponse) })}
             disabled={isRefreshing}
-            className="flex items-center rounded-sm border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
+            className="flex items-center rounded-sm border border-slate-200 bg-white px-4 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
           >
             <RefreshCw
               size={16}
@@ -1094,7 +1094,7 @@ const OpportunityDetailView = ({
               {detail.company}
             </span>
             <span
-              className={`rounded-sm border px-3 py-1 text-xs font-bold shadow-sm ${getStatusBadgeClassName(detailResponse.item.metadata?.status)}`}
+              className={`rounded-sm border px-3 py-1 text-xs font-bold ${getStatusBadgeClassName(detailResponse.item.metadata?.status)}`}
             >
               {formatStatusLabel(detailResponse.item.metadata?.status)}
             </span>
@@ -1115,7 +1115,7 @@ const OpportunityDetailView = ({
           </div>
         </div>
         <div className="flex shrink-0 gap-3">
-          <button className="flex items-center rounded-sm border border-slate-300 bg-white px-5 py-3.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50">
+          <button className="flex items-center rounded-sm border border-slate-300 bg-white px-5 py-3.5 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-50">
             <Bookmark size={18} className="mr-2" />
             관심 공고 저장
           </button>
@@ -1126,7 +1126,7 @@ const OpportunityDetailView = ({
               }
             }}
             disabled={!detail.sourceUrl}
-            className="flex items-center rounded-sm bg-slate-900 px-6 py-3.5 text-sm font-bold text-white shadow-md transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+            className="flex items-center rounded-sm bg-slate-900 px-6 py-3.5 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
           >
             지원 준비 시작하기
             <ExternalLink size={16} className="ml-2" />
@@ -1136,14 +1136,14 @@ const OpportunityDetailView = ({
 
       <div className="grid grid-cols-1 gap-8 border-t border-slate-200 pt-8 md:grid-cols-12">
         <div className="space-y-8 md:col-span-8">
-          <section className="rounded-sm border border-slate-200 bg-slate-50 p-8 shadow-sm">
+          <section className="rounded-sm border border-slate-200 bg-slate-50 p-8">
             <Label className="mb-4 text-slate-600">기업 및 도메인 컨텍스트</Label>
             <div className="space-y-5">
               <p className="text-base font-bold leading-relaxed text-slate-900">
                 {detail.companyContext?.description ??
                   "회사 설명은 아직 준비되지 않았습니다."}
               </p>
-              <div className="flex items-start rounded-sm border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start rounded-sm border border-slate-200 bg-white p-5">
                 <Lightbulb
                   size={20}
                   className="mr-4 mt-0.5 flex-shrink-0 text-amber-500"
@@ -1180,7 +1180,7 @@ const OpportunityDetailView = ({
               {qualificationItems.map((requirement, index) => (
                 <li
                   key={`${requirement}-${index}`}
-                  className="flex items-start rounded-sm border border-slate-100 bg-white p-5 text-base text-slate-800 shadow-sm"
+                  className="flex items-start rounded-sm border border-slate-100 bg-white p-5 text-base text-slate-800"
                 >
                   <span className="mr-4 flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-sm bg-slate-100 text-sm font-bold text-slate-600">
                     {index + 1}
@@ -1193,7 +1193,7 @@ const OpportunityDetailView = ({
             </ul>
 
             {selectionProcess.length ? (
-              <div className="mt-6 rounded-sm border border-slate-200 bg-slate-50 p-5 shadow-sm">
+              <div className="mt-6 rounded-sm border border-slate-200 bg-slate-50 p-5">
                 <Label className="mb-3">전형 절차</Label>
                 <div className="space-y-2 text-sm font-medium leading-relaxed text-slate-700">
                   {selectionProcess.map((step, index) => (
@@ -1206,7 +1206,7 @@ const OpportunityDetailView = ({
         </div>
 
         <div className="md:col-span-4">
-          <div className="sticky top-8 rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
+          <div className="sticky top-8 rounded-sm border border-slate-200 bg-white p-8">
             <h3 className="mb-6 text-lg font-bold text-slate-900">
               지원 적합도 분석
             </h3>
@@ -1230,7 +1230,7 @@ const OpportunityDetailView = ({
                   <CheckCircle size={18} className="mr-2 text-indigo-600" />
                   긍정적인 평가 요소
                 </div>
-                <p className="rounded-sm border border-indigo-100 bg-indigo-50/50 p-4 text-sm font-medium leading-relaxed text-slate-700 shadow-sm">
+                <p className="rounded-sm border border-indigo-100 bg-indigo-50/50 p-4 text-sm font-medium leading-relaxed text-slate-700">
                   {detail.matchReason ?? "긍정 요소 분석은 아직 준비되지 않았습니다."}
                 </p>
               </div>
@@ -1239,14 +1239,14 @@ const OpportunityDetailView = ({
                   <AlertCircle size={18} className="mr-2 text-amber-600" />
                   지원 시 고려할 리스크
                 </div>
-                <p className="rounded-sm border border-amber-100 bg-amber-50/50 p-4 text-sm font-medium leading-relaxed text-slate-700 shadow-sm">
+                <p className="rounded-sm border border-amber-100 bg-amber-50/50 p-4 text-sm font-medium leading-relaxed text-slate-700">
                   {detail.gap ?? "리스크 요약은 아직 준비되지 않았습니다."}
                 </p>
               </div>
             </div>
 
             <div className="mt-10 border-t border-slate-200 pt-8">
-              <div className="mb-4 rounded-sm border border-slate-200 bg-slate-50 p-4 text-sm font-medium leading-relaxed text-slate-700 shadow-sm">
+              <div className="mb-4 rounded-sm border border-slate-200 bg-slate-50 p-4 text-sm font-medium leading-relaxed text-slate-700">
                 면접 시나리오나 확장 분석은 상세 payload 안에서 바로 생성하지 않고,
                 Ask Workspace로 이어서 진행합니다.
               </div>
@@ -1257,14 +1257,14 @@ const OpportunityDetailView = ({
                       "이 공고 기준으로 예상 면접 질문과 답변 전략을 정리해 줘.",
                   })
                 }
-                className="flex w-full items-center justify-center rounded-sm bg-slate-900 py-3.5 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800"
+                className="flex w-full items-center justify-center rounded-sm bg-slate-900 py-3.5 text-sm font-bold text-white transition-colors hover:bg-slate-800"
               >
                 <Sparkles size={18} className="mr-2 text-indigo-300" />
                 이 포지션 면접 시나리오 분석하기
               </button>
               <button
                 onClick={() => onOpenAsk(detail)}
-                className="mt-4 flex w-full items-center justify-center rounded-sm border border-slate-300 bg-white py-3.5 text-sm font-bold text-slate-900 shadow-sm transition-colors hover:bg-slate-50"
+                className="mt-4 flex w-full items-center justify-center rounded-sm border border-slate-300 bg-white py-3.5 text-sm font-bold text-slate-900 transition-colors hover:bg-slate-50"
               >
                 <Search size={18} className="mr-2" />
                 이 공고를 워크스페이스에서 이어서 분석
@@ -1429,7 +1429,7 @@ const CalendarView = ({ onOpenJob, onOpenReport, onOpenAsk }) => {
           <button
             onClick={() => loadCalendar({ preserveData: Boolean(calendarResponse) })}
             disabled={isRefreshing}
-            className="flex items-center rounded-sm border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50 disabled:opacity-50"
+            className="flex items-center rounded-sm border border-slate-200 bg-white px-3 py-1.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:opacity-50"
           >
             <RefreshCw size={13} className={`mr-1.5 ${isRefreshing ? "animate-spin" : ""}`} />
             새로고침
@@ -1439,7 +1439,7 @@ const CalendarView = ({ onOpenJob, onOpenReport, onOpenAsk }) => {
               onClick={() => setViewMode("list")}
               className={`flex items-center px-4 py-2 transition-all ${
                 viewMode === "list"
-                  ? "rounded-sm bg-white font-bold text-slate-900 shadow-sm"
+                  ? "rounded-sm bg-white font-bold text-slate-900"
                   : "font-medium text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -1450,7 +1450,7 @@ const CalendarView = ({ onOpenJob, onOpenReport, onOpenAsk }) => {
               onClick={() => setViewMode("calendar")}
               className={`flex items-center px-4 py-2 transition-all ${
                 viewMode === "calendar"
-                  ? "rounded-sm bg-white font-bold text-slate-900 shadow-sm"
+                  ? "rounded-sm bg-white font-bold text-slate-900"
                   : "font-medium text-slate-500 hover:text-slate-700"
               }`}
             >
@@ -1469,7 +1469,7 @@ const CalendarView = ({ onOpenJob, onOpenReport, onOpenAsk }) => {
         isRetrying={isRefreshing}
       />
 
-      <div className="rounded-sm border border-slate-200 bg-white shadow-sm">
+      <div className="rounded-sm border border-slate-200 bg-white">
         {viewMode === "list" ? (
           items.length ? (
             <div className="divide-y divide-slate-100">
@@ -1537,13 +1537,13 @@ const CalendarView = ({ onOpenJob, onOpenReport, onOpenAsk }) => {
               <div className="mt-4 flex flex-wrap gap-3">
                 <button
                   onClick={() => setCurrentMonth(shiftMonth(currentMonth, 1))}
-                  className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm"
+                  className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white"
                 >
                   다음 기간 보기
                 </button>
                 <button
                   onClick={onOpenReport}
-                  className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm"
+                  className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700"
                 >
                   기본 리포트로 돌아가기
                 </button>
@@ -1636,7 +1636,7 @@ const CalendarView = ({ onOpenJob, onOpenReport, onOpenAsk }) => {
                             })
                           }
                           disabled={!item.deepLinkEnabled}
-                          className="w-full truncate rounded-sm border border-indigo-100 bg-indigo-50 px-2.5 py-1.5 text-left text-xs font-bold text-indigo-700 shadow-sm transition-colors hover:border-indigo-300 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                          className="w-full truncate rounded-sm border border-indigo-100 bg-indigo-50 px-2.5 py-1.5 text-left text-xs font-bold text-indigo-700 transition-colors hover:border-indigo-300 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                         >
                           {item.company} 마감
                         </button>
@@ -2205,7 +2205,7 @@ export default function JobsWikiPrototype() {
             onClick={() => navigateTo("workspace")}
             className="flex items-center text-sm font-extrabold tracking-tight text-white transition-colors hover:text-indigo-200"
           >
-            <span className="mr-2 flex h-6 w-6 items-center justify-center rounded-sm bg-indigo-600 text-[10px] font-bold text-white shadow-sm">
+            <span className="mr-2 flex h-6 w-6 items-center justify-center rounded-sm bg-indigo-600 text-[10px] font-bold text-white">
               JW
             </span>
             Jobs-Wiki

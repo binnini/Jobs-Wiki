@@ -20,7 +20,7 @@ export const WorkspaceRightPanel = ({
   onLoadWorkspaceSync,
   onTriggerWorkspaceIngestion,
 }) => (
-  <aside className="flex w-72 flex-shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-[#fbf8f2]">
+    <aside className="flex w-72 flex-shrink-0 flex-col overflow-y-auto border-l border-slate-200 bg-[#fbf8f2]">
     {currentView === "document" && activeDocumentContext ? (
       <div className="border-b border-slate-100 px-5 py-4">
         <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-slate-400">문서</div>
@@ -77,7 +77,7 @@ export const WorkspaceRightPanel = ({
         onClick={() => onOpenAsk(activeDocumentContext ?? activeOpportunityContext)}
         className={`w-full rounded-sm border px-3 py-2.5 text-left text-sm font-bold transition-all ${
           currentView === "ask"
-            ? "border-slate-300 bg-white text-slate-900 shadow-sm"
+            ? "border-slate-300 bg-white text-slate-900"
             : "border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-white hover:text-slate-900"
         }`}
       >

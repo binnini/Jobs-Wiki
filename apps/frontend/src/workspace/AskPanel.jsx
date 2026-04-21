@@ -60,7 +60,7 @@ const ContextPanel = ({ activeContext, profileSnapshot, isLoadingContext = false
         <div>
           <Label className="mb-1">현재 Ask 기준</Label>
           {contextType === "opportunity" ? (
-            <div className="space-y-3 rounded-sm border border-indigo-100 bg-indigo-50 p-4 shadow-sm">
+            <div className="space-y-3 rounded-sm border border-indigo-100 bg-indigo-50/70 p-4">
               <div>
                 <div className="mb-1 text-xs font-bold text-indigo-900">{activeContext.company ?? "공고 컨텍스트"}</div>
                 <div className="text-sm font-bold text-indigo-700">{activeContext.title}</div>
@@ -76,7 +76,7 @@ const ContextPanel = ({ activeContext, profileSnapshot, isLoadingContext = false
               ) : null}
             </div>
           ) : contextType === "document" ? (
-            <div className="space-y-3 rounded-sm border border-amber-200 bg-amber-50 p-4 shadow-sm">
+            <div className="space-y-3 rounded-sm border border-amber-200 bg-amber-50/70 p-4">
               <div className="flex flex-wrap items-center gap-2">
                 <span className={`rounded-sm border px-2 py-0.5 text-[11px] font-bold ${getDocumentLayerBadgeClassName(activeContext.layer)}`}>
                   {formatDocumentLayerLabel(activeContext.layer)}
@@ -89,7 +89,7 @@ const ContextPanel = ({ activeContext, profileSnapshot, isLoadingContext = false
               </p>
             </div>
           ) : (
-            <div className="rounded-sm border border-slate-200 bg-slate-50 p-3 text-center text-sm font-bold text-slate-600">
+            <div className="rounded-sm border border-slate-200 bg-slate-50/70 p-3 text-center text-sm font-bold text-slate-600">
               전체 워크스페이스 기반 분석 (지정 문서/공고 없음)
             </div>
           )}
@@ -97,7 +97,7 @@ const ContextPanel = ({ activeContext, profileSnapshot, isLoadingContext = false
             <p className="mt-3 text-xs font-bold text-slate-500">현재 컨텍스트를 보강하는 중입니다.</p>
           ) : null}
           {contextError ? (
-            <div className="mt-3 rounded-sm border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-900 shadow-sm">
+            <div className="mt-3 rounded-sm border border-amber-200 bg-amber-50/80 px-3 py-2 text-xs font-bold text-amber-900">
               {contextError.message}
             </div>
           ) : null}
@@ -125,22 +125,22 @@ const AskActiveContextBanner = ({ activeContext }) => {
     : "border-indigo-200 bg-indigo-50 text-indigo-700";
 
   return (
-    <Panel className={isDocument ? "border-amber-200 bg-amber-50/50" : "border-indigo-200 bg-indigo-50/50"}>
+    <Panel className={isDocument ? "border-amber-200 bg-amber-50/40" : "border-indigo-200 bg-indigo-50/40"}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <Label className={isDocument ? "text-amber-700" : "text-indigo-700"}>active context</Label>
           <h3 className="text-lg font-bold text-slate-900">{activeContext.title}</h3>
           <p className="mt-2 text-sm font-medium leading-relaxed text-slate-700">
             {isDocument
-              ? "현재 답변은 이 문서 projection을 기준으로 정리하며, shared와 personal 경계를 유지한 채 근거와 연관 객체를 함께 보여줍니다."
-              : "현재 답변은 이 공고를 기준으로 정리하며, 근거와 연관 객체를 같은 컨텍스트 아래에서 묶어 보여줍니다."}
+            ? "이 문서를 기준으로 답변과 근거를 함께 보여줍니다."
+            : "이 공고를 기준으로 답변과 근거를 함께 보여줍니다."}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className={`rounded-sm border px-2.5 py-1 text-[11px] font-bold shadow-sm ${badgeClassName}`}>
+          <span className={`rounded-sm border px-2.5 py-1 text-[11px] font-bold ${badgeClassName}`}>
             {isDocument ? formatDocumentLayerLabel(activeContext.layer) : "opportunity"}
           </span>
-          <span className="rounded-sm border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
+          <span className="rounded-sm border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-bold text-slate-600">
             grounded answer
           </span>
         </div>
@@ -171,7 +171,7 @@ const EvidencePanel = ({ evidence }) => (
           const evidenceMeta = getEvidenceMeta(ev.kind);
           const { Icon } = evidenceMeta;
           return (
-            <div key={ev.evidenceId ?? `${ev.label}-${index}`} className="rounded-sm border border-slate-200 bg-slate-50 p-4 shadow-sm">
+          <div key={ev.evidenceId ?? `${ev.label}-${index}`} className="rounded-sm border border-slate-200 bg-slate-50/80 p-4">
               <div className="mb-2 flex items-center justify-between gap-3">
                 <div className="flex items-center">
                   <Icon size={14} className={`mr-2 ${evidenceMeta.iconClassName}`} />
@@ -212,7 +212,7 @@ const RelatedOpportunitiesPanel = ({ currentJob, relatedJobs, onOpenJob, onSwitc
       </h3>
       <div className="space-y-4">
         {visibleJobs.map((job) => (
-          <div key={job.opportunityId} className="rounded-sm border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-slate-400">
+          <div key={job.opportunityId} className="rounded-sm border border-slate-200 bg-white/80 p-4 transition-colors hover:border-slate-300">
             <div className="mb-2 flex items-start justify-between gap-3">
               <span className="text-xs font-bold text-slate-900">{job.company}</span>
               <span className="text-xs font-bold text-slate-500">{job.matchScore ? `적합도 ${job.matchScore}` : job.urgency ?? "비교 가능"}</span>
@@ -222,8 +222,8 @@ const RelatedOpportunitiesPanel = ({ currentJob, relatedJobs, onOpenJob, onSwitc
               {job.matchReason ?? job.summary ?? "연관 공고 설명이 아직 준비되지 않았습니다."}
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => onOpenJob(job)} className="rounded-sm border border-slate-200 bg-slate-50 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100">상세 보기</button>
-              <button onClick={() => onSwitch(job)} disabled={isSwitching} className="rounded-sm border border-indigo-200 bg-indigo-50 py-2 text-xs font-bold text-indigo-700 transition-colors hover:bg-indigo-100 disabled:cursor-not-allowed disabled:opacity-50">이 공고로 다시 분석</button>
+              <button onClick={() => onOpenJob(job)} className="rounded-sm border border-slate-200 bg-white py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50">상세 보기</button>
+              <button onClick={() => onSwitch(job)} disabled={isSwitching} className="rounded-sm border border-slate-200 bg-white py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">이 공고로 다시 분석</button>
             </div>
           </div>
         ))}
@@ -244,7 +244,7 @@ const RelatedDocumentsPanel = ({ currentDocument, relatedDocuments, onOpenDocume
       </h3>
       <div className="space-y-4">
         {visibleDocuments.map((document) => (
-          <div key={document.documentId} className="rounded-sm border border-slate-200 bg-white p-4 shadow-sm transition-colors hover:border-slate-400">
+          <div key={document.documentId} className="rounded-sm border border-slate-200 bg-white/80 p-4 transition-colors hover:border-slate-300">
             <div className="mb-3 flex items-start justify-between gap-3">
               <h4 className="text-sm font-bold text-slate-800">{document.title}</h4>
               <span className={`rounded-sm border px-2 py-0.5 text-[11px] font-bold ${getDocumentLayerBadgeClassName(document.layer)}`}>
@@ -255,8 +255,8 @@ const RelatedDocumentsPanel = ({ currentDocument, relatedDocuments, onOpenDocume
               {document.summary ?? "연결된 문서 요약이 아직 준비되지 않았습니다."}
             </p>
             <div className="grid grid-cols-2 gap-2">
-              <button onClick={() => onOpenDocument(document)} className="rounded-sm border border-slate-200 bg-slate-50 py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100">문서 열기</button>
-              <button onClick={() => onSwitch(document)} disabled={isSwitching} className="rounded-sm border border-amber-200 bg-amber-50 py-2 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-50">이 문서로 다시 분석</button>
+              <button onClick={() => onOpenDocument(document)} className="rounded-sm border border-slate-200 bg-white py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50">문서 열기</button>
+              <button onClick={() => onSwitch(document)} disabled={isSwitching} className="rounded-sm border border-slate-200 bg-white py-2 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50">이 문서로 다시 분석</button>
             </div>
           </div>
         ))}
@@ -275,7 +275,7 @@ const FollowUpPanel = ({ hasJob, onSelect }) => (
       {hasJob && (
         <li
           onClick={() => onSelect("이 공고의 핵심 요구사항에 맞춰 내 이력서의 어떤 부분을 수정하면 좋을지 구체적인 방향을 제시해 줘.")}
-          className="group flex cursor-pointer items-start rounded-sm border border-slate-200 bg-white p-3.5 text-sm font-bold leading-relaxed text-slate-800 shadow-sm transition-colors hover:border-indigo-600 hover:shadow-md"
+          className="group flex cursor-pointer items-start rounded-sm border border-slate-200 bg-white/80 p-3.5 text-sm font-bold leading-relaxed text-slate-800 transition-colors hover:border-slate-300"
         >
           <MoveRight size={16} className="mr-3 mt-0.5 flex-shrink-0 text-indigo-600 opacity-70 transition-opacity group-hover:opacity-100" />
           이 공고 기준으로 이력서 수정 방향 보기
@@ -283,14 +283,14 @@ const FollowUpPanel = ({ hasJob, onSelect }) => (
       )}
       <li
         onClick={() => onSelect("현재 내 프로필에서 부족한 역량이 무엇인지 정리하고, 이를 보완할 수 있는 학습 방향을 제시해 줘.")}
-        className="group flex cursor-pointer items-start rounded-sm border border-slate-200 bg-white p-3.5 text-sm font-bold leading-relaxed text-slate-800 shadow-sm transition-colors hover:border-indigo-600 hover:shadow-md"
+        className="group flex cursor-pointer items-start rounded-sm border border-slate-200 bg-white/80 p-3.5 text-sm font-bold leading-relaxed text-slate-800 transition-colors hover:border-slate-300"
       >
         <MoveRight size={16} className="mr-3 mt-0.5 flex-shrink-0 text-indigo-600 opacity-70 transition-opacity group-hover:opacity-100" />
         부족한 역량만 따로 심층 분석하기
       </li>
       <li
         onClick={() => onSelect("추천 공고들의 마감일과 적합도를 함께 고려해서 우선순위를 다시 정리해 줘.")}
-        className="group flex cursor-pointer items-start rounded-sm border border-slate-200 bg-white p-3.5 text-sm font-bold leading-relaxed text-slate-800 shadow-sm transition-colors hover:border-indigo-600 hover:shadow-md"
+        className="group flex cursor-pointer items-start rounded-sm border border-slate-200 bg-white/80 p-3.5 text-sm font-bold leading-relaxed text-slate-800 transition-colors hover:border-slate-300"
       >
         <MoveRight size={16} className="mr-3 mt-0.5 flex-shrink-0 text-indigo-600 opacity-70 transition-opacity group-hover:opacity-100" />
         마감일 기준으로 지원 우선순위 다시 보기
@@ -301,12 +301,12 @@ const FollowUpPanel = ({ hasJob, onSelect }) => (
 
 function buildAskWelcomeText(activeContext) {
   if (activeContext?.contextType === "document") {
-    return `**${activeContext.title}** 문서를 기준으로 심층 분석을 시작할 준비가 되었습니다. 질문을 보내면 현재 문서에 grounded된 답변과 함께 근거, 연관 문서, 연관 공고를 함께 보여줍니다.`;
+    return `**${activeContext.title}** 문서를 기준으로 질문을 시작할 수 있습니다.`;
   }
   if (activeContext?.contextType === "opportunity") {
-    return `**${activeContext.company ?? "선택한 회사"}**의 **${activeContext.title}** 공고를 기준으로 심층 분석을 시작할 준비가 되었습니다. 질문을 보내면 실제 WAS 응답을 기준으로 답변, 근거, 연관 공고를 함께 보여줍니다.`;
+    return `**${activeContext.company ?? "선택한 회사"}**의 **${activeContext.title}** 공고를 기준으로 질문을 시작할 수 있습니다.`;
   }
-  return "현재 전체 프로필을 기준으로 심층 분석 워크스페이스가 활성화되었습니다. 특정 공고 없이도 지원 전략, 역량 보완, 우선순위 질문을 바로 보낼 수 있습니다.";
+  return "현재 전체 프로필 기준으로 질문을 바로 보낼 수 있습니다.";
 }
 
 export const AskWorkspaceView = ({ activeContext, profileSnapshot, initialPrompt = "", onContextChange, onOpenJob, onOpenDocument }) => {
@@ -468,7 +468,7 @@ export const AskWorkspaceView = ({ activeContext, profileSnapshot, initialPrompt
 
   return (
     <div className="mx-auto flex h-[calc(100vh-6rem)] w-full max-w-[1400px] flex-col gap-8 animate-in fade-in lg:flex-row">
-      <div className="min-w-[600px] flex-1 overflow-hidden rounded-sm border border-slate-200 bg-white shadow-sm">
+      <div className="min-w-[600px] flex-1 overflow-hidden rounded-sm border border-slate-200 bg-white">
         <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-8 py-5">
           <div>
             <h2 className="text-xl font-bold tracking-tight text-slate-900">메인 분석 패널</h2>
@@ -542,7 +542,7 @@ export const AskWorkspaceView = ({ activeContext, profileSnapshot, initialPrompt
         </div>
 
         <div className="border-t border-slate-200 bg-slate-50 p-6">
-          <div className="relative mx-auto flex max-w-3xl items-center rounded-sm border border-slate-300 bg-white shadow-sm transition-all focus-within:border-indigo-600 focus-within:ring-1 focus-within:ring-indigo-600">
+          <div className="relative mx-auto flex max-w-3xl items-center rounded-sm border border-slate-300 bg-white transition-all focus-within:border-indigo-600 focus-within:ring-1 focus-within:ring-indigo-600">
             <div className="pl-4 text-slate-400"><Search size={20} /></div>
             <textarea
               value={input}

@@ -345,7 +345,7 @@ export const CreatePersonalDocumentModal = ({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-sm border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600 shadow-sm"
+            className="rounded-sm border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-600"
           >
             닫기
           </button>
@@ -392,7 +392,7 @@ export const CreatePersonalDocumentModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700 shadow-sm"
+              className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700"
             >
               취소
             </button>
@@ -416,7 +416,7 @@ export const CreatePersonalDocumentModal = ({
                     : {}),
                 })
               }
-              className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800 disabled:opacity-40"
+              className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white transition-colors hover:bg-slate-800 disabled:opacity-40"
             >
               {isSubmitting ? "만드는 중..." : "만들기"}
             </button>

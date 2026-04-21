@@ -16,7 +16,7 @@ export const MetaTag = ({ icon: Icon, children }) => (
 );
 
 export const Panel = ({ children, className = "", noPadding = false }) => (
-  <div className={`rounded-sm border border-slate-200 bg-white shadow-sm ${noPadding ? "" : "p-6"} ${className}`}>
+  <div className={`rounded-sm border border-slate-200/80 bg-white/95 ${noPadding ? "" : "p-6"} ${className}`}>
     {children}
   </div>
 );
@@ -58,21 +58,21 @@ export function StructuredResponse({ text }) {
 }
 
 export const InlineNotice = ({ title, message, className = "" }) => (
-  <div className={`rounded-sm border px-4 py-3 shadow-sm ${className}`}>
+  <div className={`rounded-sm border px-4 py-3 ${className}`}>
     <div className="text-sm font-bold">{title}</div>
     {message ? <p className="mt-1 text-sm leading-relaxed">{message}</p> : null}
   </div>
 );
 
 export const RetryPanel = ({ title, message, onRetry, retryLabel = "다시 시도", secondaryAction }) => (
-  <div className="mx-auto max-w-3xl rounded-sm border border-slate-200 bg-white p-8 shadow-sm">
+  <div className="mx-auto max-w-3xl rounded-sm border border-slate-200/80 bg-white/95 p-8">
     <div className="mb-4 flex items-center text-amber-700">
       <AlertCircle size={20} className="mr-3" />
       <h2 className="text-2xl font-bold text-slate-900">{title}</h2>
     </div>
     <p className="mb-6 text-sm leading-relaxed text-slate-600">{message}</p>
     <div className="flex flex-wrap gap-3">
-      <button onClick={onRetry} className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm">
+      <button onClick={onRetry} className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white">
         {retryLabel}
       </button>
       {secondaryAction}
@@ -99,7 +99,7 @@ export const SyncNotice = ({ surface, sync, refreshError, onRetry, isRetrying = 
         />
       ) : null}
       {showRetryAction ? (
-        <div className="flex flex-wrap items-center gap-3 rounded-sm border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-3 rounded-sm border border-slate-200/80 bg-white/95 px-4 py-3">
           <button
             onClick={onRetry}
             disabled={isRetrying}
@@ -110,10 +110,6 @@ export const SyncNotice = ({ surface, sync, refreshError, onRetry, isRetrying = 
               ? `${formatSurfaceLabel(surface)} 다시 확인 중...`
               : getSurfaceRetryLabel(surface, sync, refreshError)}
           </button>
-          <div className="text-xs font-medium leading-relaxed text-slate-500">
-            우측 <span className="font-bold text-slate-700">Sync</span>{" "}
-            패널에서 전체 projection 상태와 WorkNet 수동 갱신을 확인할 수 있습니다.
-          </div>
         </div>
       ) : null}
     </div>

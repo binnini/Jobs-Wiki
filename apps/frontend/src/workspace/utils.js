@@ -36,35 +36,35 @@ export const EMPTY_PROFILE_SNAPSHOT = {
 export const SYNC_VISIBILITY_META = {
   applied: {
     badgeLabel: "최신 반영",
-    badgeClassName: "border-emerald-200 bg-emerald-50 text-emerald-700",
+    badgeClassName: "border-slate-200 bg-white text-slate-700",
     noticeTitle: null,
     noticeMessage: null,
     noticeClassName: null,
   },
   pending: {
     badgeLabel: "갱신 중",
-    badgeClassName: "border-sky-200 bg-sky-50 text-sky-700",
+    badgeClassName: "border-sky-100 bg-sky-50 text-sky-700",
     noticeTitle: "마지막 확인 데이터를 유지하는 중입니다",
     noticeMessage: "새 데이터를 가져오는 동안 기존 화면을 유지합니다.",
     noticeClassName: "border-sky-200 bg-sky-50 text-sky-900",
   },
   partial: {
     badgeLabel: "부분 반영",
-    badgeClassName: "border-amber-200 bg-amber-50 text-amber-700",
+    badgeClassName: "border-amber-100 bg-amber-50 text-amber-700",
     noticeTitle: "일부 블록만 최신 상태입니다",
     noticeMessage: "준비된 정보는 먼저 보여주고, 나머지 블록은 순차적으로 채웁니다.",
     noticeClassName: "border-amber-200 bg-amber-50 text-amber-900",
   },
   unknown: {
     badgeLabel: "마지막 확인본",
-    badgeClassName: "border-slate-200 bg-slate-100 text-slate-700",
+    badgeClassName: "border-slate-200 bg-slate-50 text-slate-600",
     noticeTitle: "현재 화면은 마지막 확인 데이터를 기준으로 합니다",
     noticeMessage: "최신 반영 여부를 단정할 수 없어 마지막 성공 데이터를 유지합니다.",
     noticeClassName: "border-slate-200 bg-slate-100 text-slate-900",
   },
   stale: {
     badgeLabel: "오래되었을 수 있음",
-    badgeClassName: "border-amber-200 bg-amber-50 text-amber-700",
+    badgeClassName: "border-amber-100 bg-amber-50 text-amber-700",
     noticeTitle: "화면 데이터가 오래되었을 수 있습니다",
     noticeMessage: "마지막 성공 데이터를 유지하고 있으며 새로고침을 권장합니다.",
     noticeClassName: "border-amber-200 bg-amber-50 text-amber-900",
@@ -72,35 +72,35 @@ export const SYNC_VISIBILITY_META = {
 };
 
 export const COMMAND_STATUS_META = {
-  accepted: { label: "접수됨", className: "border-sky-200 bg-sky-50 text-sky-700" },
-  validating: { label: "검증 중", className: "border-sky-200 bg-sky-50 text-sky-700" },
-  queued: { label: "대기 중", className: "border-sky-200 bg-sky-50 text-sky-700" },
-  running: { label: "실행 중", className: "border-sky-200 bg-sky-50 text-sky-700" },
-  succeeded: { label: "완료", className: "border-emerald-200 bg-emerald-50 text-emerald-700" },
-  failed: { label: "실패", className: "border-rose-200 bg-rose-50 text-rose-700" },
-  cancelled: { label: "취소됨", className: "border-slate-200 bg-slate-100 text-slate-700" },
+  accepted: { label: "접수됨", className: "border-slate-200 bg-white text-slate-700" },
+  validating: { label: "검증 중", className: "border-slate-200 bg-white text-slate-700" },
+  queued: { label: "대기 중", className: "border-slate-200 bg-white text-slate-700" },
+  running: { label: "실행 중", className: "border-slate-200 bg-white text-slate-700" },
+  succeeded: { label: "완료", className: "border-emerald-100 bg-emerald-50 text-emerald-700" },
+  failed: { label: "실패", className: "border-rose-100 bg-rose-50 text-rose-700" },
+  cancelled: { label: "취소됨", className: "border-slate-200 bg-slate-50 text-slate-600" },
 };
 
 export const COMMAND_OUTCOME_META = {
   accepted_only: {
     title: "명령은 접수되었고 반영 여부는 follow-up sync에서 확인됩니다",
     message: "아직 projection별 최신 반영을 단정하지 않고 계속 상태를 확인합니다.",
-    className: "border-sky-200 bg-sky-50 text-sky-900",
+    className: "border-sky-100 bg-sky-50 text-sky-900",
   },
   partially_applied: {
     title: "일부 projection만 최신 상태로 확인되었습니다",
     message: "적용된 화면은 바로 확인하고, 나머지 projection은 추가 반영을 기다립니다.",
-    className: "border-amber-200 bg-amber-50 text-amber-900",
+    className: "border-amber-100 bg-amber-50 text-amber-900",
   },
   fully_applied: {
     title: "관련 projection 반영이 확인되었습니다",
     message: "동기화 패널에서 반영된 projection 범위를 바로 확인할 수 있습니다.",
-    className: "border-emerald-200 bg-emerald-50 text-emerald-900",
+    className: "border-emerald-100 bg-emerald-50 text-emerald-900",
   },
   failed: {
     title: "명령 실행이 완료되지 않았습니다",
     message: "재시도가 가능하면 같은 화면에서 다시 요청할 수 있습니다.",
-    className: "border-rose-200 bg-rose-50 text-rose-900",
+    className: "border-rose-100 bg-rose-50 text-rose-900",
   },
 };
 
@@ -669,8 +669,8 @@ export function formatWritableAffordanceLabel({ layer, writable }) {
 }
 
 export function getWritableBadgeClassName({ layer, writable }) {
-  if (isSharedLayer(layer) || writable === false) return "border-slate-200 bg-slate-100 text-slate-600";
-  return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (isSharedLayer(layer) || writable === false) return "border-slate-200 bg-slate-50 text-slate-600";
+  return "border-emerald-100 bg-emerald-50 text-emerald-700";
 }
 
 export function buildLayerBoundaryCopy({ layer, writable }) {
@@ -687,9 +687,9 @@ export function buildLayerBoundaryCopy({ layer, writable }) {
 }
 
 export function getDocumentLayerBadgeClassName(layer) {
-  if (layer === "shared") return "border-slate-200 bg-slate-100 text-slate-700";
-  if (layer === "personal_wiki") return "border-emerald-200 bg-emerald-50 text-emerald-700";
-  return "border-amber-200 bg-amber-50 text-amber-700";
+  if (layer === "shared") return "border-slate-200 bg-slate-50 text-slate-700";
+  if (layer === "personal_wiki") return "border-emerald-100 bg-emerald-50 text-emerald-700";
+  return "border-amber-100 bg-amber-50 text-amber-700";
 }
 
 export function mapDocumentResponse(response) {
