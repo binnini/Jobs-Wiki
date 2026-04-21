@@ -4,3 +4,5 @@ node_modules/
 dist/
 apps/frontend/node_modules/
 apps/frontend/dist/
+apps/data/ingestion-state/
+data/logs/

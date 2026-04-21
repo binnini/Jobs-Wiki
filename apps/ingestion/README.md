@@ -275,6 +275,26 @@ npm run ingest:worknet:backfill
 - 이후에는 하루 1회 `incremental` 로 새 공고와 수정 공고를 수집합니다.
 - `incremental` state 는 `INGEST_INCREMENTAL_STATE_DIR` 아래 source별 JSON 파일로 저장됩니다.
 
+macOS `launchd` 예시:
+
+```bash
+cp /Users/yebin/workSpace/Ontology/Jobs-Wiki/scripts/launchd/com.jobswiki.worknet.daily.plist \
+  ~/Library/LaunchAgents/com.jobswiki.worknet.daily.plist
+launchctl bootstrap "gui/$(id -u)" ~/Library/LaunchAgents/com.jobswiki.worknet.daily.plist
+launchctl enable "gui/$(id -u)/com.jobswiki.worknet.daily"
+```
+
+기본 설정은 매일 `02:15` 에 아래 작업을 실행합니다.
+
+- `npm run ingest:worknet:incremental`
+- `INGEST_INCREMENTAL_MAX_PAGES=3`
+- `WORKNET_FETCH_SIZE=20`
+
+실행 스크립트:
+
+- `scripts/run-worknet-daily-batch.sh`
+- `scripts/launchd/com.jobswiki.worknet.daily.plist`
+
 run summary 확인:
 
 - 기본 저장 위치: `${TMPDIR:-/tmp}/jobs-wiki-ingestion-runs/`
