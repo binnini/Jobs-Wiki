@@ -37,6 +37,8 @@ import {
   SyncNotice,
 } from "./primitives.jsx";
 
+const AUTO_ATTACH_CONFIDENCE_THRESHOLD = 0.95;
+
 const ContextPanel = ({ activeContext, profileSnapshot, isLoadingContext = false, contextError = null }) => {
   const profile = normalizeProfileSnapshot(profileSnapshot);
   const contextType = activeContext?.contextType ?? "workspace";
@@ -133,12 +135,15 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const [mutationError, setMutationError] = useState(null);
   const [mutationNotice, setMutationNotice] = useState(null);
   const [isGenerationTraceOpen, setIsGenerationTraceOpen] = useState(false);
+  const [isAutoAttachEnabled, setIsAutoAttachEnabled] = useState(false);
   const [assetFilename, setAssetFilename] = useState("");
   const [assetMediaType, setAssetMediaType] = useState("application/pdf");
   const [assetStorageRef, setAssetStorageRef] = useState("");
   const [linkSuggestions, setLinkSuggestions] = useState([]);
+  const [autoAttachedLinkKeys, setAutoAttachedLinkKeys] = useState([]);
   const requestIdRef = useRef(0);
   const suggestionRequestIdRef = useRef(0);
+  const attachRequestIdRef = useRef(0);
 
   const loadDocument = async ({ preserveData = false } = {}) => {
     if (!documentId) { setIsLoading(false); return; }
@@ -189,7 +194,9 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     setMutationError(null);
     setMutationNotice(null);
     setLinkSuggestions([]);
+    setAutoAttachedLinkKeys([]);
     suggestionRequestIdRef.current += 1;
+    attachRequestIdRef.current += 1;
     if (!documentId) { setIsLoading(false); return undefined; }
     loadDocument();
     return () => { requestIdRef.current += 1; };
@@ -242,6 +249,11 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   const generation = detail.metadata?.generation ?? null;
   const generationTrace = Array.isArray(generation?.trace) ? generation.trace : [];
   const showGenerationTrace = detail.layer === "personal_wiki" && generationTrace.length > 0;
+  const autoAttachedLinkKeySet = new Set(autoAttachedLinkKeys);
+  const buildLinkKey = (item) => `${item.layer}:${item.id}`;
+  const isHighConfidenceLink = (item) => Number(item.confidence ?? 0) >= AUTO_ATTACH_CONFIDENCE_THRESHOLD;
+  const pendingLinkSuggestions = linkSuggestions.filter((item) => !autoAttachedLinkKeySet.has(buildLinkKey(item)));
+  const attachableLinkSuggestions = pendingLinkSuggestions;
 
   useEffect(() => {
     if (!generation || detail.layer !== "personal_wiki" || !detail.writable || linkSuggestions.length > 0) {
@@ -283,6 +295,84 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     }
   };
 
+  useEffect(() => {
+    if (
+      !isAutoAttachEnabled ||
+      detail.layer !== "personal_wiki" ||
+      !detail.writable ||
+      !detail.version ||
+      !generation ||
+      linkSuggestions.length === 0 ||
+      isSuggestingLinks ||
+      isAttachingLinks
+    ) {
+      return undefined;
+    }
+
+    const autoAttachableSuggestions = linkSuggestions.filter(
+      (item) =>
+        isHighConfidenceLink(item) && !autoAttachedLinkKeySet.has(buildLinkKey(item)),
+    );
+
+    if (autoAttachableSuggestions.length === 0) {
+      return undefined;
+    }
+
+    void autoAttachHighConfidenceLinks(autoAttachableSuggestions);
+    return undefined;
+  }, [
+    detail.documentId,
+    detail.layer,
+    detail.writable,
+    detail.version,
+    generation?.generatedAt,
+    isAutoAttachEnabled,
+    linkSuggestions,
+    autoAttachedLinkKeys,
+    isSuggestingLinks,
+    isAttachingLinks,
+  ]);
+
+  const autoAttachHighConfidenceLinks = async (suggestions) => {
+    if (
+      detail.layer !== "personal_wiki" ||
+      !detail.writable ||
+      !detail.version ||
+      isAttachingLinks ||
+      suggestions.length === 0
+    ) {
+      return;
+    }
+
+    const requestId = attachRequestIdRef.current + 1;
+    attachRequestIdRef.current = requestId;
+
+    setIsAttachingLinks(true);
+    setMutationError(null);
+    setMutationNotice(null);
+
+    try {
+      await attachWikiLinks(detail.documentId, {
+        wikiDocumentVersion: detail.version,
+        attachments: suggestions.map((item) => ({ layer: item.layer, id: item.id })),
+      });
+      if (requestId !== attachRequestIdRef.current) return;
+      setAutoAttachedLinkKeys((current) => Array.from(new Set([...current, ...suggestions.map(buildLinkKey)])));
+      await loadDocument({ preserveData: true });
+      await refreshWorkspace();
+      setMutationNotice(
+        `confidence ${AUTO_ATTACH_CONFIDENCE_THRESHOLD.toFixed(2)} 이상 link ${suggestions.length}개를 auto-attach했습니다.`,
+      );
+    } catch (requestError) {
+      if (requestId !== attachRequestIdRef.current) return;
+      setMutationError(requestError instanceof WasClientError ? requestError : new WasClientError({ message: "link auto-attach에 실패했습니다." }));
+    } finally {
+      if (requestId === attachRequestIdRef.current) {
+        setIsAttachingLinks(false);
+      }
+    }
+  };
+
   const handleGenerateWiki = async (operation) => {
     if (detail.layer !== "personal_raw" || !detail.writable || isGeneratingWiki) return;
     setIsGeneratingWiki(true);
@@ -310,14 +400,14 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
   };
 
   const handleAttachSuggestedLinks = async () => {
-    if (detail.layer !== "personal_wiki" || !detail.writable || !detail.version || isAttachingLinks || linkSuggestions.length === 0) return;
+    if (detail.layer !== "personal_wiki" || !detail.writable || !detail.version || isAttachingLinks || attachableLinkSuggestions.length === 0) return;
     setIsAttachingLinks(true);
     setMutationError(null);
     setMutationNotice(null);
     try {
       await attachWikiLinks(detail.documentId, {
         wikiDocumentVersion: detail.version,
-        attachments: linkSuggestions.map((item) => ({ layer: item.layer, id: item.id })),
+        attachments: attachableLinkSuggestions.map((item) => ({ layer: item.layer, id: item.id })),
       });
       await loadDocument({ preserveData: true });
       await refreshWorkspace();
@@ -596,11 +686,25 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
               <p className="mb-4 text-sm font-medium leading-relaxed text-slate-600">
                 suggestion은 읽기 전용 preview이고, attach는 personal/wiki 문서 메타데이터에만 반영됩니다.
               </p>
+              <label className="mb-4 flex items-start gap-3 rounded-sm border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={isAutoAttachEnabled}
+                  onChange={(event) => setIsAutoAttachEnabled(event.target.checked)}
+                  className="mt-1 h-4 w-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500"
+                />
+                <span>
+                  <span className="block font-bold text-slate-900">Auto-attach high-confidence links</span>
+                  <span className="block text-xs leading-relaxed text-slate-500">
+                    confidence {AUTO_ATTACH_CONFIDENCE_THRESHOLD.toFixed(2)} 이상만 자동으로 attach하고, 나머지는 suggestion으로 남깁니다.
+                  </span>
+                </span>
+              </label>
               <div className="flex flex-wrap gap-3">
                 <button type="button" onClick={handleSuggestLinks} disabled={isSuggestingLinks} className="rounded-sm border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm font-bold text-indigo-700 shadow-sm disabled:opacity-40">
                   {isSuggestingLinks ? "조회 중..." : "suggest links"}
                 </button>
-                <button type="button" onClick={handleAttachSuggestedLinks} disabled={isAttachingLinks || linkSuggestions.length === 0} className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 shadow-sm disabled:opacity-40">
+                <button type="button" onClick={handleAttachSuggestedLinks} disabled={isAttachingLinks || attachableLinkSuggestions.length === 0} className="rounded-sm border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-700 shadow-sm disabled:opacity-40">
                   {isAttachingLinks ? "적용 중..." : "attach links"}
                 </button>
               </div>
@@ -608,7 +712,16 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
                 <div className="mt-4 space-y-2">
                   {linkSuggestions.map((item, index) => (
                     <div key={`${item.layer}-${item.id}-${index}`} className="rounded-sm border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-bold text-slate-700">
-                      {item.layer}: {item.id}{item.reason ? ` - ${item.reason}` : ""}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span>{item.layer}: {item.id}</span>
+                        <span className={`rounded border px-1.5 py-0.5 text-[10px] font-bold ${autoAttachedLinkKeySet.has(buildLinkKey(item)) ? "border-emerald-200 bg-emerald-50 text-emerald-700" : isHighConfidenceLink(item) && isAutoAttachEnabled ? "border-amber-200 bg-amber-50 text-amber-700" : "border-slate-200 bg-white text-slate-500"}`}>
+                          {autoAttachedLinkKeySet.has(buildLinkKey(item)) ? "auto-attached" : isHighConfidenceLink(item) ? "suggested" : "suggested"}
+                        </span>
+                        {typeof item.confidence === "number" ? (
+                          <span className="text-[10px] font-bold text-slate-400">confidence {item.confidence.toFixed(2)}</span>
+                        ) : null}
+                      </div>
+                      {item.reason ? <div className="mt-1 font-medium text-slate-600">{item.reason}</div> : null}
                     </div>
                   ))}
                 </div>
