@@ -505,13 +505,13 @@ export function createStratawikiHttpClient({
       })
       return response.result
     },
-    async submitCommand({ requestId, command, idempotencyKey } = {}) {
+    async submitCommand({ requestId, name, arguments: commandArguments, command, idempotencyKey } = {}) {
       const response = await request({
         method: "POST",
         path: "/api/v1/commands",
         json: compactObject({
-          requestId,
-          command,
+          name: name ?? command?.name,
+          arguments: commandArguments ?? command?.payload ?? command?.arguments,
         }),
         requestId,
         idempotencyKey: idempotencyKey ?? requestId,

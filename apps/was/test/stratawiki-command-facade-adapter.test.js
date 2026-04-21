@@ -61,11 +61,9 @@ test("command facade client submits the expected envelope through HTTP", async (
   assert.deepEqual(httpClient.submitCalls, [
     {
       requestId: "request_001",
-      command: {
-        name: "jobs_wiki.ingestion.trigger_worknet",
-        payload: {
-          sourceId: "worknet.recruiting",
-        },
+      name: "jobs_wiki.ingestion.trigger_worknet",
+      arguments: {
+        sourceId: "worknet.recruiting",
       },
       idempotencyKey: "request_001",
     },
@@ -128,11 +126,9 @@ test("command facade adapter builds the worknet trigger envelope on top of the t
     {
       requestId: "request_002",
       idempotencyKey: "request_002",
-      command: {
-        name: "jobs_wiki.ingestion.trigger_worknet",
-        payload: {
-          sourceId: "worknet.recruiting",
-        },
+      name: "jobs_wiki.ingestion.trigger_worknet",
+      arguments: {
+        sourceId: "worknet.recruiting",
       },
     },
   ])

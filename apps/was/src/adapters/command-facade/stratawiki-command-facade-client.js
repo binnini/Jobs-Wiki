@@ -192,7 +192,8 @@ export function createStratawikiCommandFacadeClient({
       try {
         const rawResponse = await httpClient.submitCommand({
           requestId,
-          command,
+          name: command?.name,
+          arguments: command?.payload ?? command?.arguments,
           idempotencyKey: idempotencyKey ?? requestId,
         })
 
