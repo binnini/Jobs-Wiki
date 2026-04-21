@@ -130,11 +130,12 @@ status: draft
 ### M4. Personal Document CRUD
 
 - 사용자는 personal workspace에서 markdown 문서를 생성할 수 있어야 합니다.
-- 사용자는 personal workspace에 PDF를 업로드할 수 있어야 합니다.
+- 사용자는 personal workspace에 PDF 같은 파일 asset을 등록할 수 있어야 합니다.
 - 사용자는 personal workspace 문서를 수정할 수 있어야 합니다.
 - 사용자는 personal workspace 문서를 삭제할 수 있어야 합니다.
 - 이 CRUD는 `personal`에서만 허용되어야 합니다.
 - personal의 변경은 절대로 상위 `Fact`나 `Interpretation` layer를 직접 수정해서는 안 됩니다.
+- binary upload transport 자체는 별도 범위일 수 있으며, first wave에서는 asset registration이 기본 경계일 수 있습니다.
 
 ### M5. Report Projection
 
@@ -203,14 +204,19 @@ status: draft
 - `POST /api/documents`
 - `PATCH /api/documents/{documentId}`
 - `DELETE /api/documents/{documentId}`
+- `POST /api/assets`
 - `GET /api/workspace/summary`
 - `POST /api/workspace/ask`
 - `POST /api/documents/{documentId}/summarize`
 - `POST /api/documents/{documentId}/rewrite`
-- `POST /api/documents/{documentId}/link`
+- `POST /api/documents/{documentId}/structure`
+- `POST /api/documents/{documentId}/suggest-links`
+- `POST /api/documents/{documentId}/attach-links`
 - `GET /api/opportunities`
 - `GET /api/opportunities/{opportunityId}`
 - `GET /api/calendar`
+- `GET /api/workspace/sync`
+- `POST /api/admin/ingestions/worknet/{sourceId}`
 
 ## Functional Requirements
 
@@ -230,7 +236,7 @@ status: draft
 
 ### FR-4 Personal Authoring
 
-- 사용자는 personal/raw에서 raw 문서를 작성/업로드/수정/삭제할 수 있어야 합니다.
+- 사용자는 personal/raw에서 raw 문서를 작성/asset 등록/수정/삭제할 수 있어야 합니다.
 - 사용자는 personal/wiki에서 LLM이 재가공한 문서를 읽고 다시 다듬을 수 있어야 합니다.
 
 ### FR-5 Grounded Ask

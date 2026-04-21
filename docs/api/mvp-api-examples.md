@@ -27,16 +27,23 @@ status: draft
 
 - `GET /api/workspace`
 - `GET /api/documents/{documentId}`
+- `POST /api/documents`
+- `POST /api/assets`
 - `GET /api/workspace/summary`
 - `POST /api/workspace/ask`
+- `POST /api/documents/{documentId}/summarize`
+- `POST /api/documents/{documentId}/rewrite`
+- `POST /api/documents/{documentId}/structure`
+- `POST /api/documents/{documentId}/suggest-links`
+- `POST /api/documents/{documentId}/attach-links`
 - `GET /api/opportunities`
 - `GET /api/opportunities/{opportunityId}`
 - `GET /api/calendar`
 
 메모:
 
-- `workspace`, `documents` 예시는 target contract 성격이 강합니다.
-- `workspace/summary`, `ask`, `opportunities`, `calendar` 예시는 현재 구현 slice와 더 가깝습니다.
+- 아래 예시는 현재 mainline 구현 shape에 가깝게 맞춥니다.
+- 세부 값은 fixture와 live runtime에 따라 달라질 수 있지만 field shape는 현재 contract를 따릅니다.
 
 ## Shared Error Shape
 
@@ -88,7 +95,13 @@ status: draft
             },
             "kind": "report",
             "layer": "shared",
-            "active": true
+            "active": true,
+            "workspacePath": {
+              "sectionId": "shared",
+              "nodeType": "special_view",
+              "segments": [],
+              "label": "기본 리포트"
+            }
           },
           {
             "objectRef": {
@@ -97,7 +110,36 @@ status: draft
               "title": "일본 백엔드 채용 트렌드"
             },
             "kind": "document",
-            "layer": "shared"
+            "layer": "shared",
+            "workspacePath": {
+              "sectionId": "shared",
+              "nodeType": "document",
+              "segments": ["market", "backend"],
+              "leaf": "backend",
+              "label": "일본 백엔드 채용 트렌드"
+            }
+          }
+        ],
+        "tree": [
+          {
+            "kind": "folder",
+            "nodeType": "folder",
+            "label": "market",
+            "layer": "shared",
+            "children": [
+              {
+                "kind": "document",
+                "nodeType": "document",
+                "label": "일본 백엔드 채용 트렌드",
+                "layer": "shared",
+                "objectRef": {
+                  "objectId": "document:market-trend-jp-backend",
+                  "objectKind": "document",
+                  "title": "일본 백엔드 채용 트렌드"
+                },
+                "children": []
+              }
+            ]
           }
         ]
       },
@@ -112,20 +154,26 @@ status: draft
               "title": "이력서_v3.pdf"
             },
             "kind": "document",
-            "layer": "personal_raw"
+            "layer": "personal_raw",
+            "workspacePath": {
+              "sectionId": "personal_raw",
+              "nodeType": "document",
+              "segments": ["career", "resume-v3"],
+              "leaf": "resume-v3",
+              "label": "이력서_v3.pdf"
+            }
           }
         ]
       }
     ]
   },
-  "activeContext": {
+  "activeProjection": {
     "objectRef": {
       "objectId": "report:baseline",
       "objectKind": "report",
       "title": "기본 리포트"
     },
-    "projection": "report",
-    "title": "기본 리포트"
+    "projection": "report"
   }
 }
 ```
@@ -156,9 +204,18 @@ status: draft
     },
     "metadata": {
       "source": {
-        "provider": "stratawiki"
+        "provider": "stratawiki",
+        "sourceId": "document:market-trend-jp-backend"
       },
-      "updatedAt": "2026-04-20T14:00:00+09:00"
+      "updatedAt": "2026-04-20T14:00:00+09:00",
+      "version": 3
+    },
+    "workspacePath": {
+      "sectionId": "shared",
+      "nodeType": "document",
+      "segments": ["market", "backend"],
+      "leaf": "backend",
+      "label": "일본 백엔드 채용 트렌드"
     },
     "relatedObjects": [
       {
@@ -171,7 +228,51 @@ status: draft
 }
 ```
 
-## 3. `GET /api/workspace/summary`
+## 3. `POST /api/documents/{documentId}/summarize`
+
+### Success Example
+
+```json
+{
+  "operation": "summarize",
+  "item": {
+    "documentRef": {
+      "objectId": "personal_wiki:personal:wiki:20260421T090000000000Z:abcd1234",
+      "objectKind": "document",
+      "title": "지원 전략 요약"
+    },
+    "layer": "personal_wiki",
+    "writable": true,
+    "surface": {
+      "title": "지원 전략 요약",
+      "bodyMarkdown": "# 지원 전략 요약\n\n- 강점\n- 리스크\n- 다음 액션",
+      "summary": "# 지원 전략 요약\n\n- 강점\n- 리스크\n- 다음 액션"
+    },
+    "metadata": {
+      "source": {
+        "provider": "jobs_wiki_generation",
+        "sourceId": "personal:wiki:20260421T090000000000Z:abcd1234"
+      },
+      "updatedAt": "2026-04-21T09:00:00+09:00",
+      "version": 1,
+      "generation": {
+        "operation": "summarize",
+        "provider": "ollama",
+        "model": "gemma4:e2b",
+        "generatedAt": "2026-04-21T09:00:00+09:00"
+      }
+    },
+    "relatedObjects": []
+  },
+  "sourceDocumentRef": {
+    "documentId": "personal_raw:pdoc_123",
+    "title": "원본 메모",
+    "layer": "personal_raw"
+  }
+}
+```
+
+## 4. `GET /api/workspace/summary`
 
 ### Success Example
 
@@ -325,7 +426,7 @@ status: draft
 }
 ```
 
-## 4. `POST /api/workspace/ask`
+## 5. `POST /api/workspace/ask`
 
 ### Request Example
 

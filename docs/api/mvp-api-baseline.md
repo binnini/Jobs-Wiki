@@ -53,8 +53,8 @@ workspace-first 제품 방향에 맞춰 다시 고정합니다.
 
 현재 구현 메모:
 
-- 이미 구현된 read slice는 `workspace_summary + opportunity + ask + calendar`에 더 가깝습니다.
-- 이 문서는 그 자산을 workspace-first MVP의 내부 projection으로 재배치합니다.
+- 현재 구현은 이미 `workspace + document + personal CRUD + asset registration + wiki generation + link flow`까지 포함합니다.
+- 이 문서는 그 구현을 workspace-first MVP projection language로 설명합니다.
 
 ## Endpoint Set
 
@@ -70,10 +70,12 @@ workspace-first 제품 방향에 맞춰 다시 고정합니다.
 8. `POST /api/workspace/ask`
 9. `POST /api/documents/{documentId}/summarize`
 10. `POST /api/documents/{documentId}/rewrite`
-11. `POST /api/documents/{documentId}/link`
-12. `GET /api/opportunities`
-13. `GET /api/opportunities/{opportunityId}`
-14. `GET /api/calendar`
+11. `POST /api/documents/{documentId}/structure`
+12. `POST /api/documents/{documentId}/suggest-links`
+13. `POST /api/documents/{documentId}/attach-links`
+14. `GET /api/opportunities`
+15. `GET /api/opportunities/{opportunityId}`
+16. `GET /api/calendar`
 
 운영/동기화 보조 endpoint:
 
@@ -91,16 +93,26 @@ workspace-first 제품 방향에 맞춰 다시 고정합니다.
 
 현재 구현된 endpoint slice:
 
+- `GET /api/workspace`
+- `GET /api/documents/{documentId}`
+- `POST /api/documents`
+- `PATCH /api/documents/{documentId}`
+- `DELETE /api/documents/{documentId}`
+- `POST /api/assets`
 - `GET /api/workspace/summary`
 - `POST /api/workspace/ask`
+- `POST /api/documents/{documentId}/summarize`
+- `POST /api/documents/{documentId}/rewrite`
+- `POST /api/documents/{documentId}/structure`
+- `POST /api/documents/{documentId}/suggest-links`
+- `POST /api/documents/{documentId}/attach-links`
 - `GET /api/opportunities`
 - `GET /api/opportunities/{opportunityId}`
 - `GET /api/calendar`
 - `GET /api/workspace/sync`
 - `POST /api/admin/ingestions/worknet/{sourceId}`
 
-즉 `GET /api/workspace`, `GET /api/documents/{documentId}`, personal CRUD,
-asset registration, wiki generation endpoint는 새 workspace-first MVP 기준에서 추가로 맞춰가야 할 target endpoint입니다.
+즉 현재 mainline 구현은 workspace-first MVP의 핵심 endpoint set을 이미 포함하고 있습니다.
 
 ## Shared Rules
 
@@ -171,7 +183,18 @@ type WorkspaceShellResponse = {
         kind: "document" | "opportunity" | "report" | "calendar";
         layer: "shared" | "personal_raw" | "personal_wiki";
         active?: boolean;
+        workspacePath?: {
+          sectionId?: string;
+          nodeType?: "folder" | "document" | "special_view";
+          segments?: string[];
+          leaf?: string;
+          key?: string;
+          parentKey?: string | null;
+          label?: string;
+          path?: string | null;
+        };
       }>;
+      tree?: Array<unknown>;
     }>;
   };
   activeProjection?: {
@@ -183,7 +206,7 @@ type WorkspaceShellResponse = {
 
 메모:
 
-- 현재 구현에서는 `/api/workspace/summary`가 workspace shell의 일부 역할을 대신합니다.
+- 현재 구현은 `/api/workspace`를 실제 workspace shell first-load route로 사용합니다.
 - `shared`는 read-only입니다.
 - `personal_raw`, `personal_wiki`는 writable personal directory입니다.
 - upstream 관점에서는 shared read와 personal write를 다른 resource family로 보는 편이 맞습니다.
@@ -210,18 +233,40 @@ type DocumentDetailResponse = {
       summary?: string;
     };
     metadata?: {
-      source?: string;
+      source?: {
+        provider?: string;
+        sourceId?: string;
+        fetchedAt?: string;
+      };
       updatedAt?: string;
       tags?: string[];
+      version?: number;
+      assetRefs?: string[];
+      generation?: {
+        operation?: "summarize" | "rewrite" | "structure";
+        provider?: string;
+        model?: string;
+        generatedAt?: string;
+      };
     };
     relatedObjects?: KnowledgeObjectRef[];
+    workspacePath?: {
+      sectionId?: string;
+      nodeType?: "folder" | "document" | "special_view";
+      segments?: string[];
+      leaf?: string;
+      key?: string;
+      parentKey?: string | null;
+      label?: string;
+      path?: string | null;
+    };
   };
 };
 ```
 
 메모:
 
-- 현재 구현은 generic document detail보다 opportunity detail에 더 가깝습니다.
+- 현재 구현은 shared / personal/raw / personal/wiki 문서를 모두 같은 detail surface로 다루고, opportunity detail은 별도 projection으로 유지합니다.
 - `shared` 문서는 항상 `writable: false`여야 합니다.
 - `personal_raw`, `personal_wiki`는 `writable: true`일 수 있습니다.
 
