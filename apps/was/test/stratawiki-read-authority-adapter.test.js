@@ -317,6 +317,117 @@ test("real read adapter builds workspace shell navigation from runtime personal 
   })
 })
 
+test("real read adapter reclassifies legacy and drifted personal documents into the correct workspace section", async () => {
+  const adapter = createAdapter({
+    personalKnowledgeClient: {
+      async getInterpretationRecord({ interpretationId }) {
+        return {
+          record: {
+            id: interpretationId,
+            title: "해석 문서",
+            summary: "shared interpretation summary",
+          },
+        }
+      },
+      async getFactRecord({ factId }) {
+        return {
+          record: {
+            id: factId,
+            attributes: {
+              title: "fact document",
+              summary: "fact summary",
+            },
+          },
+        }
+      },
+      async getPersonalRecord({ personalId }) {
+        return {
+          record: {
+            id: personalId,
+            title: "personal note",
+            summary: "personal summary",
+          },
+        }
+      },
+      async listPersonalDocuments({ subspace }) {
+        if (subspace === "wiki") {
+          return {
+            items: [
+              {
+                document_id: "pdoc_002",
+                subspace: "wiki",
+                title: "wiki note",
+                workspace_path: {
+                  section_id: "personal_wiki",
+                  segments: ["notes", "wiki-note"],
+                  label: "wiki note",
+                },
+              },
+            ],
+          }
+        }
+
+        return {
+          items: [
+            {
+              document_id: "personal:wiki:legacy-strategy",
+              subspace: "raw",
+              title: "legacy wiki note",
+            },
+            {
+              document_id: "pdoc_001",
+              subspace: "raw",
+              title: "raw note",
+              workspace_path: {
+                section_id: "personal_raw",
+                segments: ["inbox", "raw-note"],
+                label: "raw note",
+              },
+            },
+          ],
+        }
+      },
+      async getPersonalDocument({ documentId }) {
+        return {
+          document: {
+            document_id: documentId,
+            subspace: "raw",
+            title: "runtime personal doc",
+            body_markdown: "## Runtime",
+            asset_refs: ["passet_1"],
+            version: 3,
+            status: "active",
+            updated_at: "2026-04-19T00:40:00.000Z",
+          },
+        }
+      },
+    },
+  })
+
+  const workspace = await adapter.getWorkspace({
+    userContext: {
+      workspaceId: "workspace_demo",
+      profileId: "profile_demo_backend",
+    },
+  })
+
+  assert.deepEqual(
+    workspace.sections[1].items.map((item) => item.objectId),
+    ["personal_raw:pdoc_001"],
+  )
+  assert.deepEqual(
+    workspace.sections[2].items.map((item) => item.objectId),
+    [
+      "personal_wiki:personal:wiki:legacy-strategy",
+      "personal_wiki:pdoc_002",
+    ],
+  )
+  assert.deepEqual(
+    workspace.sections[2].items[0].workspacePath.segments,
+    ["notes", "personal:wiki:legacy-strategy"],
+  )
+})
+
 test("real read adapter resolves wrapped shared and personal document ids", async () => {
   const adapter = createAdapter()
   const shared = await adapter.getDocumentDetail({

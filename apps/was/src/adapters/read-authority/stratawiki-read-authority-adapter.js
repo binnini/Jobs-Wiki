@@ -681,6 +681,55 @@ function mapPersonalDocument(parsedDocumentId, record) {
   }
 }
 
+function resolvePersonalLayer(record, { subspace } = {}) {
+  const workspacePath = record?.workspace_path ?? record?.workspacePath
+  const workspaceSectionId = workspacePath?.section_id ?? workspacePath?.sectionId
+
+  if (workspaceSectionId === "personal_wiki") {
+    return "personal_wiki"
+  }
+
+  if (workspaceSectionId === "personal_raw") {
+    return "personal_raw"
+  }
+
+  const recordId = record?.document_id ?? record?.id
+
+  if (typeof recordId === "string") {
+    if (/^(personal:wiki:|personal_wiki:)/.test(recordId)) {
+      return "personal_wiki"
+    }
+
+    if (/^(personal:raw:|personal_raw:)/.test(recordId)) {
+      return "personal_raw"
+    }
+  }
+
+  if (record?.subspace === "wiki") {
+    return "personal_wiki"
+  }
+
+  if (record?.subspace === "raw") {
+    return "personal_raw"
+  }
+
+  const tags = Array.isArray(record?.tags) ? record.tags : []
+
+  if (tags.includes("wiki")) {
+    return "personal_wiki"
+  }
+
+  if (tags.includes("raw")) {
+    return "personal_raw"
+  }
+
+  if (record?.generation) {
+    return "personal_wiki"
+  }
+
+  return subspace === "wiki" ? "personal_wiki" : "personal_raw"
+}
+
 function mapPersonalWorkspaceItem(record, { subspace } = {}) {
   const recordId = record?.document_id ?? record?.id
 
@@ -688,8 +737,8 @@ function mapPersonalWorkspaceItem(record, { subspace } = {}) {
     return undefined
   }
 
-  const resolvedSubspace = subspace ?? record?.subspace
-  const layer = resolvedSubspace === "wiki" ? "personal_wiki" : "personal_raw"
+  const layer = resolvePersonalLayer(record, { subspace })
+  const workspacePath = record?.workspace_path ?? record?.workspacePath
 
   return {
     objectId: `${layer}:${recordId}`,
@@ -698,13 +747,23 @@ function mapPersonalWorkspaceItem(record, { subspace } = {}) {
     kind: "document",
     layer,
     path: `/documents/${encodeURIComponent(`${layer}:${recordId}`)}`,
-    workspacePath: normalizeWorkspacePath({
-      sectionId: layer,
-      nodeType: "document",
-      segments: [layer === "personal_wiki" ? "notes" : "inbox", recordId],
-      label: record?.title ?? recordId,
-      path: `/documents/${encodeURIComponent(`${layer}:${recordId}`)}`,
-    }),
+    workspacePath: workspacePath
+      ? normalizeWorkspacePath({
+          sectionId: workspacePath.section_id ?? workspacePath.sectionId ?? layer,
+          nodeType: "document",
+          segments: Array.isArray(workspacePath.segments)
+            ? workspacePath.segments
+            : [layer === "personal_wiki" ? "notes" : "inbox", recordId],
+          label: workspacePath.label ?? record?.title ?? recordId,
+          path: `/documents/${encodeURIComponent(`${layer}:${recordId}`)}`,
+        })
+      : normalizeWorkspacePath({
+          sectionId: layer,
+          nodeType: "document",
+          segments: [layer === "personal_wiki" ? "notes" : "inbox", recordId],
+          label: record?.title ?? recordId,
+          path: `/documents/${encodeURIComponent(`${layer}:${recordId}`)}`,
+        }),
   }
 }
 
@@ -742,15 +801,45 @@ async function listPersonalWorkspaceItems({
     }),
   ])
 
+  const recordsById = new Map()
+
+  for (const record of rawResponse?.items ?? []) {
+    const recordId = record?.document_id ?? record?.id
+
+    if (typeof recordId === "string" && recordId.trim() !== "") {
+      recordsById.set(recordId, { record, subspace: "raw" })
+    }
+  }
+
+  for (const record of wikiResponse?.items ?? []) {
+    const recordId = record?.document_id ?? record?.id
+
+    if (typeof recordId === "string" && recordId.trim() !== "") {
+      recordsById.set(recordId, { record, subspace: "wiki" })
+    }
+  }
+
+  const personalRawItems = []
+  const personalWikiItems = []
+
+  for (const { record, subspace } of recordsById.values()) {
+    const mappedItem = mapPersonalWorkspaceItem(record, { subspace })
+
+    if (!mappedItem) {
+      continue
+    }
+
+    if (mappedItem.layer === "personal_wiki") {
+      personalWikiItems.push(mappedItem)
+      continue
+    }
+
+    personalRawItems.push(mappedItem)
+  }
+
   return {
-    personalRawItems:
-      (rawResponse?.items ?? [])
-        .map((item) => mapPersonalWorkspaceItem(item, { subspace: "raw" }))
-        .filter(Boolean),
-    personalWikiItems:
-      (wikiResponse?.items ?? [])
-        .map((item) => mapPersonalWorkspaceItem(item, { subspace: "wiki" }))
-        .filter(Boolean),
+    personalRawItems,
+    personalWikiItems,
   }
 }
 
