@@ -52,6 +52,38 @@ function createDefaultAssetStorageRef(filename) {
   return `personal-assets/${(safeName || "asset")}-${suffix}`;
 }
 
+function buildDocumentDetailStateFallback() {
+  return {
+    documentId: null,
+    layer: null,
+    writable: false,
+    version: null,
+    title: "",
+    bodyMarkdown: "",
+    summary: null,
+    assetRefs: [],
+    metadata: {},
+    workspacePath: null,
+    relatedObjects: [],
+  };
+}
+
+function normalizeDocumentDetailError(error, fallbackMessage) {
+  if (error instanceof WasClientError) {
+    return error;
+  }
+
+  return new WasClientError({
+    code: "temporarily_unavailable",
+    status: 503,
+    retryable: true,
+    message: fallbackMessage,
+    details: {
+      cause: error instanceof Error ? error.message : String(error),
+    },
+  });
+}
+
 const ContextPanel = ({ activeContext, profileSnapshot, isLoadingContext = false, contextError = null }) => {
   const profile = normalizeProfileSnapshot(profileSnapshot);
   const contextType = activeContext?.contextType ?? "workspace";
@@ -177,18 +209,19 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     try {
       const response = await getDocumentDetail(documentId);
       if (requestId !== requestIdRef.current) return;
+      const mappedDetail = mapDocumentResponse(response);
       setDocumentResponse(response);
-      const detail = mapDocumentResponse(response);
-      setEditorTitle(detail.title ?? "");
-      setEditorBody(detail.bodyMarkdown ?? "");
-      setEditorWorkspacePath(detail.workspacePath?.segments?.join("/") ?? "");
+      setEditorTitle(mappedDetail.title ?? "");
+      setEditorBody(mappedDetail.bodyMarkdown ?? "");
+      setEditorWorkspacePath(mappedDetail.workspacePath?.segments?.join("/") ?? "");
       setError(null);
       setRefreshError(null);
     } catch (requestError) {
       if (requestId !== requestIdRef.current) return;
-      const normalizedError = requestError instanceof WasClientError
-        ? requestError
-        : new WasClientError({ message: "문서 상세를 불러오지 못했습니다." });
+      const normalizedError = normalizeDocumentDetailError(
+        requestError,
+        "문서 상세를 불러오지 못했습니다.",
+      );
       if (preserveData) setRefreshError(normalizedError);
       else setError(normalizedError);
     } finally {
@@ -220,19 +253,24 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     return () => { requestIdRef.current += 1; };
   }, [documentId]);
 
-  const detail = documentResponse
-    ? mapDocumentResponse(documentResponse)
-    : {
-        documentId: null,
-        layer: null,
-        writable: false,
-        version: null,
-        title: "",
-        bodyMarkdown: "",
-        assetRefs: [],
-        metadata: {},
-        workspacePath: null,
+  let detail = buildDocumentDetailStateFallback();
+  let detailParseError = null;
+
+  if (documentResponse) {
+    try {
+      detail = {
+        ...buildDocumentDetailStateFallback(),
+        ...mapDocumentResponse(documentResponse),
       };
+    } catch (mappingError) {
+      detailParseError = normalizeDocumentDetailError(
+        mappingError,
+        "문서 응답을 해석하지 못했습니다. 다시 시도해 주세요.",
+      );
+    }
+  }
+
+  const effectiveError = error ?? detailParseError;
   const syncMeta = documentResponse?.sync ? getSyncMeta(documentResponse.sync) : null;
   const updatedAt = formatKoreanDateTime(detail.metadata?.updatedAt);
   const tags = detail.metadata?.tags ?? [];
@@ -251,7 +289,16 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     .map((segment) => segment.trim())
     .filter(Boolean);
 
-  const refreshWorkspace = async () => { await onWorkspaceChanged?.(); };
+  const refreshWorkspace = async () => {
+    try {
+      await onWorkspaceChanged?.();
+    } catch (refreshWorkspaceError) {
+      throw normalizeDocumentDetailError(
+        refreshWorkspaceError,
+        "워크스페이스 상태를 새로고침하지 못했습니다.",
+      );
+    }
+  };
 
   const loadLinkSuggestions = async ({ showNotice = true } = {}) => {
     if (detail.layer !== "personal_wiki" || !detail.writable || isSuggestingLinks) return;
@@ -382,7 +429,7 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
 
   if (isLoading && !documentResponse) return <DetailLoadingView />;
 
-  if (error?.code === "not_found" && !documentResponse) {
+  if (effectiveError?.code === "not_found" && !documentResponse) {
     return (
       <RetryPanel
         title="문서를 찾을 수 없습니다"
@@ -393,12 +440,18 @@ export const DocumentDetailView = ({ documentId, onBack, onOpenAsk, onOpenDocume
     );
   }
 
-  if (error && !documentResponse) {
+  if (effectiveError && !documentResponse) {
+    const isTemporarilyUnavailable = effectiveError.code === "temporarily_unavailable";
     return (
       <RetryPanel
-        title="문서 상세를 불러오지 못했습니다"
-        message={error.message}
+        title={
+          isTemporarilyUnavailable
+            ? "문서 상세를 잠시 불러올 수 없습니다"
+            : "문서 상세를 불러오지 못했습니다"
+        }
+        message={effectiveError.message}
         onRetry={() => loadDocument()}
+        retryLabel={isTemporarilyUnavailable ? "잠시 후 다시 시도" : "다시 시도"}
         secondaryAction={
           <button onClick={onBack} className="rounded-sm border border-slate-300 bg-white px-5 py-3 text-sm font-bold text-slate-700">
             워크스페이스로 돌아가기
