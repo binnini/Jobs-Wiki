@@ -1,18 +1,151 @@
-import React, { useEffect, useState } from "react";
-import { ChevronRight } from "lucide-react";
-import { WORKSPACE_LAYER_META, DOCUMENT_LAYER_LABELS, getWorkspaceItemIcon } from "./utils.js";
+import React, { useEffect, useMemo, useState } from "react";
+import { ChevronRight, Folder, FolderOpen } from "lucide-react";
+import {
+  WORKSPACE_LAYER_META,
+  DOCUMENT_LAYER_LABELS,
+  getWorkspaceItemIcon,
+} from "./utils.js";
 import { Label, InlineNotice } from "./primitives.jsx";
 
-export const WorkspaceNavigationSection = ({ section, currentPath, onNavigatePath, onCreatePersonalDocument }) => {
-  const layerMeta = WORKSPACE_LAYER_META[section.sectionId] ?? { emptyLabel: "표시할 항목이 아직 없습니다." };
+function collectActiveTreeKeys(nodes, currentPath) {
+  const activeKeys = new Set();
+
+  const visit = (node) => {
+    const children = Array.isArray(node.children) ? node.children : [];
+    const selfIsActive = Boolean(node.path) && node.path === currentPath;
+    const descendantIsActive = children.some(visit);
+
+    if ((node.nodeType === "folder" && descendantIsActive) || selfIsActive) {
+      if (node.workspacePath?.key) {
+        activeKeys.add(node.workspacePath.key);
+      }
+    }
+
+    return selfIsActive || descendantIsActive;
+  };
+
+  nodes.forEach(visit);
+  return activeKeys;
+}
+
+function WorkspaceTreeNode({
+  node,
+  currentPath,
+  expandedKeys,
+  onToggle,
+  onNavigatePath,
+  depth = 0,
+}) {
+  const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+  const isFolder = node.nodeType === "folder";
+  const isExpanded = node.workspacePath?.key
+    ? expandedKeys.has(node.workspacePath.key)
+    : false;
+  const isActive = Boolean(node.path) && node.path === currentPath;
+  const isAncestorActive =
+    !isActive &&
+    hasChildren &&
+    node.children.some((child) => Boolean(child.path) && child.path === currentPath);
+  const Icon = isFolder ? (isExpanded ? FolderOpen : Folder) : getWorkspaceItemIcon(node.kind);
+
+  return (
+    <div className="space-y-px">
+      <div className="flex items-center">
+        <button
+          type="button"
+          onClick={() => {
+            if (hasChildren && node.workspacePath?.key) {
+              onToggle(node.workspacePath.key);
+            } else if (node.path) {
+              onNavigatePath(node.path);
+            }
+          }}
+          aria-current={isActive ? "page" : undefined}
+          aria-expanded={hasChildren ? isExpanded : undefined}
+          className={`flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-all ${
+            isActive
+              ? "bg-indigo-600 text-white"
+              : isAncestorActive
+                ? "bg-slate-800/80 text-white"
+                : "text-slate-300 hover:bg-slate-800 hover:text-white"
+          }`}
+          style={{ paddingLeft: `${0.5 + depth * 0.8}rem` }}
+        >
+          {hasChildren ? (
+            <ChevronRight
+              size={11}
+              className={`flex-shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+            />
+          ) : (
+            <span className="h-[11px] w-[11px] flex-shrink-0" />
+          )}
+          <Icon size={12} className="flex-shrink-0 opacity-80" />
+          <span className="truncate text-xs font-medium">{node.label ?? node.title}</span>
+        </button>
+      </div>
+      {hasChildren && isExpanded ? (
+        <div className="space-y-px">
+          {node.children.map((child) => (
+            <WorkspaceTreeNode
+              key={child.workspacePath?.key ?? `${child.label}-${child.path ?? "folder"}`}
+              node={child}
+              currentPath={currentPath}
+              expandedKeys={expandedKeys}
+              onToggle={onToggle}
+              onNavigatePath={onNavigatePath}
+              depth={depth + 1}
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export const WorkspaceNavigationSection = ({
+  section,
+  currentPath,
+  onNavigatePath,
+  onCreatePersonalDocument,
+}) => {
+  const layerMeta = WORKSPACE_LAYER_META[section.sectionId] ?? {
+    emptyLabel: "표시할 항목이 아직 없습니다.",
+  };
   const canCreate = section.sectionId === "personal_raw" || section.sectionId === "personal_wiki";
   const sectionLabel = DOCUMENT_LAYER_LABELS[section.sectionId] ?? section.label;
+  const sectionTree = Array.isArray(section.tree) && section.tree.length ? section.tree : null;
+  const [expandedKeys, setExpandedKeys] = useState(() => new Set());
+
+  const activeKeys = useMemo(
+    () => collectActiveTreeKeys(sectionTree ?? [], currentPath),
+    [sectionTree, currentPath],
+  );
+
+  useEffect(() => {
+    setExpandedKeys((current) => {
+      const next = new Set(current);
+      activeKeys.forEach((key) => next.add(key));
+      return next;
+    });
+  }, [activeKeys]);
+
+  const toggleNode = (key) => {
+    setExpandedKeys((current) => {
+      const next = new Set(current);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
 
   return (
     <div>
       <div className="flex items-center justify-between px-1 py-1">
         <div className="flex items-center gap-1">
-          <ChevronRight size={11} className="text-slate-600 flex-shrink-0" />
+          <ChevronRight size={11} className="flex-shrink-0 text-slate-600" />
           <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">
             {sectionLabel}
           </span>
@@ -30,7 +163,20 @@ export const WorkspaceNavigationSection = ({ section, currentPath, onNavigatePat
       </div>
 
       <div className="ml-3 border-l border-slate-800/60 pl-2">
-        {section.items.length ? (
+        {sectionTree ? (
+          <div className="space-y-px">
+            {sectionTree.map((node) => (
+              <WorkspaceTreeNode
+                key={node.workspacePath?.key ?? `${node.label}-${node.path ?? "folder"}`}
+                node={node}
+                currentPath={currentPath}
+                expandedKeys={expandedKeys}
+                onToggle={toggleNode}
+                onNavigatePath={onNavigatePath}
+              />
+            ))}
+          </div>
+        ) : section.items.length ? (
           <div className="space-y-px">
             {section.items.map((item) => {
               const Icon = getWorkspaceItemIcon(item.kind);
@@ -66,7 +212,13 @@ export const WorkspaceNavigationSection = ({ section, currentPath, onNavigatePat
   );
 };
 
-export const CreatePersonalDocumentModal = ({ layer, isSubmitting, error, onClose, onSubmit }) => {
+export const CreatePersonalDocumentModal = ({
+  layer,
+  isSubmitting,
+  error,
+  onClose,
+  onSubmit,
+}) => {
   const [title, setTitle] = useState("");
   const [bodyMarkdown, setBodyMarkdown] = useState("");
 
@@ -77,7 +229,8 @@ export const CreatePersonalDocumentModal = ({ layer, isSubmitting, error, onClos
 
   if (!layer) return null;
 
-  const titleLabel = layer === "personal_wiki" ? "personal/wiki 새 문서" : "personal/raw 새 문서";
+  const titleLabel =
+    layer === "personal_wiki" ? "personal/wiki 새 문서" : "personal/raw 새 문서";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4">
@@ -131,7 +284,13 @@ export const CreatePersonalDocumentModal = ({ layer, isSubmitting, error, onClos
             <button
               type="button"
               disabled={isSubmitting || !title.trim() || !bodyMarkdown.trim()}
-              onClick={() => onSubmit({ layer, title: title.trim(), bodyMarkdown: bodyMarkdown.trim() })}
+              onClick={() =>
+                onSubmit({
+                  layer,
+                  title: title.trim(),
+                  bodyMarkdown: bodyMarkdown.trim(),
+                })
+              }
               className="rounded-sm bg-slate-900 px-5 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-slate-800 disabled:opacity-40"
             >
               {isSubmitting ? "만드는 중..." : "만들기"}
