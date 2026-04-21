@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronRight, Folder, FolderOpen } from "lucide-react";
 import {
   WORKSPACE_LAYER_META,
@@ -28,78 +28,59 @@ function collectActiveTreeKeys(nodes, currentPath) {
   return activeKeys;
 }
 
-function WorkspaceTreeNode({
-  node,
+function treeContainsPath(node, currentPath) {
+  if (Boolean(node.path) && node.path === currentPath) {
+    return true;
+  }
+
+  return (Array.isArray(node.children) ? node.children : []).some((child) =>
+    treeContainsPath(child, currentPath),
+  );
+}
+
+function buildVisibleTreeEntries(
+  nodes,
   currentPath,
   expandedKeys,
-  onToggle,
-  onNavigatePath,
   depth = 0,
-}) {
-  const hasChildren = Array.isArray(node.children) && node.children.length > 0;
-  const isFolder = node.nodeType === "folder";
-  const isExpanded = node.workspacePath?.key
-    ? expandedKeys.has(node.workspacePath.key)
-    : false;
-  const isActive = Boolean(node.path) && node.path === currentPath;
-  const isAncestorActive =
-    !isActive &&
-    hasChildren &&
-    node.children.some((child) => Boolean(child.path) && child.path === currentPath);
-  const Icon = isFolder ? (isExpanded ? FolderOpen : Folder) : getWorkspaceItemIcon(node.kind);
+  parentKey = null,
+) {
+  const entries = [];
 
-  return (
-    <div className="space-y-px">
-      <div className="flex items-center">
-        <button
-          type="button"
-          onClick={() => {
-            if (hasChildren && node.workspacePath?.key) {
-              onToggle(node.workspacePath.key);
-            } else if (node.path) {
-              onNavigatePath(node.path);
-            }
-          }}
-          aria-current={isActive ? "page" : undefined}
-          aria-expanded={hasChildren ? isExpanded : undefined}
-          className={`flex min-w-0 flex-1 items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-all ${
-            isActive
-              ? "bg-indigo-600 text-white"
-              : isAncestorActive
-                ? "bg-slate-800/80 text-white"
-                : "text-slate-300 hover:bg-slate-800 hover:text-white"
-          }`}
-          style={{ paddingLeft: `${0.5 + depth * 0.8}rem` }}
-        >
-          {hasChildren ? (
-            <ChevronRight
-              size={11}
-              className={`flex-shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
-            />
-          ) : (
-            <span className="h-[11px] w-[11px] flex-shrink-0" />
-          )}
-          <Icon size={12} className="flex-shrink-0 opacity-80" />
-          <span className="truncate text-xs font-medium">{node.label ?? node.title}</span>
-        </button>
-      </div>
-      {hasChildren && isExpanded ? (
-        <div className="space-y-px">
-          {node.children.map((child) => (
-            <WorkspaceTreeNode
-              key={child.workspacePath?.key ?? `${child.label}-${child.path ?? "folder"}`}
-              node={child}
-              currentPath={currentPath}
-              expandedKeys={expandedKeys}
-              onToggle={onToggle}
-              onNavigatePath={onNavigatePath}
-              depth={depth + 1}
-            />
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
+  for (const node of nodes ?? []) {
+    const key = node.workspacePath?.key ?? `${node.label}-${node.path ?? "folder"}`;
+    const hasChildren = Array.isArray(node.children) && node.children.length > 0;
+    const isFolder = node.nodeType === "folder";
+    const isExpanded = key ? expandedKeys.has(key) : false;
+    const isActive = Boolean(node.path) && node.path === currentPath;
+    const isAncestorActive = !isActive && hasChildren && treeContainsPath(node, currentPath);
+
+    entries.push({
+      key,
+      node,
+      depth,
+      parentKey,
+      hasChildren,
+      isFolder,
+      isExpanded,
+      isActive,
+      isAncestorActive,
+    });
+
+    if (hasChildren && isFolder && isExpanded) {
+      entries.push(
+        ...buildVisibleTreeEntries(
+          node.children,
+          currentPath,
+          expandedKeys,
+          depth + 1,
+          key,
+        ),
+      );
+    }
+  }
+
+  return entries;
 }
 
 export const WorkspaceNavigationSection = ({
@@ -115,10 +96,17 @@ export const WorkspaceNavigationSection = ({
   const sectionLabel = DOCUMENT_LAYER_LABELS[section.sectionId] ?? section.label;
   const sectionTree = Array.isArray(section.tree) && section.tree.length ? section.tree : null;
   const [expandedKeys, setExpandedKeys] = useState(() => new Set());
+  const rowRefs = useRef(new Map());
 
   const activeKeys = useMemo(
     () => collectActiveTreeKeys(sectionTree ?? [], currentPath),
     [sectionTree, currentPath],
+  );
+
+  const visibleEntries = useMemo(
+    () =>
+      buildVisibleTreeEntries(sectionTree ?? [], currentPath, expandedKeys),
+    [sectionTree, currentPath, expandedKeys],
   );
 
   useEffect(() => {
@@ -139,6 +127,82 @@ export const WorkspaceNavigationSection = ({
       }
       return next;
     });
+  };
+
+  const focusNode = (key) => {
+    const row = rowRefs.current.get(key);
+    if (row) {
+      row.focus();
+    }
+  };
+
+  const moveFocus = (currentKey, direction) => {
+    const currentIndex = visibleEntries.findIndex((entry) => entry.key === currentKey);
+    if (currentIndex === -1) {
+      return;
+    }
+
+    if (direction === "next" && visibleEntries[currentIndex + 1]) {
+      focusNode(visibleEntries[currentIndex + 1].key);
+    }
+
+    if (direction === "prev" && visibleEntries[currentIndex - 1]) {
+      focusNode(visibleEntries[currentIndex - 1].key);
+    }
+  };
+
+  const handleNodeKeyDown = (event, entry) => {
+    if (event.altKey || event.metaKey || event.ctrlKey) {
+      return;
+    }
+
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        moveFocus(entry.key, "next");
+        break;
+      case "ArrowUp":
+        event.preventDefault();
+        moveFocus(entry.key, "prev");
+        break;
+      case "ArrowRight":
+        if (entry.hasChildren && entry.isFolder && !entry.isExpanded) {
+          event.preventDefault();
+          toggleNode(entry.key);
+          window.requestAnimationFrame(() => focusNode(entry.key));
+        } else if (entry.hasChildren && entry.isFolder) {
+          event.preventDefault();
+          const firstChild = visibleEntries[visibleEntries.findIndex((item) => item.key === entry.key) + 1];
+          if (firstChild) {
+            focusNode(firstChild.key);
+          }
+        }
+        break;
+      case "ArrowLeft":
+        if (entry.hasChildren && entry.isFolder && entry.isExpanded) {
+          event.preventDefault();
+          toggleNode(entry.key);
+          window.requestAnimationFrame(() => focusNode(entry.key));
+        } else if (entry.parentKey) {
+          event.preventDefault();
+          focusNode(entry.parentKey);
+        }
+        break;
+      case "Home":
+        event.preventDefault();
+        if (visibleEntries[0]) {
+          focusNode(visibleEntries[0].key);
+        }
+        break;
+      case "End":
+        event.preventDefault();
+        if (visibleEntries.at(-1)) {
+          focusNode(visibleEntries.at(-1).key);
+        }
+        break;
+      default:
+        break;
+    }
   };
 
   return (
@@ -165,16 +229,62 @@ export const WorkspaceNavigationSection = ({
       <div className="ml-3 border-l border-slate-800/60 pl-2">
         {sectionTree ? (
           <div className="space-y-px">
-            {sectionTree.map((node) => (
-              <WorkspaceTreeNode
-                key={node.workspacePath?.key ?? `${node.label}-${node.path ?? "folder"}`}
-                node={node}
-                currentPath={currentPath}
-                expandedKeys={expandedKeys}
-                onToggle={toggleNode}
-                onNavigatePath={onNavigatePath}
-              />
-            ))}
+            {visibleEntries.map((entry) => {
+              const {
+                key,
+                node,
+                depth,
+                hasChildren,
+                isFolder,
+                isExpanded,
+                isActive,
+                isAncestorActive,
+              } = entry;
+              const Icon = isFolder ? (isExpanded ? FolderOpen : Folder) : getWorkspaceItemIcon(node.kind);
+
+              return (
+                <button
+                  key={key}
+                  ref={(element) => {
+                    if (element) {
+                      rowRefs.current.set(key, element);
+                    } else {
+                      rowRefs.current.delete(key);
+                    }
+                  }}
+                  type="button"
+                  onClick={() => {
+                    if (hasChildren && isFolder && key) {
+                      toggleNode(key);
+                    } else if (node.path) {
+                      onNavigatePath(node.path);
+                    }
+                  }}
+                  onKeyDown={(event) => handleNodeKeyDown(event, entry)}
+                  aria-current={isActive ? "page" : undefined}
+                  aria-expanded={hasChildren ? isExpanded : undefined}
+                  className={`flex w-full min-w-0 items-center gap-2 rounded-sm px-2 py-1.5 text-left transition-all ${
+                    isActive
+                      ? "bg-indigo-600 text-white"
+                      : isAncestorActive
+                        ? "bg-slate-800/80 text-white"
+                        : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                  }`}
+                  style={{ paddingLeft: `${0.5 + depth * 0.8}rem` }}
+                >
+                  {hasChildren ? (
+                    <ChevronRight
+                      size={11}
+                      className={`flex-shrink-0 transition-transform ${isExpanded ? "rotate-90" : ""}`}
+                    />
+                  ) : (
+                    <span className="h-[11px] w-[11px] flex-shrink-0" />
+                  )}
+                  <Icon size={12} className="flex-shrink-0 opacity-80" />
+                  <span className="truncate text-xs font-medium">{node.label ?? node.title}</span>
+                </button>
+              );
+            })}
           </div>
         ) : section.items.length ? (
           <div className="space-y-px">
