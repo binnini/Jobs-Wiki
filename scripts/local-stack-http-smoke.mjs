@@ -33,6 +33,10 @@ function getEnv(name, fallback = undefined) {
   return fallback
 }
 
+function shellAssign(name, value) {
+  return `${name}=${JSON.stringify(value)}`
+}
+
 function summarize(value) {
   return JSON.stringify(value, null, 2)
 }
@@ -143,6 +147,14 @@ async function main() {
   const wasBaseUrl = getEnv("JOBS_WIKI_WAS_BASE_URL", DEFAULT_WAS_BASE_URL)
   const stratawikiBaseUrl = getEnv("STRATAWIKI_BASE_URL", DEFAULT_STRATAWIKI_BASE_URL)
   const databaseUrl = getEnv("DATABASE_URL", DEFAULT_DATABASE_URL)
+  const domainPackPaths = getEnv(
+    "STRATAWIKI_DOMAIN_PACK_PATHS",
+    getEnv("JOBS_WIKI_STRATAWIKI_DOMAIN_PACK_PATHS", ""),
+  )
+  const activeDomainPacks = getEnv(
+    "STRATAWIKI_ACTIVE_DOMAIN_PACKS",
+    getEnv("JOBS_WIKI_STRATAWIKI_ACTIVE_DOMAIN_PACKS", ""),
+  )
 
   console.info(
     `[smoke:stack] configuration\n${summarize({
@@ -155,6 +167,8 @@ async function main() {
       stratawikiBaseUrl,
       stratawikiPort: baseUrlToPort(stratawikiBaseUrl),
       databaseUrl,
+      domainPackPaths,
+      activeDomainPacks,
       runSlowSmoke,
     })}`,
   )
@@ -167,7 +181,9 @@ async function main() {
       session: STRATAWIKI_SESSION,
       cwd: STRATAWIKI_ROOT,
       command:
-        `DATABASE_URL=${JSON.stringify(databaseUrl)} ` +
+        `${shellAssign("DATABASE_URL", databaseUrl)} ` +
+        `${shellAssign("STRATAWIKI_DOMAIN_PACK_PATHS", domainPackPaths)} ` +
+        `${shellAssign("STRATAWIKI_ACTIVE_DOMAIN_PACKS", activeDomainPacks)} ` +
         `/Users/yebin/venv/bin/python -m wiki_mcp.cli --env-file .env serve-http --host 127.0.0.1 --port ${baseUrlToPort(stratawikiBaseUrl)}`,
     })
     console.info(`[smoke:stack] stratawiki session ${STRATAWIKI_SESSION}: ${stratawikiStartMode}`)

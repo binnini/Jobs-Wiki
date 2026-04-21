@@ -193,6 +193,29 @@ test("command facade adapter builds the worknet trigger envelope on top of the t
   const httpClient = createHttpClientStub()
   const adapter = createStratawikiCommandFacadeAdapter({
     client: createStratawikiCommandFacadeClient({ httpClient }),
+    loadIngestionEnvImpl() {
+      return {
+        worknetFetchPage: 1,
+        worknetFetchSize: 5,
+        stratawikiBaseUrl: "http://127.0.0.1:18080",
+      }
+    },
+    createIngestionClientsImpl() {
+      return {
+        stratawiki: { wrapperPath: null },
+        worknetRecruiting: {},
+      }
+    },
+    async runWorknetIngestionImpl() {
+      return {
+        status: "ingested",
+        batches: [
+          {
+            sourceId: "worknet.recruiting",
+          },
+        ],
+      }
+    },
   })
 
   const accepted = await adapter.triggerWorknetIngestion({
@@ -200,28 +223,76 @@ test("command facade adapter builds the worknet trigger envelope on top of the t
     idempotencyKey: "request_002",
   })
 
-  assert.deepEqual(httpClient.submitCalls, [
+  assert.deepEqual(httpClient.submitCalls, [])
+  assert.equal(typeof accepted.commandId, "string")
+  assert.match(accepted.commandId, /^jobs-wiki-local-worknet:worknet\.recruiting:/)
+  assert.equal(accepted.status, "succeeded")
+  assert.equal(accepted.outcome, "fully_applied")
+  assert.deepEqual(accepted.refreshScopes, [
+    "workspace_summary",
+    "opportunity_list",
+    "calendar",
+  ])
+  assert.deepEqual(accepted.projectionStates, [
     {
-      requestId: "request_002",
-      idempotencyKey: "request_002",
-      name: "jobs_wiki.ingestion.trigger_worknet",
-      arguments: {
-        sourceId: "worknet.recruiting",
-      },
+      projection: "workspace_summary",
+      visibility: "applied",
+    },
+    {
+      projection: "opportunity_list",
+      visibility: "applied",
+    },
+    {
+      projection: "calendar",
+      visibility: "applied",
     },
   ])
-  assert.deepEqual(accepted, {
-    commandId: "cmd_001",
-    status: "accepted",
-    acceptedAt: "2026-04-19T00:00:00.000Z",
-    refreshScopes: ["workspace_summary"],
-    projectionStates: [
-      {
-        projection: "workspace_summary",
-        visibility: "pending",
-      },
-    ],
+
+  const status = await adapter.getCommandStatus({
+    commandId: accepted.commandId,
   })
+
+  assert.deepEqual(status, accepted)
+})
+
+test("command facade adapter stores failed local worknet ingestion attempts as terminal command records", async () => {
+  const adapter = createStratawikiCommandFacadeAdapter({
+    loadIngestionEnvImpl() {
+      return {
+        worknetFetchPage: 1,
+        worknetFetchSize: 5,
+      }
+    },
+    createIngestionClientsImpl() {
+      return {
+        stratawiki: { wrapperPath: null },
+        worknetRecruiting: {},
+      }
+    },
+    async runWorknetIngestionImpl() {
+      throw new Error("Missing WorkNet employment auth key.")
+    },
+    client: createStratawikiCommandFacadeClient({ httpClient: createHttpClientStub() }),
+  })
+
+  const accepted = await adapter.triggerWorknetIngestion({
+    sourceId: "worknet.recruiting",
+  })
+
+  assert.equal(accepted.status, "failed")
+  assert.equal(accepted.outcome, "failed")
+  assert.deepEqual(accepted.refreshScopes, ["workspace_summary"])
+  assert.deepEqual(accepted.error, {
+    code: "worknet_ingestion_failed",
+    message: "Missing WorkNet employment auth key.",
+    retryable: false,
+  })
+
+  const status = await adapter.getCommandStatus({
+    commandId: accepted.commandId,
+  })
+
+  assert.deepEqual(status, accepted)
 })
 
 test("command facade client fails with temporarily_unavailable when the HTTP base URL is missing", async () => {
