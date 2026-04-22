@@ -8,7 +8,7 @@
 
 - 제품의 중심은 personal wiki/workspace 입니다.
 - shared layer는 무거운 완결형 knowledge graph가 아니라 lightweight shared substrate 입니다.
-- `Jobs-Wiki`는 recruiting domain semantics 와 workspace UX 를 소유합니다.
+- `Jobs-Wiki`는 recruiting domain semantics, interpretation grammar, workspace UX 를 소유합니다.
 - `StrataWiki`는 shared `Fact`/`Interpretation` runtime 과 governance 를 소유합니다.
 
 ## Components
@@ -57,7 +57,7 @@ canonical write 반영 -> external backend ownership 범위
 - integrations는 외부 서비스 규칙을 캡슐화하며 WAS와 Ingestion이 함께 사용할 수 있습니다.
 - read authority는 user-visible knowledge state의 external read-serving authority입니다.
 - MCP facade는 user intent를 external command로 위임하는 경계입니다.
-- `Jobs-Wiki`는 domain routing, domain pack authoring, source normalization, personal workspace UX 를 소유합니다.
+- `Jobs-Wiki`는 domain routing, domain pack authoring, source normalization, recruiting interpretation grammar, personal workspace UX 를 소유합니다.
 - `StrataWiki` 같은 external backend 는 canonical shared storage, shared interpretation lifecycle, snapshot, governance 를 소유합니다.
 - canonical storage가 별도 backend에 있다면 그 ownership은 해당 backend에 있습니다.
 - 외부 소비자는 이 레포의 내부 코드를 직접 의존하지 않습니다.
@@ -68,6 +68,7 @@ canonical write 반영 -> external backend ownership 범위
 
 - `Jobs-Wiki`
   - recruiting domain 의미 정의
+  - recruiting interpretation family/kind grammar 정의
   - source ingest 와 normalization
   - domain pack 제안
   - proposal 생성

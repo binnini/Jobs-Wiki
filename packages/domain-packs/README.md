@@ -4,11 +4,16 @@
 
 현재 포함된 artifact:
 
+- `recruiting/v2.json`
+  - current recruiting pack v2 draft
+  - keeps the minimal shared fact surface from v1
+  - adds interpretation grammar, source expansion policy, and evidence/quality guidance
 - `recruiting/v1.json`
-  - WorkNet `open_recruitment` 기준 첫 recruiting pack draft
+  - historical WorkNet `open_recruitment` 기준 첫 recruiting pack draft
   - canonical entity: `job_posting`, `company`, `role`
   - canonical relation: `posted_by`, `for_role`
 
 관련 공식 문서:
 
 - [docs/domain/recruiting-domain-pack.md](../../docs/domain/recruiting-domain-pack.md)
+- [docs/domain/recruiting-interpretation-grammar.md](../../docs/domain/recruiting-interpretation-grammar.md)

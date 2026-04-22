@@ -19,13 +19,13 @@ Draft
 
 ## Current Pack Baseline
 
-2026-04-18 기준 recruiting canonical fact baseline은
+2026-04-22 기준 recruiting canonical baseline은
 [Recruiting Domain Pack](./recruiting-domain-pack.md)
 문서와
-[packages/domain-packs/recruiting/v1.json](../../packages/domain-packs/recruiting/v1.json)
+[packages/domain-packs/recruiting/v2.json](../../packages/domain-packs/recruiting/v2.json)
 artifact에 정리되어 있습니다.
 
-현재 v1에서 pack이 승격하는 canonical entity / relation은 아래입니다.
+현재 v2에서 pack이 승격하는 canonical entity / relation은 아래이며, fact surface는 v1과 동일합니다.
 
 - `job_posting`
 - `company`
@@ -33,14 +33,18 @@ artifact에 정리되어 있습니다.
 - `posted_by`
 - `for_role`
 
-현재 v1에서 pack이 entity로 승격하지 않고 `job_posting` attribute로 남기는 항목은 아래입니다.
+현재 v2에서 pack이 entity로 승격하지 않고 `job_posting` attribute로 남기는 항목은 아래입니다.
 
 - `location`
 - `skill`
 - `selection_step`
 
+또한 v2는 별도 interpretation grammar artifact를 같이 둡니다.
+
+- [Recruiting Interpretation Grammar](./recruiting-interpretation-grammar.md)
+
 즉 이 문서는 recruitment read model / public-resource 후보를 설명하고,
-pack 자체의 canonical fact scope와 identity hint 결정은 별도 domain-pack 문서를 source of truth로 둡니다.
+pack 자체의 canonical fact scope, identity hint, interpretation grammar 결정은 별도 domain-pack 문서를 source of truth로 둡니다.
 
 ## Stable Concepts
 

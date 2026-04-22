@@ -8,27 +8,48 @@ status: draft
 
 Draft.
 
-이 문서는 `Jobs-Wiki`가 소유하는 `recruiting` domain pack v1 초안을 정리합니다.
-현재 목표는 `StrataWiki` validator contract를 최종 확정하는 것이 아니라,
-WorkNet 기반 첫 mapper 작업이 바로 붙을 수 있을 정도의 최소 semantic baseline을 고정하는 것입니다.
+이 문서는 `Jobs-Wiki`가 소유하는 `recruiting` domain pack v2 초안을 정리합니다.
+v2의 핵심은 fact surface를 크게 넓히는 것이 아니라,
+v1의 최소 recruiting fact baseline 위에 interpretation grammar, source expansion policy,
+evidence/quality guidance를 domain-owned artifact로 명시하는 것입니다.
 
 ## Purpose
 
 - `Jobs-Wiki`가 소유할 recruiting canonical vocabulary를 최소 범위로 정합니다.
 - 어떤 candidate를 Fact/Relation으로 승격하고, 어떤 candidate를 attribute로 남길지 결정합니다.
 - WorkNet `open_recruitment` payload가 어떤 identity hint를 생성해야 하는지 정합니다.
+- recruiting interpretation family/kind grammar와 source expansion 기준을 정합니다.
 - product UI shape를 canonical schema로 고정하지 않습니다.
 
 ## Pack Artifact
 
-- Artifact: `packages/domain-packs/recruiting/v1.json`
-- Current source profile: `worknet.open_recruitment`
+- Primary artifact: `packages/domain-packs/recruiting/v2.json`
+- Historical baseline: `packages/domain-packs/recruiting/v1.json`
+- Current fact source profile: `worknet.open_recruitment`
+- Adjacent grammar doc: `docs/domain/recruiting-interpretation-grammar.md`
 
 이 artifact는 runtime code가 아니라, `Jobs-Wiki`가 제안하는 versioned domain definition 초안입니다.
 
+## v2 Summary
+
+v2에서 의도적으로 유지한 것:
+
+- shared fact minimalism
+- WorkNet 중심의 first fact source
+- `job_posting`, `company`, `role` 중심 canonical surface
+
+v2에서 명시적으로 추가한 것:
+
+- interpretation family/kind taxonomy
+- training/news source expansion 기준
+- evidence policy
+- quality examples and prompt guidance
+
+즉 v2는 "더 많은 fact"보다 "더 명시적인 reusable insight grammar"를 우선합니다.
+
 ## Canonical Concepts
 
-현재 v1에서 canonical Fact 후보로 승격하는 개념은 아래 3개입니다.
+현재 v2에서 canonical Fact 후보로 승격하는 개념은 아래 3개이며, 이 surface는 v1과 동일합니다.
 
 - `job_posting`
   - source-backed hiring opportunity
@@ -37,7 +58,7 @@ WorkNet 기반 첫 mapper 작업이 바로 붙을 수 있을 정도의 최소 se
 - `role`
   - hiring role or occupation
 
-현재 v1에서 canonical Relation 후보로 승격하는 개념은 아래 2개입니다.
+현재 v2에서 canonical Relation 후보로 승격하는 개념은 아래 2개이며, 이 surface는 v1과 동일합니다.
 
 - `posted_by`
   - `job_posting -> company`

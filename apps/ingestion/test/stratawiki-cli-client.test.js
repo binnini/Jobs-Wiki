@@ -141,9 +141,9 @@ echo '{"ok":false}'
       stratawikiCliWrapper: wrapperPath,
       stratawikiDomainPackPathsRaw: packPath,
       stratawikiDomainPackPaths: [packPath],
-      stratawikiActiveDomainPacksRaw: "recruiting=2026-04-18",
+      stratawikiActiveDomainPacksRaw: "recruiting=2026-04-22",
       stratawikiActiveDomainPacks: {
-        recruiting: "2026-04-18",
+        recruiting: "2026-04-22",
       },
       stratawikiConfigured: true,
     },
@@ -164,7 +164,7 @@ echo '{"ok":false}'
   assert.equal(response.tool, "validate_domain_proposal_batch")
   assert.equal(response.args.batch.batch_id, "batch-1")
   assert.equal(response.domainPackPath, packPath)
-  assert.equal(response.activePack, "recruiting=2026-04-18")
+  assert.equal(response.activePack, "recruiting=2026-04-22")
 
   const personalResponse = await client.callTool("query_personal_knowledge", {
     question: "How should I apply?",

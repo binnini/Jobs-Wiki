@@ -10,6 +10,10 @@ Draft
 
 국민내일배움카드, 사업주훈련, 컨소시엄, 일학습병행처럼 구조가 유사한 여러 훈련 API를 내부적으로 어떤 공통 모델로 다룰지 정리합니다.
 
+현재 recruiting pack v2 기준에서 training source는 recruiting shared fact를 직접 늘리는 primary source가 아니라,
+`training_pathway_signal`, `qualification_gap`, `transition_risk` 같은 recruiting interpretation을 보강하는
+supporting interpretation source로 먼저 취급합니다.
+
 ## Stable Concepts
 
 - `TrainingSummary`

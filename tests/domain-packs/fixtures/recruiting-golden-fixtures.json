@@ -1,7 +1,7 @@
 {
   "schemaVersion": "recruiting-governance-fixtures/v1",
   "domain": "recruiting",
-  "packVersion": "2026-04-18",
+  "packVersion": "2026-04-22",
   "fixtures": [
     {
       "id": "worknet_open_recruitment_normal",

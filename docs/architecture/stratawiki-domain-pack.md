@@ -64,6 +64,7 @@ Domain Pack
   = identity / merge rules
   = proposal validation rules
   = projection hints
+  = interpretation grammar guidance
 
 Jobs-Wiki
   = recruiting domain pack owner
@@ -184,7 +185,7 @@ type ProjectionHints = {
 {
   "manifest": {
     "domain": "recruiting",
-    "packVersion": "2026-04-18",
+    "packVersion": "2026-04-22",
     "compatibility": {
       "minStrataWikiVersion": "0.2.0"
     },

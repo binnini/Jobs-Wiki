@@ -43,6 +43,7 @@ status: draft
 - proposal quality tests
 - pack evolution proposal
 - interpretation family/kind grammar for the recruiting domain
+- training/news source expansion criteria for recruiting interpretations
 - personal workspace UX and markdown-native product behavior
 
 ## Architectural Position

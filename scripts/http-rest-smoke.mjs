@@ -39,7 +39,7 @@ function loadProposalBatch() {
     batch_id: batchId,
     domain: "recruiting",
     producer: "jobs-wiki-http-smoke",
-    pack_version: "2026-04-18",
+    pack_version: "2026-04-22",
     facts: [],
     relations: [],
   }

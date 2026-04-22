@@ -108,7 +108,7 @@ const fixtureCatalog = await loadFixtureFile<RecruitingFixtureCatalog>(
   "recruiting-golden-fixtures.json",
 );
 const recruitingPack = await loadJsonFile<RecruitingPack>(
-  "packages/domain-packs/recruiting/v1.json",
+  "packages/domain-packs/recruiting/v2.json",
 );
 
 test("fixture catalog covers the core governance scenarios for recruiting", () => {

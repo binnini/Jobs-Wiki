@@ -64,9 +64,9 @@ test("runWorknetIngestion validates proposal batches in dry-run mode", async () 
       stratawikiCliWrapper: "/tmp/fake-wrapper",
       stratawikiDomainPackPaths: ["/tmp/recruiting-pack.json"],
       stratawikiActiveDomainPacks: {
-        recruiting: "2026-04-18",
+        recruiting: "2026-04-22",
       },
-      stratawikiRecruitingPackVersion: "2026-04-18",
+      stratawikiRecruitingPackVersion: "2026-04-22",
     },
     logger: createNoopLogger(),
     dryRun: true,
@@ -140,9 +140,9 @@ test("runWorknetIngestion ingests validated proposal batches in apply mode", asy
       stratawikiCliWrapper: "/tmp/fake-wrapper",
       stratawikiDomainPackPaths: ["/tmp/recruiting-pack.json"],
       stratawikiActiveDomainPacks: {
-        recruiting: "2026-04-18",
+        recruiting: "2026-04-22",
       },
-      stratawikiRecruitingPackVersion: "2026-04-18",
+      stratawikiRecruitingPackVersion: "2026-04-22",
     },
     logger: createNoopLogger(),
     dryRun: false,

@@ -69,7 +69,7 @@ test("buildFailureRunSummary preserves retry and orchestration context", () => {
       stratawikiConfigured: true,
       stratawikiCliWrapper: "/tmp/wrapper",
       stratawikiDomainPackPaths: ["/tmp/recruiting-pack.json"],
-      stratawikiActiveDomainPacks: { recruiting: "2026-04-18" },
+      stratawikiActiveDomainPacks: { recruiting: "2026-04-22" },
     },
     error,
   })

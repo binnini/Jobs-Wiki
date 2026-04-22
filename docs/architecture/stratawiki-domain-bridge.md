@@ -78,6 +78,7 @@ status: draft
 - source-specific API 규칙 흡수
 - source-oriented normalized payload 생성
 - target domain에 맞는 proposal batch 생성
+- 필요 시 training/news 같은 supporting source를 recruiting interpretation evidence로 라우팅
 - 그 이후 canonical fact decomposition과 lifecycle은 `StrataWiki`에 맡김
 
 ## Recommended Compatibility Pipeline
@@ -119,6 +120,11 @@ Third-party source
 - payload를 `StrataWiki`가 읽을 수 있는 proposal batch로 변환
 - payload version, provider, source kind 같은 bridge metadata 부착
 - domain pack 의미에 맞는 identity hint, evidence, relation proposal 생성
+
+recruiting v2 기준 추가 원칙:
+
+- training/news source는 우선 recruiting fact 확대가 아니라 recruiting interpretation evidence 확장으로 취급합니다.
+- 즉 같은 source라도 `primary_fact_source`인지 `supporting_interpretation_source`인지 구분해 라우팅하는 편이 맞습니다.
 
 ### StrataWiki Proposal Ingestion Gate
 
