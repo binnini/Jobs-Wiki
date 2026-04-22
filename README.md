@@ -128,9 +128,12 @@ dev-wiki/       # 개발 중 작업 노트와 실험 기록, gitignored
 ## Architecture Note
 
 - 이 레포는 웹 서비스 중심 레포입니다.
+- 이 레포의 중심 제품 모델은 markdown-native personal workspace 입니다.
 - MCP 서버 구현은 포함하지 않습니다.
 - MCP 기반 클라이언트는 WAS 공개 API를 소비하는 외부 소비자로 취급합니다.
 - StrataWiki 같은 knowledge backend와 그 DB schema/migration ownership은 이 레포에 포함하지 않습니다.
+- Jobs-Wiki는 recruiting domain semantics, source normalization, proposal generation, workspace UX 를 소유합니다.
+- StrataWiki는 canonical shared `Fact`/`Interpretation` storage 와 runtime governance 를 소유합니다.
 - Ingestion은 WAS와 분리된 별도 계층으로 다룹니다.
 - WAS는 ingestion을 직접 수행하지 않습니다.
 - WAS가 할 수 있는 것은 필요 시 ingestion job을 좁은 경계로 요청하는 것뿐입니다.

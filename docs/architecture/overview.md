@@ -2,7 +2,14 @@
 
 ## Goal
 
-이 시스템은 채용, 직업, 기업, 학과, 훈련 정보를 사용자별 지식 공간으로 재구성해 제공하는 웹 서비스를 목표로 합니다.
+이 시스템은 채용, 직업, 기업, 학과, 훈련 정보를 사용자별 markdown-native workspace로 재구성해 제공하는 웹 서비스를 목표로 합니다.
+
+핵심 방향은 아래와 같습니다.
+
+- 제품의 중심은 personal wiki/workspace 입니다.
+- shared layer는 무거운 완결형 knowledge graph가 아니라 lightweight shared substrate 입니다.
+- `Jobs-Wiki`는 recruiting domain semantics 와 workspace UX 를 소유합니다.
+- `StrataWiki`는 shared `Fact`/`Interpretation` runtime 과 governance 를 소유합니다.
 
 ## Components
 
@@ -31,6 +38,8 @@ canonical write 반영 -> external backend ownership 범위
 - Jobs-Wiki의 핵심 읽기 모델은 file list만이 아니라 workspace projection입니다.
 - tree, document, graph, calendar, search, workspace summary는 같은 knowledge space의 서로 다른 projection으로 취급합니다.
 - projection은 canonical object/relation에서 파생된 user-visible read shape이며, command 결과보다 늦게 반영될 수 있습니다.
+- workspace의 실제 작업 표면은 personal markdown 문서입니다.
+- shared `Fact`/`Interpretation`은 workspace를 보조하는 retrieval substrate로 사용됩니다.
 
 현재 draft 기준선:
 
@@ -48,8 +57,29 @@ canonical write 반영 -> external backend ownership 범위
 - integrations는 외부 서비스 규칙을 캡슐화하며 WAS와 Ingestion이 함께 사용할 수 있습니다.
 - read authority는 user-visible knowledge state의 external read-serving authority입니다.
 - MCP facade는 user intent를 external command로 위임하는 경계입니다.
+- `Jobs-Wiki`는 domain routing, domain pack authoring, source normalization, personal workspace UX 를 소유합니다.
+- `StrataWiki` 같은 external backend 는 canonical shared storage, shared interpretation lifecycle, snapshot, governance 를 소유합니다.
 - canonical storage가 별도 backend에 있다면 그 ownership은 해당 backend에 있습니다.
 - 외부 소비자는 이 레포의 내부 코드를 직접 의존하지 않습니다.
+
+## StrataWiki Boundary
+
+현재 기준에서 `Jobs-Wiki` 와 `StrataWiki` 의 분리는 아래처럼 이해하는 것이 맞습니다.
+
+- `Jobs-Wiki`
+  - recruiting domain 의미 정의
+  - source ingest 와 normalization
+  - domain pack 제안
+  - proposal 생성
+  - personal workspace 와 editor UX
+- `StrataWiki`
+  - canonical `Fact` 저장
+  - shared `Interpretation` 저장
+  - pack validation / activation / enforcement
+  - snapshot / stale / provenance / retrieval substrate
+
+즉 `Jobs-Wiki` 가 의미를 정의하고 제품 경험을 소유하며,
+`StrataWiki` 는 shared runtime 을 안전하게 운영합니다.
 
 ## Sync and Visibility Direction
 

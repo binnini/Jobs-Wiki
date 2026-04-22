@@ -15,6 +15,7 @@ status: draft
 - `Jobs-Wiki`는 domain semantics를 제안하고 소유합니다.
 - `StrataWiki`는 schema governance와 runtime enforcement를 소유합니다.
 - 즉 `Jobs-Wiki`가 제안하고, `StrataWiki`가 승인하고 집행합니다.
+- `Jobs-Wiki`는 product/workspace owner이기도 하며, shared substrate를 최종 사용자 경험으로 재구성합니다.
 
 ## Ownership Split
 
@@ -29,6 +30,8 @@ status: draft
 - merge / conflict policy execution
 - runtime ingestion gate
 - pack lifecycle state
+- shared `Fact`/`Interpretation` storage
+- snapshot / provenance / stale lifecycle
 
 ### Jobs-Wiki
 
@@ -39,6 +42,17 @@ status: draft
 - domain fixtures
 - proposal quality tests
 - pack evolution proposal
+- interpretation family/kind grammar for the recruiting domain
+- personal workspace UX and markdown-native product behavior
+
+## Architectural Position
+
+이 ownership split 은 단순 ingestion 분리가 아니라 제품 구조와도 연결됩니다.
+
+- `StrataWiki` 는 lightweight shared substrate runtime 입니다.
+- `Jobs-Wiki` 는 recruiting domain product 입니다.
+- 따라서 `Jobs-Wiki` 는 shared layer 를 그대로 노출하는 것이 아니라 personal workspace 경험으로 재구성합니다.
+- personal layer 의 본체는 markdown 문서이며, shared layer 는 그 personal workspace 를 돕는 공용 context 공급층입니다.
 
 ## StrataWiki Agent Backlog
 

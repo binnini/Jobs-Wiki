@@ -11,7 +11,7 @@ status: draft
 특히 아래 질문에 답하는 것이 목적입니다.
 
 - `WorkNet`, `RSS`, `Gmail` 같은 서로 다른 source를 어떤 공통 경계로 다룰 것인가
-- `StrataWiki`의 `DomainIngestionPlugin` 구조와 어떻게 맞물리게 할 것인가
+- `StrataWiki`의 domain pack / proposal ingestion 구조와 어떻게 맞물리게 할 것인가
 - `Jobs-Wiki`가 어떤 정보를 어디까지 정규화해서 넘기는 편이 맞는가
 - source 추가와 domain 추가를 어떻게 분리해서 설계할 것인가
 
@@ -67,18 +67,18 @@ status: draft
 
 현재 `StrataWiki`의 ingestion 핵심 계약은 의외로 작습니다.
 
-- common `SourceRecord`
-- domain-specific `DomainIngestionPlugin`
-- plugin이 `FactRecord`와 `FactRelation`을 생성
+- versioned domain pack
+- domain proposal batch
+- proposal ingestion gate가 canonical Fact/Relation을 생성
 
-즉 `StrataWiki`는 source fetcher에 의존하지 않고, "공통 source envelope를 어떤 domain plugin이 해석하느냐"에 의존합니다.
+즉 `StrataWiki`는 source fetcher에 의존하지 않고, "어떤 domain pack 규칙으로 proposal을 canonicalize 하느냐"에 의존합니다.
 
 따라서 `Jobs-Wiki`가 해야 할 일도 다음처럼 좁게 가져가는 편이 맞습니다.
 
 - source-specific API 규칙 흡수
 - source-oriented normalized payload 생성
-- target domain이 해석할 수 있는 bridge envelope 생성
-- 그 이후 canonical fact decomposition은 `StrataWiki` domain plugin에 맡김
+- target domain에 맞는 proposal batch 생성
+- 그 이후 canonical fact decomposition과 lifecycle은 `StrataWiki`에 맡김
 
 ## Recommended Compatibility Pipeline
 
@@ -88,9 +88,9 @@ status: draft
 Third-party source
   -> Jobs-Wiki integration package
   -> source-oriented normalized payload
-  -> Jobs-Wiki domain router / bridge adapter
-  -> StrataWiki-compatible source envelope
-  -> StrataWiki DomainIngestionPlugin
+  -> Jobs-Wiki domain router / proposal mapper
+  -> StrataWiki-compatible DomainProposalBatch
+  -> StrataWiki proposal ingestion gate
   -> Fact / Relation / Snapshot
 ```
 
@@ -111,19 +111,20 @@ Third-party source
 - `RssFeedEntryPayload`
 - `GmailMessagePayload`
 
-### Domain Router / Bridge Adapter
+### Domain Router / Proposal Mapper
 
 책임:
 
 - 어떤 domain으로 보낼지 결정
-- payload를 `StrataWiki`가 읽을 수 있는 common source envelope로 변환
+- payload를 `StrataWiki`가 읽을 수 있는 proposal batch로 변환
 - payload version, provider, source kind 같은 bridge metadata 부착
+- domain pack 의미에 맞는 identity hint, evidence, relation proposal 생성
 
-### StrataWiki Domain Plugin
+### StrataWiki Proposal Ingestion Gate
 
 책임:
 
-- normalized source envelope를 domain 의미로 해석
+- registered domain pack을 기준으로 proposal을 검증
 - fact entity와 relation 생성
 - validation 수행
 - freshness/dedupe/lifecycle 정책 적용
@@ -143,18 +144,41 @@ Third-party source
 
 - source normalized payload types
 - domain routing policy
-- `StrataWiki` bridge request/response contract
+- `StrataWiki` proposal request/response contract
+- domain pack semantics for recruiting
 
 반면 `StrataWiki`가 소유해야 하는 것은 아래입니다.
 
-- domain plugin semantics
+- pack registry and governance
 - fact decomposition rules
-- interpretation/personal generation semantics
+- interpretation runtime semantics
 - storage/snapshot ownership
 
 ## Candidate Bridge Contract
 
-현재 `StrataWiki`의 `SourceRecord` 철학에 맞춰, `Jobs-Wiki`에서는 아래 같은 JSON-level contract를 기준으로 잡는 편이 유력합니다.
+현재 기준에서 preferred contract 는 source envelope 보다 `DomainProposalBatch` 입니다.
+
+예:
+
+```ts
+type DomainProposalBatch = {
+  batch_id?: string;
+  domain: string;
+  producer: string;
+  pack_version?: string;
+  facts: FactProposal[];
+  relations: RelationProposal[];
+};
+```
+
+이 contract 의 의미는 아래와 같습니다.
+
+- `Jobs-Wiki` 는 source oriented payload 를 domain semantics 에 맞는 proposal 로 바꿉니다.
+- `StrataWiki` 는 proposal 의 canonical acceptance 와 storage 를 담당합니다.
+
+Legacy envelope style 을 설명해야 할 경우에는 아래처럼 이해합니다.
+
+현재 `StrataWiki`의 과거 `SourceRecord` 철학에 맞춰, `Jobs-Wiki`에서는 아래 같은 JSON-level contract도 설명할 수 있습니다.
 
 ```ts
 type StrataWikiSourceEnvelope = {
