@@ -944,23 +944,15 @@ async function loadDocumentDetail({
       })
     }
 
-    const response =
-      /^personal:(raw|wiki):/.test(parsedDocumentId.recordId) ||
-      !parsedDocumentId.recordId.startsWith("personal:")
-        ? await personalKnowledgeClient.getPersonalDocument({
-            tenantId: profileContextEntry.tenantId,
-            userId: profileContextEntry.userId,
-            documentId: parsedDocumentId.recordId,
-          })
-        : await personalKnowledgeClient.getPersonalRecord({
-            tenantId: profileContextEntry.tenantId,
-            userId: profileContextEntry.userId,
-            personalId: parsedDocumentId.recordId,
-          })
+    const response = await personalKnowledgeClient.getPersonalDocument({
+      tenantId: profileContextEntry.tenantId,
+      userId: profileContextEntry.userId,
+      documentId: parsedDocumentId.recordId,
+    })
 
     return mapPersonalDocument(
       parsedDocumentId,
-      response?.document ?? response?.record ?? response,
+      response?.document ?? response,
     )
   }
 

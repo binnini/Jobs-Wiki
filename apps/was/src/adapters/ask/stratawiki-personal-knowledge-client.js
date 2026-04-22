@@ -70,6 +70,117 @@ function ensureHttpMode(env, httpClient) {
   }
 }
 
+function mapSourceDocumentRef(sourceDocumentRef) {
+  if (!sourceDocumentRef || typeof sourceDocumentRef !== "object") {
+    return sourceDocumentRef
+  }
+
+  return {
+    document_id: sourceDocumentRef.document_id ?? sourceDocumentRef.documentId,
+    subspace: sourceDocumentRef.subspace,
+    version: sourceDocumentRef.version,
+    ...(sourceDocumentRef.kind ? { kind: sourceDocumentRef.kind } : {}),
+    ...(sourceDocumentRef.asset_refs
+      ? { asset_refs: sourceDocumentRef.asset_refs }
+      : sourceDocumentRef.assetRefs
+        ? { asset_refs: sourceDocumentRef.assetRefs }
+        : {}),
+  }
+}
+
+function mapSaveTarget(saveTarget) {
+  if (!saveTarget || typeof saveTarget !== "object") {
+    return saveTarget
+  }
+
+  return {
+    ...(saveTarget.document_id ? { document_id: saveTarget.document_id } : {}),
+    ...(saveTarget.documentId ? { document_id: saveTarget.documentId } : {}),
+    ...(saveTarget.subspace ? { subspace: saveTarget.subspace } : {}),
+    ...(saveTarget.version ? { version: saveTarget.version } : {}),
+  }
+}
+
+function normalizeInterpretationBuildPayload(payload = {}) {
+  if (!payload || typeof payload !== "object" || Array.isArray(payload)) {
+    return payload
+  }
+
+  const normalized = { ...payload }
+  const partition =
+    payload.partition && typeof payload.partition === "object" && !Array.isArray(payload.partition)
+      ? payload.partition
+      : undefined
+  const subject =
+    payload.subject && typeof payload.subject === "object" && !Array.isArray(payload.subject)
+      ? payload.subject
+      : payload.subjectRef && typeof payload.subjectRef === "object" && !Array.isArray(payload.subjectRef)
+        ? payload.subjectRef
+        : undefined
+  const selection =
+    payload.selection && typeof payload.selection === "object" && !Array.isArray(payload.selection)
+      ? payload.selection
+      : undefined
+
+  const family =
+    selection?.family ??
+    partition?.family ??
+    (typeof payload.family === "string" ? payload.family : undefined)
+  const kind =
+    selection?.kind ??
+    partition?.kind ??
+    subject?.kind ??
+    (typeof payload.kind === "string" ? payload.kind : undefined)
+  const subjectId =
+    selection?.subject_id ??
+    subject?.id ??
+    subject?.subject_id ??
+    partition?.subject_id ??
+    partition?.segment
+  const subjectType =
+    selection?.subject_type ??
+    subject?.type ??
+    partition?.subject_type ??
+    (partition ? "market_segment" : undefined)
+  const subjectLabel =
+    selection?.subject_label ??
+    subject?.label ??
+    partition?.subject_label
+
+  if (!normalized.selection && typeof subjectId === "string" && subjectId.trim() !== "") {
+    normalized.selection = {
+      ...(family ? { family } : {}),
+      ...(kind ? { kind } : {}),
+      ...(subjectType ? { subject_type: subjectType } : {}),
+      subject_id: subjectId,
+      ...(subjectLabel ? { subject_label: subjectLabel } : {}),
+    }
+  }
+
+  if (!normalized.subject && normalized.selection) {
+    normalized.subject = {
+      ...(normalized.selection.subject_type ? { type: normalized.selection.subject_type } : {}),
+      id: normalized.selection.subject_id,
+      ...(normalized.selection.subject_label ? { label: normalized.selection.subject_label } : {}),
+    }
+  }
+
+  if (!normalized.partition && normalized.selection?.family) {
+    normalized.partition = {
+      family: normalized.selection.family,
+      segment: normalized.selection.subject_id,
+    }
+  }
+
+  delete normalized.subjectRef
+
+  return normalized
+}
+
+function normalizeExplanationLayer(layer) {
+  return layer === "personal_raw" || layer === "personal_wiki" ? "personal" : layer
+}
+
 export function createStratawikiPersonalKnowledgeClient({
   env = {},
   httpClient: providedHttpClient,
@@ -369,10 +480,10 @@ export function createStratawikiPersonalKnowledgeClient({
         domain,
         tenant_id: tenantId,
         user_id: userId,
-        source_document_ref: sourceDocumentRef,
+        source_document_ref: mapSourceDocumentRef(sourceDocumentRef),
         profile_version: profileVersion,
         model_profile: modelProfile,
-        save_target: saveTarget,
+        save_target: mapSaveTarget(saveTarget),
         ...(summaryStyle ? { summary_style: summaryStyle } : {}),
       }
 
@@ -401,10 +512,10 @@ export function createStratawikiPersonalKnowledgeClient({
         domain,
         tenant_id: tenantId,
         user_id: userId,
-        source_document_ref: sourceDocumentRef,
+        source_document_ref: mapSourceDocumentRef(sourceDocumentRef),
         profile_version: profileVersion,
         model_profile: modelProfile,
-        save_target: saveTarget,
+        save_target: mapSaveTarget(saveTarget),
         ...(rewriteGoal ? { rewrite_goal: rewriteGoal } : {}),
       }
 
@@ -433,10 +544,10 @@ export function createStratawikiPersonalKnowledgeClient({
         domain,
         tenant_id: tenantId,
         user_id: userId,
-        source_document_ref: sourceDocumentRef,
+        source_document_ref: mapSourceDocumentRef(sourceDocumentRef),
         profile_version: profileVersion,
         model_profile: modelProfile,
-        save_target: saveTarget,
+        save_target: mapSaveTarget(saveTarget),
         ...(structureTemplate ? { structure_template: structureTemplate } : {}),
       }
 
@@ -582,7 +693,7 @@ export function createStratawikiPersonalKnowledgeClient({
         () =>
           httpClient.getExplanation({
             domain,
-            layer,
+            layer: normalizeExplanationLayer(layer),
             recordId,
             tenantId,
             userId,
@@ -598,7 +709,7 @@ export function createStratawikiPersonalKnowledgeClient({
       return await runHttp(
         () =>
           httpClient.buildInterpretationSnapshot({
-            payload,
+            payload: normalizeInterpretationBuildPayload(payload),
           }),
         {
           toolName: "build_interpretation_snapshot",

@@ -603,7 +603,55 @@ test("real read adapter reclassifies legacy and drifted personal documents into 
 })
 
 test("real read adapter resolves wrapped shared and personal document ids", async () => {
-  const adapter = createAdapter()
+  const adapter = createAdapter({
+    personalKnowledgeClient: {
+      async getInterpretationRecord({ interpretationId }) {
+        return {
+          record: {
+            id: interpretationId,
+            title: "해석 문서",
+            summary: "shared interpretation summary",
+          },
+        }
+      },
+      async getFactRecord({ factId }) {
+        return {
+          record: {
+            id: factId,
+            attributes: {
+              title: "fact document",
+              summary: "fact summary",
+            },
+          },
+        }
+      },
+      async getPersonalRecord() {
+        throw new Error("workspace document detail should not fall back to getPersonalRecord")
+      },
+      async listPersonalDocuments({ subspace }) {
+        return {
+          items:
+            subspace === "wiki"
+              ? [{ document_id: "pdoc_002", subspace: "wiki", title: "wiki note" }]
+              : [{ document_id: "pdoc_001", subspace: "raw", title: "raw note" }],
+        }
+      },
+      async getPersonalDocument({ documentId }) {
+        return {
+          document: {
+            document_id: documentId,
+            subspace: "raw",
+            title: "runtime personal doc",
+            body_markdown: "## Runtime",
+            asset_refs: ["passet_1"],
+            version: 3,
+            status: "active",
+            updated_at: "2026-04-19T00:40:00.000Z",
+          },
+        }
+      },
+    },
+  })
   const shared = await adapter.getDocumentDetail({
     documentId: "shared:interp:published:1",
   })
@@ -620,7 +668,8 @@ test("real read adapter resolves wrapped shared and personal document ids", asyn
   assert.equal(shared.title, "해석 문서")
   assert.equal(personal.layer, "personal_raw")
   assert.equal(personal.writable, true)
-  assert.equal(personal.title, "personal note")
+  assert.equal(personal.title, "runtime personal doc")
+  assert.equal(personal.bodyMarkdown, "## Runtime")
 })
 
 test("real read adapter resolves runtime personal document ids from document CRUD flow", async () => {

@@ -107,11 +107,11 @@ async function loadRuntimePersonalDocument({
 
 function buildSourceDocumentRef(document) {
   return {
-    document_id: document.document_id,
+    documentId: document.document_id,
     subspace: document.subspace,
     version: document.version,
-    kind: document.kind,
-    asset_refs: Array.isArray(document.asset_refs) ? document.asset_refs : [],
+    ...(document.kind ? { kind: document.kind } : {}),
+    assetRefs: Array.isArray(document.asset_refs) ? document.asset_refs : [],
   }
 }
 
@@ -119,7 +119,7 @@ function buildGenerationTrace({ operation, sourceDocumentRef }) {
   return [
     {
       step: "source",
-      message: `source_document_ref=${sourceDocumentRef.document_id}; subspace=${sourceDocumentRef.subspace}; version=${sourceDocumentRef.version}`,
+      message: `source_document_ref=${sourceDocumentRef.documentId}; subspace=${sourceDocumentRef.subspace}; version=${sourceDocumentRef.version}`,
     },
     {
       step: "operation",
@@ -305,7 +305,7 @@ export function createStratawikiPersonalDocumentAdapter({
             generatedAt: document?.updated_at ?? response?.updated_at ?? updatedAt,
             sourceDocument: {
               documentId,
-              title: sourceDocument.title ?? sourceDocumentRef.document_id,
+              title: sourceDocument.title ?? sourceDocumentRef.documentId,
               layer: parsedDocumentId.layer,
               version: sourceDocument.version ?? sourceDocumentRef.version,
             },
@@ -333,7 +333,7 @@ export function createStratawikiPersonalDocumentAdapter({
             generatedAt: document?.updated_at ?? response?.updated_at ?? updatedAt,
             sourceDocument: {
               documentId,
-              title: sourceDocument.title ?? sourceDocumentRef.document_id,
+              title: sourceDocument.title ?? sourceDocumentRef.documentId,
               layer: parsedDocumentId.layer,
               version: sourceDocument.version ?? sourceDocumentRef.version,
             },
@@ -361,7 +361,7 @@ export function createStratawikiPersonalDocumentAdapter({
             generatedAt: document?.updated_at ?? response?.updated_at ?? updatedAt,
             sourceDocument: {
               documentId,
-              title: sourceDocument.title ?? sourceDocumentRef.document_id,
+              title: sourceDocument.title ?? sourceDocumentRef.documentId,
               layer: parsedDocumentId.layer,
               version: sourceDocument.version ?? sourceDocumentRef.version,
             },

@@ -18,54 +18,104 @@ import {
   validateUpdateDocumentRequest,
 } from "../validators/document-validator.js"
 
+function compactObject(value) {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entryValue]) => entryValue !== undefined),
+  )
+}
+
+function readDocumentId(result) {
+  return result?.document_id ?? result?.documentId ?? result?.id ?? null
+}
+
+function readDocumentBodyMarkdown(result) {
+  return result?.body_markdown ?? result?.bodyMarkdown ?? ""
+}
+
+function readDocumentSummary(result) {
+  return result?.summary ?? result?.body_markdown ?? result?.bodyMarkdown ?? null
+}
+
+function readDocumentAssetRefs(result) {
+  if (Array.isArray(result?.asset_refs)) {
+    return result.asset_refs
+  }
+
+  if (Array.isArray(result?.assetRefs)) {
+    return result.assetRefs
+  }
+
+  return []
+}
+
+function mapGenerationSourceDocumentRef(result) {
+  const generationSourceDocument = result?.generation?.sourceDocument
+  const upstreamRef = result?.source_document_ref ?? result?.sourceDocumentRef
+
+  return compactObject({
+    documentId:
+      generationSourceDocument?.documentId ??
+      upstreamRef?.document_id ??
+      upstreamRef?.documentId,
+    title: generationSourceDocument?.title,
+    layer: generationSourceDocument?.layer,
+    version: generationSourceDocument?.version ?? upstreamRef?.version,
+    subspace: upstreamRef?.subspace,
+    kind: upstreamRef?.kind,
+    assetRefs: upstreamRef?.asset_refs ?? upstreamRef?.assetRefs,
+  })
+}
+
 function mapPersonalWikiGenerationResult(result) {
+  const documentId = readDocumentId(result)
+  const bodyMarkdown = readDocumentBodyMarkdown(result)
+
   return {
     item: mapDocumentDetail({
-      documentId: `personal_wiki:${result.document_id}`,
+      documentId: `personal_wiki:${documentId}`,
       title: result.title,
       layer: "personal_wiki",
       writable: true,
-      bodyMarkdown: result.body_markdown ?? "",
-      summary: result.body_markdown ?? null,
+      bodyMarkdown,
+      summary: readDocumentSummary(result),
       metadata: {
         source: {
           provider: "jobs_wiki_generation",
-          sourceId: result.document_id,
+          sourceId: documentId,
         },
-        updatedAt: result.updated_at ?? result.created_at,
+        updatedAt: result.updated_at ?? result.updatedAt ?? result.created_at ?? result.createdAt,
         version: result.version,
-        assetRefs: result.asset_refs ?? [],
+        assetRefs: readDocumentAssetRefs(result),
         status: result.status,
         generation: result.generation ?? undefined,
       },
       relatedObjects: [],
     }).item,
-    sourceDocumentRef: result.source_document_ref ?? null,
+    sourceDocumentRef: mapGenerationSourceDocumentRef(result),
   }
 }
 
 function mapDocumentPayloadFromMutation(input, result) {
   const workspacePath = result.workspace_path ?? result.workspacePath ?? input.workspacePath
+  const documentId = readDocumentId(result)
+  const bodyMarkdown = readDocumentBodyMarkdown(result)
 
   return mapDocumentDetail({
-    documentId: `${input.layer}:${result.document_id}`,
+    documentId: `${input.layer}:${documentId}`,
     title: result.title,
     layer: input.layer,
     writable: true,
-    bodyMarkdown: result.body_markdown ?? "",
-    summary: result.body_markdown ?? null,
+    bodyMarkdown,
+    summary: readDocumentSummary(result),
     workspacePath,
     metadata: {
       source: {
-        provider:
-          Array.isArray(result.asset_refs) && result.asset_refs.length > 0
-            ? "stratawiki_personal_asset"
-            : "stratawiki_personal",
-        sourceId: result.document_id,
+        provider: readDocumentAssetRefs(result).length > 0 ? "stratawiki_personal_asset" : "stratawiki_personal",
+        sourceId: documentId,
       },
-      updatedAt: result.updated_at ?? result.created_at,
+      updatedAt: result.updated_at ?? result.updatedAt ?? result.created_at ?? result.createdAt,
       version: result.version,
-      assetRefs: result.asset_refs ?? [],
+      assetRefs: readDocumentAssetRefs(result),
       status: result.status,
     },
     relatedObjects: [],

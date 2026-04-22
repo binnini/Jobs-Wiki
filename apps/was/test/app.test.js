@@ -538,6 +538,15 @@ test("personal raw-to-wiki generation and wiki link actions stay within the pers
     assert.match(wikiDocumentId, /^personal_wiki:/)
     assert.equal(summarizeResponse.body.item.metadata.generation.operation, "summarize")
     assert.equal(summarizeResponse.body.item.metadata.generation.provider, "mock")
+    assert.deepEqual(summarizeResponse.body.sourceDocumentRef, {
+      documentId: rawDocumentId,
+      title: "Research draft",
+      layer: "personal_raw",
+      version: 1,
+      subspace: "raw",
+      kind: "raw_document",
+      assetRefs: [],
+    })
     assert.ok(Array.isArray(summarizeResponse.body.item.metadata.generation.trace))
     assert.ok(
       !summarizeResponse.body.item.surface.bodyMarkdown.includes("generatedAt="),
