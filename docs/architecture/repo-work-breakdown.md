@@ -29,6 +29,7 @@ status: draft
 - opportunity/report/calendar presentation
 - user-visible command flow
 - adapter wiring and fallback policy
+- consumer of StrataWiki read-serving contract, not the contract owner
 
 ### StrataWiki owns
 
@@ -39,6 +40,16 @@ status: draft
 - interpretation lifecycle
 - personal artifact storage contract if stored in personal layer
 - LLM runtime policy and retrieval discipline
+- authoritative read-serving data contract for external consumers
+
+## Graph Naming
+
+- `StrataWiki internal graph`
+  - dependency / invalidation / retrieval support graph
+  - operator/runtime concern
+- `Jobs-Wiki workspace graph projection`
+  - user-facing node/edge visualization
+  - product projection concern
 
 ## Work Breakdown By Epic
 
@@ -57,6 +68,7 @@ status: draft
 - shell이 읽을 수 있는 최소 navigation/read contract 제공 여부 결정
 - shared/personal object ref shape 제공
 - current active context와 layer visibility를 표현할 수 있는 personal/read contract 정리
+- consumer-shaped HTTP read endpoint 제공
 
 ## 2. Document Detail
 
@@ -189,6 +201,7 @@ status: draft
 ## Anti-patterns
 
 - Jobs-Wiki가 StrataWiki DB를 직접 write
+- Jobs-Wiki가 StrataWiki canonical read DB를 장기 기본 경계로 유지
 - Jobs-Wiki가 personal layer schema를 ad-hoc로 복제
 - StrataWiki가 frontend route/view model naming까지 직접 소유
 - personal wiki generation 결과를 shared update처럼 표시

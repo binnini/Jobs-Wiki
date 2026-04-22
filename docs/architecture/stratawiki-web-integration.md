@@ -14,7 +14,15 @@ status: draft
 - direct DB access 금지와 read DB 사용의 차이
 - read DB boundary 와 HTTP boundary 의 차이
 
-이 문서는 **현재 구현 baseline** 을 기준으로 읽어야 합니다.
+이 문서는 **current baseline** 과 **target baseline** 을 분리해서 읽어야 합니다.
+
+- current baseline
+  - write / personal / command 는 HTTP 입니다.
+  - read 는 `JOBS_WIKI_READ_AUTHORITY_MODE=sql|http` 로 병행 가능합니다.
+  - default read authority 는 이제 `http` 입니다.
+- target baseline
+  - read / write / personal / command 모두 HTTP 입니다.
+  - Jobs-Wiki 는 StrataWiki canonical DB 에 직접 연결하지 않습니다.
 
 ## Current Runtime Split
 
@@ -38,22 +46,26 @@ StrataWiki canonical write surface 로 전달합니다.
 
 ### 2. WAS read path
 
-`apps/was` 의 `WAS_DATA_MODE=real` 은 StrataWiki canonical read DB 를 직접 읽어
-user-facing projection 을 만듭니다.
+`apps/was` 의 `WAS_DATA_MODE=real` 은 read authority mode 에 따라
+두 경로 중 하나로 user-facing projection 을 만듭니다.
 
 이 read path 원칙:
 
-- `STRATAWIKI_READ_DATABASE_URL` 로 read DB 에 연결합니다.
-- `STRATAWIKI_READ_PSQL_BIN` 으로 SQL read process 를 실행합니다.
-- read 대상은 canonical snapshot / fact / relation state 입니다.
-- 이 direct DB usage 는 **read-only projection assembly** 용도입니다.
-- 이것은 write path 가 아니며, personal knowledge write path 도 아닙니다.
+- `JOBS_WIKI_READ_AUTHORITY_MODE=sql`
+  - deprecated fallback path 입니다.
+  - `STRATAWIKI_READ_DATABASE_URL` 로 read DB 에 연결합니다.
+  - `STRATAWIKI_READ_PSQL_BIN` 으로 SQL read process 를 실행합니다.
+  - read 대상은 canonical snapshot / fact / relation state 입니다.
+- `JOBS_WIKI_READ_AUTHORITY_MODE=http`
+  - current default 입니다.
+  - StrataWiki read model endpoint 를 호출합니다.
+  - canonical table shape 가 아니라 consumer-shaped projection contract 를 사용합니다.
 
-따라서 "Jobs-Wiki 는 DB 에 직접 접근하지 않는다" 는 표현은 현재 구현과 다릅니다.
-정확한 표현은 아래입니다.
+따라서 현재 구현을 정확히 적으면 아래와 같습니다.
 
 - direct DB write 는 하지 않는다
-- real WAS projection 을 위해 canonical read DB 는 직접 읽는다
+- read 의 default 는 HTTP 이고 SQL path 는 fallback 으로 남아 있다
+- migration target 은 direct DB read 제거다
 
 ### 3. WAS ask path
 
@@ -163,7 +175,17 @@ WorkNet source
 - `GET /api/calendar`
 - `GET /api/workspace/sync`
 
-이 route 들은 StrataWiki read DB 로부터 projection 을 조합합니다.
+이 route 들은 read authority mode 에 따라 다르게 동작합니다.
+
+- `sql`
+  - StrataWiki read DB 로부터 projection 을 조합합니다.
+- `http`
+  - StrataWiki read endpoint 를 직접 호출합니다.
+  - 현재 endpoint baseline:
+    - `GET /api/v1/workspace-summary`
+    - `GET /api/v1/opportunities`
+    - `GET /api/v1/opportunities/{opportunity_id}`
+    - `GET /api/v1/calendar`
 
 ### WAS ask
 
@@ -212,9 +234,13 @@ POST /api/workspace/ask
   - current baseline 은 `http`
   - legacy `auto|wrapper` compatibility path 는 운영 기준선으로 설명하지 않습니다
 - `STRATAWIKI_BASE_URL`
-  - ask / personal document / command integration base URL
+  - ask / personal document / command / HTTP read integration base URL
 - `STRATAWIKI_API_TOKEN`
   - auth-enabled HTTP 환경용 bearer token
+- `JOBS_WIKI_READ_AUTHORITY_MODE`
+  - `sql|http`
+  - current default 는 `http`
+  - `sql` 은 제거 대상 fallback
 - `STRATAWIKI_HTTP_TIMEOUT_MS`
   - HTTP timeout
 - `STRATAWIKI_CLI_WRAPPER`
@@ -224,9 +250,11 @@ POST /api/workspace/ask
 - `JOBS_WIKI_STRATAWIKI_ACTIVE_DOMAIN_PACKS`
   - optional active pack mapping
 - `STRATAWIKI_READ_DATABASE_URL`
-  - WAS real read adapter 전용 read DB connection string
+  - `sql` read authority mode 에서만 사용
+  - deprecated target
 - `STRATAWIKI_READ_PSQL_BIN`
-  - WAS read-side SQL query process
+  - `sql` read authority mode 에서만 사용
+  - deprecated target
 - `JOBS_WIKI_PROFILE_CONTEXT_CATALOG_PATH`
   - ask personal-aware upgrade 시도에 사용할 profile catalog
 
@@ -247,6 +275,11 @@ StrataWiki runtime 자체가 책임지는 env 와 Jobs-Wiki 가 소유하는 env
 
 현재 코드가 **실제로 main path 에서 사용하는** StrataWiki surface:
 
+- HTTP read endpoint family
+  - `GET /api/v1/workspace-summary`
+  - `GET /api/v1/opportunities`
+  - `GET /api/v1/opportunities/{opportunity_id}`
+  - `GET /api/v1/calendar`
 - `POST /api/v1/domain-proposals/validate`
 - `POST /api/v1/domain-proposals/ingest`
 - `PUT /api/v1/profile-contexts/{tenant_id}/{user_id}`
@@ -323,12 +356,19 @@ npm run smoke:http
 - frontend 가 personal knowledge object graph 를 직접 이해하는 계약
 - read-backed ask 를 personal-aware ask 로 전면 대체했다는 설명
 
+graph terminology note:
+
+- StrataWiki graph
+  - internal dependency / retrieval support concern
+- Jobs-Wiki graph
+  - user-facing projection concern
+
 ## Rule Of Thumb
 
 현재 구현을 한 줄로 요약하면 아래가 가장 정확합니다.
 
 - write 는 HTTP 우선, wrapper 는 rollback
-- read 는 canonical read DB
+- read 는 `http` default + `sql` fallback
 - ask 는 read-backed baseline 위에 optional personal-aware upgrade
 - sync/admin 은 HTTP command facade
 - target PKM structure 는 future direction 이지 shipped surface 가 아니다

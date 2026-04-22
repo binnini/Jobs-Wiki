@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url"
 
 const VALID_DATA_MODES = new Set(["mock", "real"])
 const VALID_INTEGRATION_MODES = new Set(["http"])
+const VALID_READ_AUTHORITY_MODES = new Set(["sql", "http"])
 
 const MODULE_DIR = dirname(fileURLToPath(import.meta.url))
 
@@ -88,6 +89,17 @@ export function loadEnv(overrides = {}) {
     )
   }
 
+  const readAuthorityMode =
+    rawEnv.JOBS_WIKI_READ_AUTHORITY_MODE ??
+    rawEnv.readAuthorityMode ??
+    "http"
+
+  if (!VALID_READ_AUTHORITY_MODES.has(readAuthorityMode)) {
+    throw new Error(
+      `Invalid JOBS_WIKI_READ_AUTHORITY_MODE: ${readAuthorityMode}. Expected one of ${Array.from(VALID_READ_AUTHORITY_MODES).join(", ")}`,
+    )
+  }
+
   return {
     serviceName: rawEnv.WAS_SERVICE_NAME ?? rawEnv.serviceName ?? "jobs-wiki-was",
     host: rawEnv.WAS_HOST ?? rawEnv.host ?? "127.0.0.1",
@@ -108,6 +120,7 @@ export function loadEnv(overrides = {}) {
     stratawikiApiToken:
       rawEnv.STRATAWIKI_API_TOKEN ?? rawEnv.stratawikiApiToken ?? null,
     stratawikiIntegrationMode,
+    readAuthorityMode,
     stratawikiHttpTimeoutMs: parseInteger(
       rawEnv.STRATAWIKI_HTTP_TIMEOUT_MS ?? rawEnv.stratawikiHttpTimeoutMs,
       10000,

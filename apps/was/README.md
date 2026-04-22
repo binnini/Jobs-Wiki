@@ -29,7 +29,9 @@
 현재 real mode 는 아래 세 경계를 조합합니다.
 
 - read authority
-  - StrataWiki canonical read DB 를 직접 읽는 read-backed projection path
+  - `JOBS_WIKI_READ_AUTHORITY_MODE=sql|http`
+  - current default 는 StrataWiki consumer-shaped HTTP read path
+  - `sql` 은 parity/fallback 용 deprecated path
 - ask workspace / personal document facade
   - read-backed baseline answer
   - 조건이 맞을 때만 personal-aware upgrade
@@ -79,13 +81,18 @@ npm start
 - `WAS_DATA_MODE=mock|real`
 - `WAS_LOG_LEVEL`
 - `STRATAWIKI_READ_DATABASE_URL`
+  - `sql` read authority mode 에서만 사용
   - 기본값: `postgresql://stratawiki:stratawiki@localhost:5432/stratawiki_jobswiki`
 - `STRATAWIKI_READ_PSQL_BIN`
+  - `sql` read authority mode 에서만 사용
   - 기본값: `psql`
 - `STRATAWIKI_READ_DOMAIN`
   - 기본값: `recruiting`
 - `STRATAWIKI_READ_SCOPE`
   - 기본값: `shared`
+- `JOBS_WIKI_READ_AUTHORITY_MODE`
+  - `sql|http`
+  - 기본값: `http`
 - `STRATAWIKI_INTEGRATION_MODE`
   - current baseline 은 `http`
   - legacy `auto|wrapper` compatibility path 는 운영 기준선으로 설명하지 않습니다
@@ -171,7 +178,14 @@ GET /health
 `WAS_DATA_MODE=real` 에서는 아래처럼 동작합니다.
 
 - `workspace`, `workspace/summary`, `opportunities`, `calendar`
-  - StrataWiki fact/relation/snapshot table 기반 read projection
+  - `sql`
+    - StrataWiki fact/relation/snapshot table 기반 read projection
+  - `http`
+    - StrataWiki read endpoint 기반 projection
+    - `GET /api/v1/workspace-summary`
+    - `GET /api/v1/opportunities`
+    - `GET /api/v1/opportunities/:opportunityId`
+    - `GET /api/v1/calendar`
 - `workspace/ask`
   - read-backed baseline answer
   - profile context catalog 와 StrataWiki personal surface 가 모두 준비된 경우에만 personal-aware upgrade

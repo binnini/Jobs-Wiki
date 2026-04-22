@@ -1,5 +1,9 @@
 import { spawnSync } from "node:child_process"
 import {
+  StratawikiHttpError,
+  createStratawikiHttpClient,
+} from "../../../../../packages/integrations/stratawiki-http/client.js"
+import {
   createStratawikiPersonalKnowledgeClient,
 } from "../ask/stratawiki-personal-knowledge-client.js"
 import {
@@ -7,9 +11,11 @@ import {
   resolveProfileContextEntry,
 } from "../ask/profile-context-catalog.js"
 import {
+  createForbiddenError,
   createNotFoundError,
   createTemporarilyUnavailableError,
   createUnknownFailureError,
+  createValidationError,
 } from "../../http/errors.js"
 import { normalizeWorkspacePath } from "../../mappers/workspace-tree-model.js"
 
@@ -169,6 +175,49 @@ function compactObject(value) {
   return Object.fromEntries(
     Object.entries(value).filter(([, entryValue]) => entryValue !== undefined),
   )
+}
+
+function createHttpReadClient(env) {
+  if (!env.stratawikiBaseUrl) {
+    return null
+  }
+
+  return createStratawikiHttpClient({
+    baseUrl: env.stratawikiBaseUrl,
+    apiToken: env.stratawikiApiToken,
+    timeoutMs: env.stratawikiHttpTimeoutMs,
+  })
+}
+
+function toReadAuthorityError(error, { path }) {
+  if (!(error instanceof StratawikiHttpError)) {
+    return error
+  }
+
+  const details = {
+    adapter: "stratawiki_read_authority",
+    path,
+    requestId: error.requestId,
+    upstreamCode: error.code,
+  }
+
+  if (error.status === 404 || error.code === "not_found") {
+    return createNotFoundError(error.message, details)
+  }
+
+  if (error.status === 422 || error.code === "validation_error") {
+    return createValidationError(error.message, details)
+  }
+
+  if (error.status === 401 || error.status === 403 || error.code === "unauthorized") {
+    return createForbiddenError(error.message, details)
+  }
+
+  if (error.retryable) {
+    return createTemporarilyUnavailableError(error.message, details)
+  }
+
+  return createUnknownFailureError(error.message, details, error)
 }
 
 function getRoleLabel(roleRecord) {
@@ -1175,17 +1224,55 @@ export function createStratawikiReadAuthorityAdapter({
   env = {},
   queryJson = queryJsonWithPsql,
   now = () => new Date(),
+  httpClient: providedHttpClient,
   personalKnowledgeClient = createStratawikiPersonalKnowledgeClient({ env }),
 } = {}) {
   const profileContextCatalog = loadProfileContextCatalog(env.profileContextCatalogPath)
+  const readAuthorityMode = String(env.readAuthorityMode ?? "http").trim().toLowerCase()
+  const httpClient = providedHttpClient ?? createHttpReadClient(env)
+
+  async function runHttp(httpRun, { path }) {
+    try {
+      return await httpRun()
+    } catch (error) {
+      throw toReadAuthorityError(error, { path })
+    }
+  }
 
   return {
     async getWorkspace({ userContext } = {}) {
-      const readModel = await loadReadModel({
-        env,
-        queryJson,
-        now: now(),
-      })
+      const readModel =
+        readAuthorityMode === "http"
+          ? await runHttp(
+              async () => {
+                if (!httpClient) {
+                  throw new Error(
+                    "Jobs-Wiki HTTP read authority mode requires STRATAWIKI_BASE_URL.",
+                  )
+                }
+
+                const response = await httpClient.listOpportunities({
+                  domain: env.readDomain,
+                  scope: env.readScope,
+                  query: {
+                    limit: 3,
+                  },
+                })
+
+                return {
+                  opportunityItems: response?.items ?? [],
+                  sync: response?.sync ?? {
+                    visibility: "unknown",
+                  },
+                }
+              },
+              { path: "/api/v1/opportunities" },
+            )
+          : await loadReadModel({
+              env,
+              queryJson,
+              now: now(),
+            })
 
       return buildWorkspaceRecord(readModel, {
         env,
@@ -1196,6 +1283,25 @@ export function createStratawikiReadAuthorityAdapter({
     },
 
     async getWorkspaceSummary({ userContext } = {}) {
+      if (readAuthorityMode === "http") {
+        return await runHttp(
+          async () => {
+            if (!httpClient) {
+              throw new Error(
+                "Jobs-Wiki HTTP read authority mode requires STRATAWIKI_BASE_URL.",
+              )
+            }
+
+            return await httpClient.getWorkspaceSummary({
+              domain: env.readDomain,
+              scope: env.readScope,
+              profileId: userContext?.profileId,
+            })
+          },
+          { path: "/api/v1/workspace-summary" },
+        )
+      }
+
       const readModel = await loadReadModel({
         env,
         queryJson,
@@ -1223,6 +1329,25 @@ export function createStratawikiReadAuthorityAdapter({
     },
 
     async listOpportunities({ query } = {}) {
+      if (readAuthorityMode === "http") {
+        return await runHttp(
+          async () => {
+            if (!httpClient) {
+              throw new Error(
+                "Jobs-Wiki HTTP read authority mode requires STRATAWIKI_BASE_URL.",
+              )
+            }
+
+            return await httpClient.listOpportunities({
+              domain: env.readDomain,
+              scope: env.readScope,
+              query,
+            })
+          },
+          { path: "/api/v1/opportunities" },
+        )
+      }
+
       const readModel = await loadReadModel({
         env,
         queryJson,
@@ -1268,6 +1393,25 @@ export function createStratawikiReadAuthorityAdapter({
         })
       }
 
+      if (readAuthorityMode === "http") {
+        return await runHttp(
+          async () => {
+            if (!httpClient) {
+              throw new Error(
+                "Jobs-Wiki HTTP read authority mode requires STRATAWIKI_BASE_URL.",
+              )
+            }
+
+            return await httpClient.getOpportunity({
+              domain: env.readDomain,
+              scope: env.readScope,
+              opportunityId,
+            })
+          },
+          { path: `/api/v1/opportunities/${encodeURIComponent(opportunityId)}` },
+        )
+      }
+
       const readModel = await loadReadModel({
         env,
         queryJson,
@@ -1303,6 +1447,25 @@ export function createStratawikiReadAuthorityAdapter({
     },
 
     async getCalendar({ query } = {}) {
+      if (readAuthorityMode === "http") {
+        return await runHttp(
+          async () => {
+            if (!httpClient) {
+              throw new Error(
+                "Jobs-Wiki HTTP read authority mode requires STRATAWIKI_BASE_URL.",
+              )
+            }
+
+            return await httpClient.getCalendar({
+              domain: env.readDomain,
+              scope: env.readScope,
+              query,
+            })
+          },
+          { path: "/api/v1/calendar" },
+        )
+      }
+
       const readModel = await loadReadModel({
         env,
         queryJson,

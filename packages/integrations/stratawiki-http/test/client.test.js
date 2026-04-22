@@ -161,6 +161,100 @@ test("http client maps profile sync, personal query, and background build endpoi
   assert.equal(calls[2].method, "POST")
 })
 
+test("http client maps consumer-shaped read endpoints for workspace summary, opportunities, and calendar", async () => {
+  const calls = []
+  const client = createStratawikiHttpClient({
+    baseUrl: "http://127.0.0.1:8080",
+    requestIdFactory: () => "req-http-read-1",
+    fetchImpl: async (url, options) => {
+      calls.push({
+        url,
+        method: options.method,
+      })
+
+      if (url.includes("/api/v1/workspace-summary")) {
+        return createJsonResponse({
+          ok: true,
+          request_id: "req-http-read-1",
+          result: {
+            profileSnapshot: {
+              targetRole: "Profile profile_demo pending context hydration",
+            },
+          },
+        })
+      }
+
+      if (url.includes("/api/v1/opportunities/opp_abc")) {
+        return createJsonResponse({
+          ok: true,
+          request_id: "req-http-read-1",
+          result: {
+            opportunityId: "opp_abc",
+            title: "Backend Engineer",
+          },
+        })
+      }
+
+      if (url.includes("/api/v1/opportunities")) {
+        return createJsonResponse({
+          ok: true,
+          request_id: "req-http-read-1",
+          result: {
+            items: [{ opportunityId: "opp_abc" }],
+            nextCursor: "cursor_001",
+          },
+        })
+      }
+
+      return createJsonResponse({
+        ok: true,
+        request_id: "req-http-read-1",
+        result: {
+          items: [{ calendarItemId: "calendar_opp_abc" }],
+        },
+      })
+    },
+  })
+
+  const summary = await client.getWorkspaceSummary({
+    domain: "recruiting",
+    scope: "shared",
+    profileId: "profile_demo",
+  })
+  const list = await client.listOpportunities({
+    domain: "recruiting",
+    scope: "shared",
+    query: {
+      limit: 1,
+      cursorOffset: 1,
+      status: "open",
+    },
+  })
+  const detail = await client.getOpportunity({
+    domain: "recruiting",
+    scope: "shared",
+    opportunityId: "opp_abc",
+  })
+  const calendar = await client.getCalendar({
+    domain: "recruiting",
+    scope: "shared",
+    query: {
+      from: "2026-04-24",
+      to: "2026-04-30",
+    },
+  })
+
+  assert.equal(summary.profileSnapshot.targetRole, "Profile profile_demo pending context hydration")
+  assert.equal(list.items[0].opportunityId, "opp_abc")
+  assert.equal(list.nextCursor, "cursor_001")
+  assert.equal(detail.title, "Backend Engineer")
+  assert.equal(calendar.items[0].calendarItemId, "calendar_opp_abc")
+  assert.match(calls[0].url, /\/api\/v1\/workspace-summary\?domain=recruiting&scope=shared&profileId=profile_demo$/)
+  assert.match(calls[1].url, /\/api\/v1\/opportunities\?domain=recruiting&scope=shared&limit=1&cursor=cursor_001&status=open$/)
+  assert.match(calls[2].url, /\/api\/v1\/opportunities\/opp_abc\?domain=recruiting&scope=shared$/)
+  assert.match(calls[3].url, /\/api\/v1\/calendar\?domain=recruiting&scope=shared&from=2026-04-24&to=2026-04-30$/)
+})
+
 test("http client uses dedicated personal REST endpoints for document, asset, generation, and link flows", async () => {
   const calls = []
   const client = createStratawikiHttpClient({

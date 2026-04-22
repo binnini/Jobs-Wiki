@@ -14,6 +14,10 @@ function compactObject(value) {
   )
 }
 
+function formatOpportunityCursor(offset) {
+  return `cursor_${String(offset).padStart(3, "0")}`
+}
+
 function buildQueryString(query = {}) {
   const params = new URLSearchParams()
 
@@ -256,6 +260,86 @@ export function createStratawikiHttpClient({
       const response = await request({
         method: "GET",
         path: `/api/v1/tools/${encodeURIComponent(name)}`,
+        requestId,
+      })
+      return response.result
+    },
+    async getWorkspaceSummary({
+      domain,
+      scope = "shared",
+      profileId,
+      requestId,
+    } = {}) {
+      const response = await request({
+        method: "GET",
+        path: "/api/v1/workspace-summary",
+        query: {
+          domain,
+          scope,
+          profileId,
+        },
+        requestId,
+      })
+      return response.result
+    },
+    async listOpportunities({
+      domain,
+      scope = "shared",
+      query = {},
+      requestId,
+    } = {}) {
+      const cursor =
+        query?.cursor ??
+        (query?.cursorOffset !== undefined
+          ? formatOpportunityCursor(query.cursorOffset)
+          : undefined)
+      const response = await request({
+        method: "GET",
+        path: "/api/v1/opportunities",
+        query: {
+          domain,
+          scope,
+          limit: query?.limit,
+          cursor,
+          status: query?.status,
+          closingWithinDays: query?.closingWithinDays,
+        },
+        requestId,
+      })
+      return response.result
+    },
+    async getOpportunity({
+      domain,
+      scope = "shared",
+      opportunityId,
+      requestId,
+    } = {}) {
+      const response = await request({
+        method: "GET",
+        path: `/api/v1/opportunities/${encodeURIComponent(opportunityId)}`,
+        query: {
+          domain,
+          scope,
+        },
+        requestId,
+      })
+      return response.result
+    },
+    async getCalendar({
+      domain,
+      scope = "shared",
+      query = {},
+      requestId,
+    } = {}) {
+      const response = await request({
+        method: "GET",
+        path: "/api/v1/calendar",
+        query: {
+          domain,
+          scope,
+          from: query?.from,
+          to: query?.to,
+        },
         requestId,
       })
       return response.result
