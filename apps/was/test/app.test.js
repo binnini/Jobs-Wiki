@@ -989,6 +989,7 @@ test("real command facade mode returns normalized temporary unavailability error
       port: 0,
       nodeEnv: "test",
       dataMode: "real",
+      STRATAWIKI_BASE_URL: "",
       logLevel: "silent",
     },
     async (app) => {
@@ -1242,6 +1243,7 @@ test("real adapter mode returns normalized temporary unavailability errors", asy
       port: 0,
       nodeEnv: "test",
       dataMode: "real",
+      STRATAWIKI_BASE_URL: "",
       logLevel: "silent",
     },
     async (app) => {
@@ -1264,6 +1266,7 @@ test("real document detail mode returns normalized temporary unavailability erro
       port: 0,
       nodeEnv: "test",
       dataMode: "real",
+      STRATAWIKI_BASE_URL: "",
       logLevel: "silent",
     },
     async (app) => {

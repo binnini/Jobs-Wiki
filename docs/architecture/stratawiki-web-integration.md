@@ -16,6 +16,9 @@ status: draft
 
 이 문서는 **current baseline** 과 **target baseline** 을 분리해서 읽어야 합니다.
 
+또한 이 문서는 `docs/README.md`에서 current product slice 기준으로는 secondary/background 문서로 분류되지만,
+`Jobs-Wiki -> StrataWiki` 통합 경계를 판단할 때는 여전히 **integration concern의 primary doc** 으로 취급합니다.
+
 - current baseline
   - write / personal / command 는 HTTP 입니다.
   - read 는 `JOBS_WIKI_READ_AUTHORITY_MODE=sql|http` 로 병행 가능합니다.

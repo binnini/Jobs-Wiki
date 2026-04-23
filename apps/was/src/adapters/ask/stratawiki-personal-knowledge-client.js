@@ -64,8 +64,11 @@ function ensureHttpMode(env, httpClient) {
   }
 
   if (!httpClient) {
-    throw new Error(
+    throw createTemporarilyUnavailableError(
       "Jobs-Wiki personal knowledge flows require STRATAWIKI_BASE_URL for HTTP mode.",
+      {
+        adapter: "stratawiki_personal_knowledge",
+      },
     )
   }
 }

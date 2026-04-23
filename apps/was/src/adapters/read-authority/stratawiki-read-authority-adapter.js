@@ -819,7 +819,7 @@ function mapPersonalWorkspaceItem(record, { subspace } = {}) {
 async function listPersonalWorkspaceItems({
   env,
   userContext,
-  personalKnowledgeClient,
+  getPersonalKnowledgeClient,
   profileContextCatalog,
 }) {
   const profileContextEntry = resolveProfileContextEntry({
@@ -828,7 +828,16 @@ async function listPersonalWorkspaceItems({
     domain: env.readDomain ?? "recruiting",
   })
 
-  if (!profileContextEntry || !personalKnowledgeClient.listPersonalDocuments) {
+  if (!profileContextEntry) {
+    return {
+      personalRawItems: [],
+      personalWikiItems: [],
+    }
+  }
+
+  const personalKnowledgeClient = getPersonalKnowledgeClient?.()
+
+  if (!personalKnowledgeClient?.listPersonalDocuments) {
     return {
       personalRawItems: [],
       personalWikiItems: [],
@@ -896,7 +905,7 @@ async function loadDocumentDetail({
   documentId,
   userContext,
   env,
-  personalKnowledgeClient,
+  getPersonalKnowledgeClient,
   profileContextCatalog,
 }) {
   const parsedDocumentId = parseWorkspaceDocumentId(documentId)
@@ -908,6 +917,8 @@ async function loadDocumentDetail({
   }
 
   if (parsedDocumentId.layer === "shared") {
+    const personalKnowledgeClient = getPersonalKnowledgeClient?.()
+
     if (parsedDocumentId.recordId.startsWith("interp:")) {
       const response = await personalKnowledgeClient.getInterpretationRecord({
         interpretationId: parsedDocumentId.recordId,
@@ -944,6 +955,8 @@ async function loadDocumentDetail({
       })
     }
 
+    const personalKnowledgeClient = getPersonalKnowledgeClient?.()
+
     const response = await personalKnowledgeClient.getPersonalDocument({
       tenantId: profileContextEntry.tenantId,
       userId: profileContextEntry.userId,
@@ -963,12 +976,12 @@ async function loadDocumentDetail({
 
 async function buildWorkspaceRecord(
   readModel,
-  { env, userContext, personalKnowledgeClient, profileContextCatalog } = {},
+  { env, userContext, getPersonalKnowledgeClient, profileContextCatalog } = {},
 ) {
   const personalItems = await listPersonalWorkspaceItems({
     env,
     userContext,
-    personalKnowledgeClient,
+    getPersonalKnowledgeClient,
     profileContextCatalog,
   })
 
@@ -1217,11 +1230,34 @@ export function createStratawikiReadAuthorityAdapter({
   queryJson = queryJsonWithPsql,
   now = () => new Date(),
   httpClient: providedHttpClient,
-  personalKnowledgeClient = createStratawikiPersonalKnowledgeClient({ env }),
+  personalKnowledgeClient: providedPersonalKnowledgeClient = null,
 } = {}) {
   const profileContextCatalog = loadProfileContextCatalog(env.profileContextCatalogPath)
   const readAuthorityMode = String(env.readAuthorityMode ?? "http").trim().toLowerCase()
   const httpClient = providedHttpClient ?? createHttpReadClient(env)
+  let personalKnowledgeClient = providedPersonalKnowledgeClient
+
+  function getPersonalKnowledgeClient() {
+    if (!personalKnowledgeClient) {
+      personalKnowledgeClient = createStratawikiPersonalKnowledgeClient({ env })
+    }
+
+    return personalKnowledgeClient
+  }
+
+  function requireHttpClient(path) {
+    if (!httpClient) {
+      throw createTemporarilyUnavailableError(
+        "Jobs-Wiki HTTP read authority mode requires STRATAWIKI_BASE_URL.",
+        {
+          adapter: "stratawiki_read_authority",
+          path,
+        },
+      )
+    }
+
+    return httpClient
+  }
 
   async function runHttp(httpRun, { path }) {
     try {
@@ -1237,13 +1273,9 @@ export function createStratawikiReadAuthorityAdapter({
         readAuthorityMode === "http"
           ? await runHttp(
               async () => {
-                if (!httpClient) {
-                  throw new Error(
-                    "Jobs-Wiki HTTP read authority mode requires STRATAWIKI_BASE_URL.",
-                  )
-                }
+                const client = requireHttpClient("/api/v1/opportunities")
 
-                const response = await httpClient.listOpportunities({
+                const response = await client.listOpportunities({
                   domain: env.readDomain,
                   scope: env.readScope,
                   query: {
@@ -1269,7 +1301,7 @@ export function createStratawikiReadAuthorityAdapter({
       return buildWorkspaceRecord(readModel, {
         env,
         userContext,
-        personalKnowledgeClient,
+        getPersonalKnowledgeClient,
         profileContextCatalog,
       })
     },
@@ -1278,13 +1310,9 @@ export function createStratawikiReadAuthorityAdapter({
       if (readAuthorityMode === "http") {
         return await runHttp(
           async () => {
-            if (!httpClient) {
-              throw new Error(
-                "Jobs-Wiki HTTP read authority mode requires STRATAWIKI_BASE_URL.",
-              )
-            }
+            const client = requireHttpClient("/api/v1/workspace-summary")
 
-            return await httpClient.getWorkspaceSummary({
+            return await client.getWorkspaceSummary({
               domain: env.readDomain,
               scope: env.readScope,
               profileId: userContext?.profileId,
@@ -1308,7 +1336,7 @@ export function createStratawikiReadAuthorityAdapter({
         documentId,
         userContext,
         env,
-        personalKnowledgeClient,
+        getPersonalKnowledgeClient,
         profileContextCatalog,
       })
 
@@ -1324,13 +1352,9 @@ export function createStratawikiReadAuthorityAdapter({
       if (readAuthorityMode === "http") {
         return await runHttp(
           async () => {
-            if (!httpClient) {
-              throw new Error(
-                "Jobs-Wiki HTTP read authority mode requires STRATAWIKI_BASE_URL.",
-              )
-            }
+            const client = requireHttpClient("/api/v1/opportunities")
 
-            return await httpClient.listOpportunities({
+            return await client.listOpportunities({
               domain: env.readDomain,
               scope: env.readScope,
               query,
@@ -1388,13 +1412,11 @@ export function createStratawikiReadAuthorityAdapter({
       if (readAuthorityMode === "http") {
         return await runHttp(
           async () => {
-            if (!httpClient) {
-              throw new Error(
-                "Jobs-Wiki HTTP read authority mode requires STRATAWIKI_BASE_URL.",
-              )
-            }
+            const client = requireHttpClient(
+              `/api/v1/opportunities/${encodeURIComponent(opportunityId)}`,
+            )
 
-            return await httpClient.getOpportunity({
+            return await client.getOpportunity({
               domain: env.readDomain,
               scope: env.readScope,
               opportunityId,
@@ -1442,13 +1464,9 @@ export function createStratawikiReadAuthorityAdapter({
       if (readAuthorityMode === "http") {
         return await runHttp(
           async () => {
-            if (!httpClient) {
-              throw new Error(
-                "Jobs-Wiki HTTP read authority mode requires STRATAWIKI_BASE_URL.",
-              )
-            }
+            const client = requireHttpClient("/api/v1/calendar")
 
-            return await httpClient.getCalendar({
+            return await client.getCalendar({
               domain: env.readDomain,
               scope: env.readScope,
               query,

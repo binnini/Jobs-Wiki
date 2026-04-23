@@ -25,6 +25,9 @@
 
 현재 기준선은 `PKM workspace-first MVP` 입니다. 아래 문서들을 먼저 보고, 오래된 report-first 또는 generic PKM 방향 문서와 충돌하면 이 기준선을 우선합니다.
 
+이 문서의 역할은 **현재 제품 slice에서 어떤 문서를 우선 읽을지 정하는 precedence/guidance** 입니다.
+실제 제품 요구사항 내용은 `product/mvp-requirements-baseline.md`를 우선 기준으로 읽습니다.
+
 현재 레이어/디렉터리 해석:
 
 - `shared/`
@@ -59,6 +62,9 @@
 - `api/workspace-mvp-read-contract.md`
 - `architecture/stratawiki-web-integration.md`
 - `architecture/web-service-requirements-analysis.md`
+
+단, `architecture/stratawiki-web-integration.md`는 **현재 제품 slice의 1차 기준 문서**는 아니지만,
+`Jobs-Wiki -> StrataWiki` 통합 경계를 판단할 때는 여전히 **integration concern의 primary doc** 로 취급합니다.
 
 ## Current MVP Run And Verify
 
