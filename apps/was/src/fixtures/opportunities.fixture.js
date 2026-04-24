@@ -5,7 +5,7 @@ export const opportunityListFixture = [
     title: "Backend Platform Engineer",
     companyName: "Northstar Data",
     roleLabels: ["Backend", "Platform"],
-    summary: "Build internal API platform and developer tooling for a report-first product.",
+    summary: "Build internal API platform and developer tooling for a workspace-first product.",
     employmentType: "full_time",
     opensAt: "2026-04-01T09:00:00+09:00",
     closesAt: "2026-05-01T23:59:59+09:00",
@@ -56,7 +56,7 @@ export const opportunityDetailsFixture = {
     title: "Backend Platform Engineer",
     summary: "Build API surfaces for hiring intelligence products.",
     descriptionMarkdown:
-      "Lead the WAS layer for report-first workflows, API composition, and adapter boundaries.",
+      "Lead the WAS layer for workspace-first workflows, API composition, and adapter boundaries.",
     employmentType: "full_time",
     opensAt: "2026-04-01T09:00:00+09:00",
     closesAt: "2026-05-01T23:59:59+09:00",
