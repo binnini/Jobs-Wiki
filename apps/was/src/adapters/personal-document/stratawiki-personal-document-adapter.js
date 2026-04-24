@@ -107,11 +107,11 @@ async function loadRuntimePersonalDocument({
 
 function buildSourceDocumentRef(document) {
   return {
-    document_id: document.document_id,
+    documentId: document.document_id,
     subspace: document.subspace,
     version: document.version,
-    kind: document.kind,
-    asset_refs: Array.isArray(document.asset_refs) ? document.asset_refs : [],
+    ...(document.kind ? { kind: document.kind } : {}),
+    assetRefs: Array.isArray(document.asset_refs) ? document.asset_refs : [],
   }
 }
 
@@ -119,7 +119,7 @@ function buildGenerationTrace({ operation, sourceDocumentRef }) {
   return [
     {
       step: "source",
-      message: `source_document_ref=${sourceDocumentRef.document_id}; subspace=${sourceDocumentRef.subspace}; version=${sourceDocumentRef.version}`,
+      message: `source_document_ref=${sourceDocumentRef.documentId}; subspace=${sourceDocumentRef.subspace}; version=${sourceDocumentRef.version}`,
     },
     {
       step: "operation",
@@ -130,12 +130,22 @@ function buildGenerationTrace({ operation, sourceDocumentRef }) {
 
 export function createStratawikiPersonalDocumentAdapter({
   env = {},
-  personalKnowledgeClient = createStratawikiPersonalKnowledgeClient({ env }),
+  personalKnowledgeClient: providedPersonalKnowledgeClient = null,
 } = {}) {
   const profileContextCatalog = loadProfileContextCatalog(env.profileContextCatalogPath)
+  let personalKnowledgeClient = providedPersonalKnowledgeClient
+
+  function getPersonalKnowledgeClient() {
+    if (!personalKnowledgeClient) {
+      personalKnowledgeClient = createStratawikiPersonalKnowledgeClient({ env })
+    }
+
+    return personalKnowledgeClient
+  }
 
   return {
     async createPersonalDocument({ userContext, input }) {
+      const personalKnowledgeClient = getPersonalKnowledgeClient()
       const profileContextEntry = resolveWritableProfileContext({
         env,
         profileContextCatalog,
@@ -163,6 +173,7 @@ export function createStratawikiPersonalDocumentAdapter({
     },
 
     async updatePersonalDocument({ userContext, documentId, input }) {
+      const personalKnowledgeClient = getPersonalKnowledgeClient()
       const profileContextEntry = resolveWritableProfileContext({
         env,
         profileContextCatalog,
@@ -196,6 +207,7 @@ export function createStratawikiPersonalDocumentAdapter({
     },
 
     async deletePersonalDocument({ userContext, documentId, input }) {
+      const personalKnowledgeClient = getPersonalKnowledgeClient()
       const profileContextEntry = resolveWritableProfileContext({
         env,
         profileContextCatalog,
@@ -218,6 +230,7 @@ export function createStratawikiPersonalDocumentAdapter({
     },
 
     async registerPersonalAsset({ userContext, input }) {
+      const personalKnowledgeClient = getPersonalKnowledgeClient()
       const profileContextEntry = resolveWritableProfileContext({
         env,
         profileContextCatalog,
@@ -253,11 +266,6 @@ export function createStratawikiPersonalDocumentAdapter({
     },
 
     async generatePersonalWikiDocument({ userContext, documentId, input }) {
-      const profileContextEntry = resolveWritableProfileContext({
-        env,
-        profileContextCatalog,
-        userContext,
-      })
       const parsedDocumentId = parsePersonalLayerDocumentId(documentId)
 
       if (parsedDocumentId.layer !== "personal_raw") {
@@ -265,6 +273,13 @@ export function createStratawikiPersonalDocumentAdapter({
           "Raw-to-wiki generation requires a `personal_raw` source document.",
         )
       }
+
+      const personalKnowledgeClient = getPersonalKnowledgeClient()
+      const profileContextEntry = resolveWritableProfileContext({
+        env,
+        profileContextCatalog,
+        userContext,
+      })
 
       await ensureProfileContext({
         personalKnowledgeClient,
@@ -305,7 +320,7 @@ export function createStratawikiPersonalDocumentAdapter({
             generatedAt: document?.updated_at ?? response?.updated_at ?? updatedAt,
             sourceDocument: {
               documentId,
-              title: sourceDocument.title ?? sourceDocumentRef.document_id,
+              title: sourceDocument.title ?? sourceDocumentRef.documentId,
               layer: parsedDocumentId.layer,
               version: sourceDocument.version ?? sourceDocumentRef.version,
             },
@@ -333,7 +348,7 @@ export function createStratawikiPersonalDocumentAdapter({
             generatedAt: document?.updated_at ?? response?.updated_at ?? updatedAt,
             sourceDocument: {
               documentId,
-              title: sourceDocument.title ?? sourceDocumentRef.document_id,
+              title: sourceDocument.title ?? sourceDocumentRef.documentId,
               layer: parsedDocumentId.layer,
               version: sourceDocument.version ?? sourceDocumentRef.version,
             },
@@ -361,7 +376,7 @@ export function createStratawikiPersonalDocumentAdapter({
             generatedAt: document?.updated_at ?? response?.updated_at ?? updatedAt,
             sourceDocument: {
               documentId,
-              title: sourceDocument.title ?? sourceDocumentRef.document_id,
+              title: sourceDocument.title ?? sourceDocumentRef.documentId,
               layer: parsedDocumentId.layer,
               version: sourceDocument.version ?? sourceDocumentRef.version,
             },
@@ -379,11 +394,6 @@ export function createStratawikiPersonalDocumentAdapter({
     },
 
     async suggestPersonalWikiLinks({ userContext, documentId, input }) {
-      const profileContextEntry = resolveWritableProfileContext({
-        env,
-        profileContextCatalog,
-        userContext,
-      })
       const parsedDocumentId = parsePersonalLayerDocumentId(documentId)
 
       if (parsedDocumentId.layer !== "personal_wiki") {
@@ -391,6 +401,13 @@ export function createStratawikiPersonalDocumentAdapter({
           "Wiki link suggestions require a `personal_wiki` document.",
         )
       }
+
+      const personalKnowledgeClient = getPersonalKnowledgeClient()
+      const profileContextEntry = resolveWritableProfileContext({
+        env,
+        profileContextCatalog,
+        userContext,
+      })
 
       await ensureProfileContext({
         personalKnowledgeClient,
@@ -415,11 +432,6 @@ export function createStratawikiPersonalDocumentAdapter({
     },
 
     async attachPersonalWikiLinks({ userContext, documentId, input }) {
-      const profileContextEntry = resolveWritableProfileContext({
-        env,
-        profileContextCatalog,
-        userContext,
-      })
       const parsedDocumentId = parsePersonalLayerDocumentId(documentId)
 
       if (parsedDocumentId.layer !== "personal_wiki") {
@@ -427,6 +439,13 @@ export function createStratawikiPersonalDocumentAdapter({
           "Wiki link attachment requires a `personal_wiki` document.",
         )
       }
+
+      const personalKnowledgeClient = getPersonalKnowledgeClient()
+      const profileContextEntry = resolveWritableProfileContext({
+        env,
+        profileContextCatalog,
+        userContext,
+      })
 
       return personalKnowledgeClient.attachPersonalWikiLinks({
         tenantId: profileContextEntry.tenantId,

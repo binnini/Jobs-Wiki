@@ -170,7 +170,7 @@ async function main() {
           batch: {
             batch_id: `cross-repo-http-smoke-${randomUUID().slice(0, 8)}`,
             domain: "recruiting",
-            pack_version: "2026-04-18",
+            pack_version: "2026-04-22",
             producer: "jobs-wiki-cross-repo-smoke",
             proposals: [],
           },

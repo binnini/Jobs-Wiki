@@ -1,7 +1,7 @@
 {
   "domain": "recruiting",
-  "packVersion": "2026-04-18",
-  "producer": "jobs-wiki.worknet.open_recruitment.mapper/v1",
+  "packVersion": "2026-04-22",
+  "producer": "jobs-wiki.worknet.open_recruitment.mapper/v2",
   "facts": [
     {
       "proposalId": "job_posting:worknet:EMP-AMBIGUOUS-1",

@@ -1,6 +1,8 @@
 # Jobs-Wiki
 
-현재 구현 기준은 report-first MVP입니다. frontend는 WAS만 호출하고, 기본 리포트와 공고 상세, Ask, Calendar 흐름을 우선합니다.
+현재 구현 기준은 `workspace-first PKM MVP`입니다.
+`report`, `opportunity`, `ask`, `calendar`는 workspace 안의 핵심 projection/flow로 취급합니다.
+루트 README보다 더 구체적인 기준선이 필요하면 `docs/README.md`와 `docs/product/mvp-requirements-baseline.md`를 우선합니다.
 
 핵심 문서 진입점:
 
@@ -33,6 +35,8 @@
 
    - `/onboarding`
    - `/review`
+   - `/workspace`
+   - `/documents/:documentId`
    - `/report`
    - `/opportunities/:opportunityId`
    - `/ask`
@@ -128,13 +132,16 @@ dev-wiki/       # 개발 중 작업 노트와 실험 기록, gitignored
 ## Architecture Note
 
 - 이 레포는 웹 서비스 중심 레포입니다.
+- 이 레포의 중심 제품 모델은 markdown-native personal workspace 입니다.
 - MCP 서버 구현은 포함하지 않습니다.
 - MCP 기반 클라이언트는 WAS 공개 API를 소비하는 외부 소비자로 취급합니다.
 - StrataWiki 같은 knowledge backend와 그 DB schema/migration ownership은 이 레포에 포함하지 않습니다.
+- Jobs-Wiki는 recruiting domain semantics, source normalization, proposal generation, workspace UX 를 소유합니다.
+- StrataWiki는 canonical shared `Fact`/`Interpretation` storage 와 runtime governance 를 소유합니다.
 - Ingestion은 WAS와 분리된 별도 계층으로 다룹니다.
 - WAS는 ingestion을 직접 수행하지 않습니다.
 - WAS가 할 수 있는 것은 필요 시 ingestion job을 좁은 경계로 요청하는 것뿐입니다.
-- StrataWiki integration 은 현재 HTTP/REST 우선, wrapper rollback path 를 함께 유지하는 dual-mode 입니다.
+- StrataWiki integration 은 현재 HTTP-first baseline 이고, SQL read fallback 은 deprecated compatibility path 로 남아 있습니다.
 - resource-specific HTTP endpoint 가 있는 경우 Jobs-Wiki 는 generic tool bridge 보다 해당 endpoint 를 우선 사용합니다.
 
 ## Docs Policy

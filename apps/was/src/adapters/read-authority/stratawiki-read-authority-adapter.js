@@ -1,5 +1,9 @@
 import { spawnSync } from "node:child_process"
 import {
+  StratawikiHttpError,
+  createStratawikiHttpClient,
+} from "../../../../../packages/integrations/stratawiki-http/client.js"
+import {
   createStratawikiPersonalKnowledgeClient,
 } from "../ask/stratawiki-personal-knowledge-client.js"
 import {
@@ -7,9 +11,11 @@ import {
   resolveProfileContextEntry,
 } from "../ask/profile-context-catalog.js"
 import {
+  createForbiddenError,
   createNotFoundError,
   createTemporarilyUnavailableError,
   createUnknownFailureError,
+  createValidationError,
 } from "../../http/errors.js"
 import { normalizeWorkspacePath } from "../../mappers/workspace-tree-model.js"
 
@@ -169,6 +175,49 @@ function compactObject(value) {
   return Object.fromEntries(
     Object.entries(value).filter(([, entryValue]) => entryValue !== undefined),
   )
+}
+
+function createHttpReadClient(env) {
+  if (!env.stratawikiBaseUrl) {
+    return null
+  }
+
+  return createStratawikiHttpClient({
+    baseUrl: env.stratawikiBaseUrl,
+    apiToken: env.stratawikiApiToken,
+    timeoutMs: env.stratawikiHttpTimeoutMs,
+  })
+}
+
+function toReadAuthorityError(error, { path }) {
+  if (!(error instanceof StratawikiHttpError)) {
+    return error
+  }
+
+  const details = {
+    adapter: "stratawiki_read_authority",
+    path,
+    requestId: error.requestId,
+    upstreamCode: error.code,
+  }
+
+  if (error.status === 404 || error.code === "not_found") {
+    return createNotFoundError(error.message, details)
+  }
+
+  if (error.status === 422 || error.code === "validation_error") {
+    return createValidationError(error.message, details)
+  }
+
+  if (error.status === 401 || error.status === 403 || error.code === "unauthorized") {
+    return createForbiddenError(error.message, details)
+  }
+
+  if (error.retryable) {
+    return createTemporarilyUnavailableError(error.message, details)
+  }
+
+  return createUnknownFailureError(error.message, details, error)
 }
 
 function getRoleLabel(roleRecord) {
@@ -770,7 +819,7 @@ function mapPersonalWorkspaceItem(record, { subspace } = {}) {
 async function listPersonalWorkspaceItems({
   env,
   userContext,
-  personalKnowledgeClient,
+  getPersonalKnowledgeClient,
   profileContextCatalog,
 }) {
   const profileContextEntry = resolveProfileContextEntry({
@@ -779,7 +828,16 @@ async function listPersonalWorkspaceItems({
     domain: env.readDomain ?? "recruiting",
   })
 
-  if (!profileContextEntry || !personalKnowledgeClient.listPersonalDocuments) {
+  if (!profileContextEntry) {
+    return {
+      personalRawItems: [],
+      personalWikiItems: [],
+    }
+  }
+
+  const personalKnowledgeClient = getPersonalKnowledgeClient?.()
+
+  if (!personalKnowledgeClient?.listPersonalDocuments) {
     return {
       personalRawItems: [],
       personalWikiItems: [],
@@ -847,7 +905,7 @@ async function loadDocumentDetail({
   documentId,
   userContext,
   env,
-  personalKnowledgeClient,
+  getPersonalKnowledgeClient,
   profileContextCatalog,
 }) {
   const parsedDocumentId = parseWorkspaceDocumentId(documentId)
@@ -859,6 +917,8 @@ async function loadDocumentDetail({
   }
 
   if (parsedDocumentId.layer === "shared") {
+    const personalKnowledgeClient = getPersonalKnowledgeClient?.()
+
     if (parsedDocumentId.recordId.startsWith("interp:")) {
       const response = await personalKnowledgeClient.getInterpretationRecord({
         interpretationId: parsedDocumentId.recordId,
@@ -895,23 +955,17 @@ async function loadDocumentDetail({
       })
     }
 
-    const response =
-      /^personal:(raw|wiki):/.test(parsedDocumentId.recordId) ||
-      !parsedDocumentId.recordId.startsWith("personal:")
-        ? await personalKnowledgeClient.getPersonalDocument({
-            tenantId: profileContextEntry.tenantId,
-            userId: profileContextEntry.userId,
-            documentId: parsedDocumentId.recordId,
-          })
-        : await personalKnowledgeClient.getPersonalRecord({
-            tenantId: profileContextEntry.tenantId,
-            userId: profileContextEntry.userId,
-            personalId: parsedDocumentId.recordId,
-          })
+    const personalKnowledgeClient = getPersonalKnowledgeClient?.()
+
+    const response = await personalKnowledgeClient.getPersonalDocument({
+      tenantId: profileContextEntry.tenantId,
+      userId: profileContextEntry.userId,
+      documentId: parsedDocumentId.recordId,
+    })
 
     return mapPersonalDocument(
       parsedDocumentId,
-      response?.document ?? response?.record ?? response,
+      response?.document ?? response,
     )
   }
 
@@ -922,12 +976,12 @@ async function loadDocumentDetail({
 
 async function buildWorkspaceRecord(
   readModel,
-  { env, userContext, personalKnowledgeClient, profileContextCatalog } = {},
+  { env, userContext, getPersonalKnowledgeClient, profileContextCatalog } = {},
 ) {
   const personalItems = await listPersonalWorkspaceItems({
     env,
     userContext,
-    personalKnowledgeClient,
+    getPersonalKnowledgeClient,
     profileContextCatalog,
   })
 
@@ -1175,27 +1229,99 @@ export function createStratawikiReadAuthorityAdapter({
   env = {},
   queryJson = queryJsonWithPsql,
   now = () => new Date(),
-  personalKnowledgeClient = createStratawikiPersonalKnowledgeClient({ env }),
+  httpClient: providedHttpClient,
+  personalKnowledgeClient: providedPersonalKnowledgeClient = null,
 } = {}) {
   const profileContextCatalog = loadProfileContextCatalog(env.profileContextCatalogPath)
+  const readAuthorityMode = String(env.readAuthorityMode ?? "http").trim().toLowerCase()
+  const httpClient = providedHttpClient ?? createHttpReadClient(env)
+  let personalKnowledgeClient = providedPersonalKnowledgeClient
+
+  function getPersonalKnowledgeClient() {
+    if (!personalKnowledgeClient) {
+      personalKnowledgeClient = createStratawikiPersonalKnowledgeClient({ env })
+    }
+
+    return personalKnowledgeClient
+  }
+
+  function requireHttpClient(path) {
+    if (!httpClient) {
+      throw createTemporarilyUnavailableError(
+        "Jobs-Wiki HTTP read authority mode requires STRATAWIKI_BASE_URL.",
+        {
+          adapter: "stratawiki_read_authority",
+          path,
+        },
+      )
+    }
+
+    return httpClient
+  }
+
+  async function runHttp(httpRun, { path }) {
+    try {
+      return await httpRun()
+    } catch (error) {
+      throw toReadAuthorityError(error, { path })
+    }
+  }
 
   return {
     async getWorkspace({ userContext } = {}) {
-      const readModel = await loadReadModel({
-        env,
-        queryJson,
-        now: now(),
-      })
+      const readModel =
+        readAuthorityMode === "http"
+          ? await runHttp(
+              async () => {
+                const client = requireHttpClient("/api/v1/opportunities")
+
+                const response = await client.listOpportunities({
+                  domain: env.readDomain,
+                  scope: env.readScope,
+                  query: {
+                    limit: 3,
+                  },
+                })
+
+                return {
+                  opportunityItems: response?.items ?? [],
+                  sync: response?.sync ?? {
+                    visibility: "unknown",
+                  },
+                }
+              },
+              { path: "/api/v1/opportunities" },
+            )
+          : await loadReadModel({
+              env,
+              queryJson,
+              now: now(),
+            })
 
       return buildWorkspaceRecord(readModel, {
         env,
         userContext,
-        personalKnowledgeClient,
+        getPersonalKnowledgeClient,
         profileContextCatalog,
       })
     },
 
     async getWorkspaceSummary({ userContext } = {}) {
+      if (readAuthorityMode === "http") {
+        return await runHttp(
+          async () => {
+            const client = requireHttpClient("/api/v1/workspace-summary")
+
+            return await client.getWorkspaceSummary({
+              domain: env.readDomain,
+              scope: env.readScope,
+              profileId: userContext?.profileId,
+            })
+          },
+          { path: "/api/v1/workspace-summary" },
+        )
+      }
+
       const readModel = await loadReadModel({
         env,
         queryJson,
@@ -1210,7 +1336,7 @@ export function createStratawikiReadAuthorityAdapter({
         documentId,
         userContext,
         env,
-        personalKnowledgeClient,
+        getPersonalKnowledgeClient,
         profileContextCatalog,
       })
 
@@ -1223,6 +1349,21 @@ export function createStratawikiReadAuthorityAdapter({
     },
 
     async listOpportunities({ query } = {}) {
+      if (readAuthorityMode === "http") {
+        return await runHttp(
+          async () => {
+            const client = requireHttpClient("/api/v1/opportunities")
+
+            return await client.listOpportunities({
+              domain: env.readDomain,
+              scope: env.readScope,
+              query,
+            })
+          },
+          { path: "/api/v1/opportunities" },
+        )
+      }
+
       const readModel = await loadReadModel({
         env,
         queryJson,
@@ -1268,6 +1409,23 @@ export function createStratawikiReadAuthorityAdapter({
         })
       }
 
+      if (readAuthorityMode === "http") {
+        return await runHttp(
+          async () => {
+            const client = requireHttpClient(
+              `/api/v1/opportunities/${encodeURIComponent(opportunityId)}`,
+            )
+
+            return await client.getOpportunity({
+              domain: env.readDomain,
+              scope: env.readScope,
+              opportunityId,
+            })
+          },
+          { path: `/api/v1/opportunities/${encodeURIComponent(opportunityId)}` },
+        )
+      }
+
       const readModel = await loadReadModel({
         env,
         queryJson,
@@ -1303,6 +1461,21 @@ export function createStratawikiReadAuthorityAdapter({
     },
 
     async getCalendar({ query } = {}) {
+      if (readAuthorityMode === "http") {
+        return await runHttp(
+          async () => {
+            const client = requireHttpClient("/api/v1/calendar")
+
+            return await client.getCalendar({
+              domain: env.readDomain,
+              scope: env.readScope,
+              query,
+            })
+          },
+          { path: "/api/v1/calendar" },
+        )
+      }
+
       const readModel = await loadReadModel({
         env,
         queryJson,

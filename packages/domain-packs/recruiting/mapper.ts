@@ -5,14 +5,14 @@ import type {
 } from "../../integrations/worknet/src/recruiting.ts";
 
 export const RECRUITING_DOMAIN = "recruiting";
-export const RECRUITING_PACK_VERSION = "2026-04-18";
+export const RECRUITING_PACK_VERSION = "2026-04-22";
 export const WORKNET_RECRUITING_PROPOSAL_PRODUCER =
-  "jobs-wiki.worknet.open_recruitment.mapper/v1";
+  "jobs-wiki.worknet.open_recruitment.mapper/v2";
 export const WORKNET_RECRUITING_EVIDENCE_CONNECTOR = "worknet.open_recruitment";
 
-export const WORKNET_RECRUITING_V1_AMBIGUOUS_FIELDS = ["posting.notes"] as const;
+export const WORKNET_RECRUITING_V2_AMBIGUOUS_FIELDS = ["posting.notes"] as const;
 
-export const WORKNET_RECRUITING_V1_OMITTED_FIELDS = [
+export const WORKNET_RECRUITING_V2_OMITTED_FIELDS = [
   "posting.applicationMethod",
   "posting.requiredDocuments",
   "posting.inquiry",

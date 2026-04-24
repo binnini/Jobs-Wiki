@@ -14,6 +14,7 @@ LLM이 어떤 역할을 맡아야 하는지 사용자-facing 기준으로 고정
 - LLM은 workspace 안의 지식을 읽고 구조화하는 계층이다
 - LLM은 personal layer를 구성하는 wiki assistant다
 - personal layer의 작업은 절대로 상위 layer로 전파되면 안 된다
+- shared `Fact`/`Interpretation`은 personal workspace를 돕는 lightweight substrate다
 
 ## Product Position
 
@@ -22,7 +23,7 @@ LLM이 어떤 역할을 맡아야 하는지 사용자-facing 기준으로 고정
 LLM은 아래를 담당해야 합니다.
 
 - 사용자의 자료를 읽고 구조화한다
-- shared knowledge를 참고해 personal knowledge를 재구성한다
+- shared substrate를 참고해 personal knowledge를 재구성한다
 - 사용자 맥락에 맞는 answer, note, wiki document를 만든다
 
 즉 제품 관점에서의 LLM 역할은 아래처럼 봅니다.
@@ -30,6 +31,9 @@ LLM은 아래를 담당해야 합니다.
 - `Fact`의 직접 작성자: 아님
 - `Interpretation`의 주요 생성자: 맞음
 - `Personal` answer와 personal wiki의 주요 작성자: 맞음
+
+추가로, shared layer의 역할은 완결형 공용 지식 공간이라기보다
+personal wiki를 grounding 하는 reusable context layer로 이해하는 것이 맞습니다.
 
 ## Layer and Directory Model
 
@@ -44,6 +48,13 @@ LLM은 아래를 담당해야 합니다.
 - `personal/wiki/`
   - LLM이 raw 문서를 재가공해 만든 personal wiki 문서
   - 요약, 재작성, link/relation이 붙은 정리 문서
+
+저장 관점의 원칙:
+
+- `shared`의 canonical payload는 StrataWiki DB에 있음
+- `shared` markdown은 rendered view임
+- `personal/*`의 canonical body는 markdown 파일임
+- personal DB metadata는 registry 용도에 머무름
 
 핵심 규칙:
 
@@ -105,7 +116,7 @@ LLM answer는 grounding 없이 노출되면 안 됩니다.
 
 ## L4. Shared Interpretation Generation
 
-LLM은 shared knowledge layer에서 reusable interpretation을 생성할 수 있어야 합니다.
+LLM은 shared layer에서 reusable interpretation을 생성할 수 있어야 합니다.
 
 필수 요구사항:
 
@@ -113,6 +124,7 @@ LLM은 shared knowledge layer에서 reusable interpretation을 생성할 수 있
 - interpretation은 evidence-backed, revisable, versioned state를 가져야 합니다.
 - interpretation은 proposal -> validation -> publish lifecycle을 거쳐야 합니다.
 - rendered shared page는 interpretation record와 분리되어야 합니다.
+- interpretation은 무거운 완결형 shared brain이 아니라 reusable shared insight로 유지되는 편이 맞습니다.
 
 현재 제품 해석:
 
@@ -146,6 +158,7 @@ LLM은 personal/raw 문서를 personal/wiki 문서로 재구성할 수 있어야
 - 결과는 항상 `personal/wiki`에 저장되어야 합니다.
 - 원문은 `personal/raw`에 남아야 합니다.
 - 결과는 personal artifact일 뿐, shared나 interpretation layer를 직접 수정하지 않습니다.
+- personal 문서의 canonical body 는 markdown 으로 유지하는 편이 맞습니다.
 
 ## L7. Retrieval Discipline
 
@@ -158,6 +171,7 @@ LLM은 필요한 모든 것을 자유롭게 읽는 방식이 아니라,
 - 일반 질의는 `Personal -> Interpretation -> Fact` 순서로 retrieval하는 것이 기본이어야 합니다.
 - exploratory retrieval은 open-ended request에서만 허용해야 합니다.
 - exploratory retrieval은 read-only, scope-aware, hop-limited, result-limited여야 합니다.
+- graph expansion은 support surface일 뿐, dense graph-first retrieval이 기본값이어서는 안 됩니다.
 
 ## L8. Authority Boundary
 

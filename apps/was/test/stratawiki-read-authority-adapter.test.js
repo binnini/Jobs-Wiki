@@ -171,9 +171,11 @@ function createAdapter(overrides = {}) {
       readPsqlBin: "psql",
       readDomain: "recruiting",
       readScope: "shared",
+      readAuthorityMode: overrides.readAuthorityMode ?? "sql",
     },
     queryJson: createQueryJsonStub(overrides),
     now: () => new Date("2026-04-19T00:00:00.000Z"),
+    httpClient: overrides.httpClient,
     personalKnowledgeClient:
       overrides.personalKnowledgeClient ??
       {
@@ -293,6 +295,178 @@ test("real read adapter returns a fallback workspace summary when personal conte
   assert.equal(summary.recommendedOpportunities.length, 2)
   assert.equal(summary.marketBrief.notableCompanies[0], "인천교통공사")
   assert.equal(summary.skillsGap.recommendedToStrengthen.includes("Provision personal profile context"), true)
+})
+
+test("http read adapter proxies StrataWiki consumer-shaped read endpoints while preserving workspace assembly", async () => {
+  const httpClientCalls = []
+  const httpClient = {
+    async getWorkspaceSummary(params) {
+      httpClientCalls.push(["summary", params])
+      return {
+        profileSnapshot: {
+          targetRole: "Profile profile_demo_backend pending context hydration",
+        },
+        recommendedOpportunities: [
+          {
+            opportunityId: "opp_http_1",
+            title: "HTTP Imported Opportunity",
+          },
+        ],
+        marketBrief: {
+          notableCompanies: ["인천교통공사"],
+        },
+        skillsGap: {
+          recommendedToStrengthen: ["Provision personal profile context"],
+        },
+        sync: {
+          visibility: "applied",
+          version: "fact_snap:http",
+        },
+      }
+    },
+    async listOpportunities(params) {
+      httpClientCalls.push(["list", params])
+      return {
+        items: [
+          {
+            opportunityId: "opp_http_1",
+            objectId: "job_posting:http:1",
+            title: "HTTP Imported Opportunity",
+            summary: "Summary from HTTP",
+            companyName: "인천교통공사",
+            roleLabels: ["버스 운전원"],
+            status: "open",
+            source: {
+              provider: "worknet",
+              sourceId: "http-1",
+            },
+            company: {
+              name: "인천교통공사",
+            },
+            roles: [
+              {
+                objectId: "role:http:1",
+                label: "버스 운전원",
+              },
+            ],
+            qualification: {
+              locationText: "인천",
+            },
+            analysis: {
+              riskSummary: "source-only",
+            },
+            evidence: [
+              {
+                provenance: {
+                  connector: "worknet",
+                },
+              },
+            ],
+          },
+        ],
+        nextCursor: "cursor_001",
+        sync: {
+          visibility: "applied",
+          version: "fact_snap:http",
+        },
+      }
+    },
+    async getOpportunity(params) {
+      httpClientCalls.push(["detail", params])
+      return {
+        opportunityId: params.opportunityId,
+        title: "HTTP Imported Opportunity",
+        source: {
+          provider: "worknet",
+          sourceId: "http-1",
+        },
+        company: {
+          name: "인천교통공사",
+        },
+        roles: [
+          {
+            objectId: "role:http:1",
+            label: "버스 운전원",
+          },
+        ],
+        analysis: {
+          riskSummary: "source-only",
+        },
+        evidence: [
+          {
+            provenance: {
+              connector: "worknet",
+            },
+          },
+        ],
+        sync: {
+          visibility: "applied",
+          version: "fact_snap:http",
+        },
+      }
+    },
+    async getCalendar(params) {
+      httpClientCalls.push(["calendar", params])
+      return {
+        items: [
+          {
+            calendarItemId: "calendar_opp_http_1",
+            label: "HTTP Imported Opportunity closes",
+          },
+        ],
+        sync: {
+          visibility: "applied",
+          version: "fact_snap:http",
+        },
+      }
+    },
+  }
+
+  const adapter = createAdapter({
+    readAuthorityMode: "http",
+    httpClient,
+  })
+
+  const summary = await adapter.getWorkspaceSummary({
+    userContext: {
+      profileId: "profile_demo_backend",
+    },
+  })
+  const list = await adapter.listOpportunities({
+    query: {
+      limit: 1,
+    },
+  })
+  const detail = await adapter.getOpportunityDetail({
+    opportunityId: "opp_am9iX3Bvc3Rpbmc6MTU5NDM2",
+  })
+  const calendar = await adapter.getCalendar({
+    query: {
+      from: "2026-04-24",
+      to: "2026-04-30",
+    },
+  })
+  const workspace = await adapter.getWorkspace({
+    userContext: {
+      workspaceId: "workspace_demo",
+      profileId: "profile_demo_backend",
+    },
+  })
+
+  assert.equal(summary.sync.version, "fact_snap:http")
+  assert.equal(list.items[0].title, "HTTP Imported Opportunity")
+  assert.equal(detail.source.provider, "worknet")
+  assert.equal(calendar.items[0].calendarItemId, "calendar_opp_http_1")
+  assert.equal(workspace.sections[0].items[2].title, "HTTP Imported Opportunity")
+  assert.deepEqual(httpClientCalls.map(([name]) => name), [
+    "summary",
+    "list",
+    "detail",
+    "calendar",
+    "list",
+  ])
+  assert.equal(httpClientCalls[0][1].profileId, "profile_demo_backend")
+  assert.equal(httpClientCalls[4][1].query.limit, 3)
 })
 
 test("real read adapter builds workspace shell navigation from runtime personal documents", async () => {
@@ -429,7 +603,55 @@ test("real read adapter reclassifies legacy and drifted personal documents into 
 })
 
 test("real read adapter resolves wrapped shared and personal document ids", async () => {
-  const adapter = createAdapter()
+  const adapter = createAdapter({
+    personalKnowledgeClient: {
+      async getInterpretationRecord({ interpretationId }) {
+        return {
+          record: {
+            id: interpretationId,
+            title: "해석 문서",
+            summary: "shared interpretation summary",
+          },
+        }
+      },
+      async getFactRecord({ factId }) {
+        return {
+          record: {
+            id: factId,
+            attributes: {
+              title: "fact document",
+              summary: "fact summary",
+            },
+          },
+        }
+      },
+      async getPersonalRecord() {
+        throw new Error("workspace document detail should not fall back to getPersonalRecord")
+      },
+      async listPersonalDocuments({ subspace }) {
+        return {
+          items:
+            subspace === "wiki"
+              ? [{ document_id: "pdoc_002", subspace: "wiki", title: "wiki note" }]
+              : [{ document_id: "pdoc_001", subspace: "raw", title: "raw note" }],
+        }
+      },
+      async getPersonalDocument({ documentId }) {
+        return {
+          document: {
+            document_id: documentId,
+            subspace: "raw",
+            title: "runtime personal doc",
+            body_markdown: "## Runtime",
+            asset_refs: ["passet_1"],
+            version: 3,
+            status: "active",
+            updated_at: "2026-04-19T00:40:00.000Z",
+          },
+        }
+      },
+    },
+  })
   const shared = await adapter.getDocumentDetail({
     documentId: "shared:interp:published:1",
   })
@@ -446,7 +668,8 @@ test("real read adapter resolves wrapped shared and personal document ids", asyn
   assert.equal(shared.title, "해석 문서")
   assert.equal(personal.layer, "personal_raw")
   assert.equal(personal.writable, true)
-  assert.equal(personal.title, "personal note")
+  assert.equal(personal.title, "runtime personal doc")
+  assert.equal(personal.bodyMarkdown, "## Runtime")
 })
 
 test("real read adapter resolves runtime personal document ids from document CRUD flow", async () => {

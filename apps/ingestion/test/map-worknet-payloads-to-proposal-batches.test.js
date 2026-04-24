@@ -15,7 +15,7 @@ function createNoopLogger() {
 test("mapWorknetPayloadsToProposalBatches creates proposal batches and summary counts", () => {
   const result = mapWorknetPayloadsToProposalBatches({
     env: {
-      stratawikiRecruitingPackVersion: "2026-04-18",
+      stratawikiRecruitingPackVersion: "2026-04-22",
     },
     logger: createNoopLogger(),
     runId: "map-run-1",
@@ -69,5 +69,5 @@ test("mapWorknetPayloadsToProposalBatches creates proposal batches and summary c
   assert.equal(result.batchReports[0]?.sourceId, "EMP-1")
   assert.equal(result.batchReports[0]?.factProposalCount, 3)
   assert.equal(result.proposalBatches[0]?.batch.domain, "recruiting")
-  assert.equal(result.proposalBatches[0]?.batch.pack_version, "2026-04-18")
+  assert.equal(result.proposalBatches[0]?.batch.pack_version, "2026-04-22")
 })

@@ -44,7 +44,7 @@ test("buildFailureRunSummary captures the failure envelope without secrets", () 
       stratawikiConfigured: true,
       stratawikiCliWrapper: "/tmp/wrapper",
       stratawikiDomainPackPaths: ["/tmp/recruiting-pack.json"],
-      stratawikiActiveDomainPacks: { recruiting: "2026-04-18" },
+      stratawikiActiveDomainPacks: { recruiting: "2026-04-22" },
     },
     error: new Error("runtime unavailable"),
   })

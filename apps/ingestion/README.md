@@ -156,7 +156,7 @@ npm start -- --source worknet --dry-run
   - `validate_domain_proposal_batch` / `ingest_domain_proposal_batch` CLI rollback path 에 필요
   - `JOBS_WIKI_STRATAWIKI_ACTIVE_DOMAIN_PACKS`
     - optional active pack mapping
-    - example: `recruiting=2026-04-18`
+    - example: `recruiting=2026-04-22`
 
 ## Notes
 

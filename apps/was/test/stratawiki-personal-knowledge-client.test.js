@@ -94,18 +94,23 @@ test("personal knowledge client uses HTTP-first resource endpoints when configur
   await client.getCacheStatus({
     tenantId: "tenant-1",
     userId: "user-1",
-    recordId: "personal:1",
+    recordId: "pdoc_raw_1",
   })
   await client.getExplanation({
-    layer: "personal",
-    recordId: "personal:1",
+    layer: "personal_wiki",
+    recordId: "pdoc_wiki_1",
     tenantId: "tenant-1",
     userId: "user-1",
   })
   const build = await client.buildInterpretationSnapshot({
     payload: {
       domain: "recruiting",
-      partition: { family: "market_trends", segment: "backend-mid" },
+      subject: {
+        type: "market_segment",
+        id: "backend-mid",
+        label: "Backend Mid",
+      },
+      family: "market_trends",
       fact_ids: ["fact:1"],
       fact_snapshot: "fact_snap:seed",
       model_profile: "balanced_default",
@@ -123,6 +128,13 @@ test("personal knowledge client uses HTTP-first resource endpoints when configur
   assert.equal(calls[1].kind, "profile")
   assert.equal(calls[2].kind, "personal_query")
   assert.equal(calls[3].payload.name, "get_personal_record")
+  assert.equal(calls.find((entry) => entry.kind === "explanation").payload.layer, "personal")
+  assert.deepEqual(calls.find((entry) => entry.kind === "build").payload.payload.selection, {
+    family: "market_trends",
+    subject_type: "market_segment",
+    subject_id: "backend-mid",
+    subject_label: "Backend Mid",
+  })
 })
 
 test("personal knowledge client rejects legacy non-http integration modes", () => {
@@ -192,7 +204,7 @@ test("personal knowledge client uses dedicated HTTP methods for personal CRUD, g
         calls.push({ kind: "create", payload })
         return {
           document: {
-            document_id: "personal:pdoc-1",
+            document_id: "pdoc_raw_1",
             title: payload.payload.title,
             version: 1,
           },
@@ -231,7 +243,7 @@ test("personal knowledge client uses dedicated HTTP methods for personal CRUD, g
         calls.push({ kind: "summarize", payload })
         return {
           document: {
-            document_id: "personal:wiki-1",
+            document_id: "pdoc_wiki_1",
             title: "Summary",
             version: 1,
             updated_at: "2026-04-21T00:00:00.000Z",
@@ -243,7 +255,7 @@ test("personal knowledge client uses dedicated HTTP methods for personal CRUD, g
         calls.push({ kind: "rewrite", payload })
         return {
           document: {
-            document_id: "personal:wiki-2",
+            document_id: "pdoc_wiki_2",
             title: "Rewrite",
             version: 1,
             updated_at: "2026-04-21T00:00:00.000Z",
@@ -254,7 +266,7 @@ test("personal knowledge client uses dedicated HTTP methods for personal CRUD, g
         calls.push({ kind: "structure", payload })
         return {
           document: {
-            document_id: "personal:wiki-3",
+            document_id: "pdoc_wiki_3",
             title: "Structure",
             version: 1,
             updated_at: "2026-04-21T00:00:00.000Z",
@@ -312,7 +324,7 @@ test("personal knowledge client uses dedicated HTTP methods for personal CRUD, g
   const document = await client.getPersonalDocument({
     tenantId: "tenant-1",
     userId: "user-1",
-    documentId: "personal:1",
+    documentId: "pdoc_raw_1",
   })
   const created = await client.createPersonalDocument({
     tenantId: "tenant-1",
@@ -325,7 +337,7 @@ test("personal knowledge client uses dedicated HTTP methods for personal CRUD, g
   const updated = await client.updatePersonalDocument({
     tenantId: "tenant-1",
     userId: "user-1",
-    documentId: "personal:1",
+    documentId: "pdoc_raw_1",
     profileVersion: "profile:v1",
     ifVersion: 1,
     title: "Draft v2",
@@ -333,7 +345,7 @@ test("personal knowledge client uses dedicated HTTP methods for personal CRUD, g
   const deleted = await client.deletePersonalDocument({
     tenantId: "tenant-1",
     userId: "user-1",
-    documentId: "personal:1",
+    documentId: "pdoc_raw_1",
     ifVersion: 2,
   })
   const asset = await client.registerPersonalAsset({
@@ -347,7 +359,7 @@ test("personal knowledge client uses dedicated HTTP methods for personal CRUD, g
   const summarized = await client.summarizePersonalDocumentToWiki({
     tenantId: "tenant-1",
     userId: "user-1",
-    sourceDocumentRef: { document_id: "personal:1", subspace: "raw", version: 1 },
+    sourceDocumentRef: { documentId: "pdoc_raw_1", subspace: "raw", version: 1 },
     profileVersion: "profile:v1",
     modelProfile: "balanced_default",
     saveTarget: { subspace: "wiki" },
@@ -355,7 +367,7 @@ test("personal knowledge client uses dedicated HTTP methods for personal CRUD, g
   const rewritten = await client.rewritePersonalDocumentToWiki({
     tenantId: "tenant-1",
     userId: "user-1",
-    sourceDocumentRef: { document_id: "personal:1", subspace: "raw", version: 1 },
+    sourceDocumentRef: { documentId: "pdoc_raw_1", subspace: "raw", version: 1 },
     profileVersion: "profile:v1",
     modelProfile: "balanced_default",
     saveTarget: { subspace: "wiki" },
@@ -363,7 +375,7 @@ test("personal knowledge client uses dedicated HTTP methods for personal CRUD, g
   const structured = await client.structurePersonalDocumentToWiki({
     tenantId: "tenant-1",
     userId: "user-1",
-    sourceDocumentRef: { document_id: "personal:1", subspace: "raw", version: 1 },
+    sourceDocumentRef: { documentId: "pdoc_raw_1", subspace: "raw", version: 1 },
     profileVersion: "profile:v1",
     modelProfile: "balanced_default",
     saveTarget: { subspace: "wiki" },
@@ -371,7 +383,7 @@ test("personal knowledge client uses dedicated HTTP methods for personal CRUD, g
   const suggestions = await client.suggestPersonalWikiLinks({
     tenantId: "tenant-1",
     userId: "user-1",
-    wikiDocumentId: "personal:wiki-1",
+    wikiDocumentId: "pdoc_wiki_1",
     wikiDocumentVersion: 1,
     profileVersion: "profile:v1",
     modelProfile: "balanced_default",
@@ -379,23 +391,28 @@ test("personal knowledge client uses dedicated HTTP methods for personal CRUD, g
   const attached = await client.attachPersonalWikiLinks({
     tenantId: "tenant-1",
     userId: "user-1",
-    wikiDocumentId: "personal:wiki-1",
+    wikiDocumentId: "pdoc_wiki_1",
     wikiDocumentVersion: 1,
     attachments: [{ layer: "fact", id: "fact:1" }],
   })
 
   assert.deepEqual(list, { documents: [] })
-  assert.equal(document.document.document_id, "personal:1")
-  assert.equal(created.document.document_id, "personal:pdoc-1")
+  assert.equal(document.document.document_id, "pdoc_raw_1")
+  assert.equal(created.document.document_id, "pdoc_raw_1")
   assert.equal(updated.document.version, 2)
   assert.equal(deleted.document.status, "deleted")
   assert.equal(asset.asset.asset_id, "passet_1")
-  assert.equal(summarized.document.document_id, "personal:wiki-1")
-  assert.equal(rewritten.document.document_id, "personal:wiki-2")
-  assert.equal(structured.document.document_id, "personal:wiki-3")
+  assert.equal(summarized.document.document_id, "pdoc_wiki_1")
+  assert.equal(rewritten.document.document_id, "pdoc_wiki_2")
+  assert.equal(structured.document.document_id, "pdoc_wiki_3")
   assert.equal(suggestions.suggestions.length, 1)
   assert.equal(attached.attached[0].id, "fact:1")
   assert.equal(calls.some((entry) => entry.kind === "tool"), false)
+  assert.deepEqual(calls[6].payload.payload.source_document_ref, {
+    document_id: "pdoc_raw_1",
+    subspace: "raw",
+    version: 1,
+  })
 })
 
 test("personal document adapter routes generation and link flows through the dedicated HTTP client methods", async () => {
@@ -516,6 +533,13 @@ test("personal document adapter routes generation and link flows through the ded
   assert.equal(generated.generation.operation, "summarize")
   assert.equal(generated.generation.provider, "stratawiki")
   assert.equal(generated.document_id, "pdoc_wiki_1")
+  assert.deepEqual(calls.find((entry) => entry.kind === "summarize").payload.sourceDocumentRef, {
+    documentId: "source-1",
+    subspace: "raw",
+    version: 1,
+    kind: "note",
+    assetRefs: [],
+  })
   assert.equal(suggestions.suggestions.length, 1)
   assert.equal(attached.attached.length, 1)
   assert.equal(

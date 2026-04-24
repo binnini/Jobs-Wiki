@@ -4,8 +4,8 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import {
   RECRUITING_PACK_VERSION,
-  WORKNET_RECRUITING_V1_AMBIGUOUS_FIELDS,
-  WORKNET_RECRUITING_V1_OMITTED_FIELDS,
+  WORKNET_RECRUITING_V2_AMBIGUOUS_FIELDS,
+  WORKNET_RECRUITING_V2_OMITTED_FIELDS,
   mapRecruitingSourceToDomainProposalBatch,
 } from "../../packages/domain-packs/recruiting/mapper.ts";
 import type { RecruitingSourcePayload } from "../../packages/integrations/worknet/src/recruiting.ts";
@@ -31,7 +31,7 @@ test("maps a normalized WorkNet recruiting payload to the recruiting proposal ba
   assert.deepEqual(actual, expected);
 });
 
-test("uses fallback identity hints and omits ambiguous v1-only fields", async () => {
+test("uses fallback identity hints and omits ambiguous v2 fields", async () => {
   const payload = await loadJsonFixture<RecruitingSourcePayload>(
     "worknet-open-recruitment-source.json",
   );
@@ -70,13 +70,13 @@ test("uses fallback identity hints and omits ambiguous v1-only fields", async ()
   assert.equal("required_documents" in posting.attributes, false);
   assert.equal("inquiry" in posting.attributes, false);
   assert.equal("notes" in posting.attributes, false);
-  assert.deepEqual(WORKNET_RECRUITING_V1_AMBIGUOUS_FIELDS, ["posting.notes"]);
-  assert.ok(WORKNET_RECRUITING_V1_OMITTED_FIELDS.includes("attachments[]"));
+  assert.deepEqual(WORKNET_RECRUITING_V2_AMBIGUOUS_FIELDS, ["posting.notes"]);
+  assert.ok(WORKNET_RECRUITING_V2_OMITTED_FIELDS.includes("attachments[]"));
 });
 
 test("keeps the mapper pack version aligned with the recruiting pack artifact", async () => {
   const pack = await loadJsonFile<{ manifest: { packVersion: string } }>(
-    "packages/domain-packs/recruiting/v1.json",
+    "packages/domain-packs/recruiting/v2.json",
   );
 
   assert.equal(RECRUITING_PACK_VERSION, pack.manifest.packVersion);
