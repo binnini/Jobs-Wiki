@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto"
+import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 
@@ -36,6 +37,55 @@ function assertEnv(name, fallback = undefined) {
 
 function summarize(value) {
   return JSON.stringify(value, null, 2)
+}
+
+function resolveRecruitingPackVersionFromEnv() {
+  const rawMapping = getEnv(
+    "STRATAWIKI_ACTIVE_DOMAIN_PACKS",
+    getEnv("JOBS_WIKI_STRATAWIKI_ACTIVE_DOMAIN_PACKS", ""),
+  )
+
+  if (!rawMapping) {
+    return null
+  }
+
+  for (const entry of rawMapping.split(",")) {
+    const [domain, version] = entry.split("=").map((item) => item?.trim())
+    if (domain === "recruiting" && version) {
+      return version
+    }
+  }
+
+  return null
+}
+
+function resolveRecruitingPackVersionFromPaths(domainPackPaths) {
+  for (const pathname of domainPackPaths ?? []) {
+    if (!pathname) continue
+
+    try {
+      const payload = JSON.parse(readFileSync(pathname, "utf8"))
+      const version = payload?.manifest?.packVersion
+      if (typeof version === "string" && version.trim() !== "") {
+        return version.trim()
+      }
+    } catch {}
+
+    const datedMatch = pathname.match(/(\d{4}-\d{2}-\d{2})/)
+    if (datedMatch?.[1]) {
+      return datedMatch[1]
+    }
+  }
+
+  return null
+}
+
+function resolveRecruitingPackVersion(domainPackPaths) {
+  return (
+    resolveRecruitingPackVersionFromEnv() ??
+    resolveRecruitingPackVersionFromPaths(domainPackPaths) ??
+    "2026-04-18"
+  )
 }
 
 async function requestJson(label, url, { method = "GET", headers = {}, body } = {}) {
@@ -79,6 +129,18 @@ async function main() {
   )
   console.info(
     `[smoke:cross-repo-http] stratawiki /healthz\n${summarize(stratawikiHealth)}`,
+  )
+
+  const stratawikiReady = await requestJson(
+    "stratawiki readyz",
+    `${stratawikiBaseUrl}/readyz`,
+  )
+  console.info(
+    `[smoke:cross-repo-http] stratawiki /readyz\n${summarize(stratawikiReady)}`,
+  )
+
+  const recruitingPackVersion = resolveRecruitingPackVersion(
+    stratawikiReady?.result?.checks?.domain_pack_paths,
   )
 
   const createDocument = await requestJson(
@@ -170,7 +232,7 @@ async function main() {
           batch: {
             batch_id: `cross-repo-http-smoke-${randomUUID().slice(0, 8)}`,
             domain: "recruiting",
-            pack_version: "2026-04-22",
+            pack_version: recruitingPackVersion,
             producer: "jobs-wiki-cross-repo-smoke",
             proposals: [],
           },
@@ -182,6 +244,7 @@ async function main() {
   const commandRecord = commandResponse?.result ?? commandResponse
   const commandId = commandRecord?.command_id ?? commandRecord?.commandId
   const commandStatus = commandRecord?.state ?? commandRecord?.status
+  const commandResult = commandRecord?.result
 
   if (!commandId || typeof commandStatus !== "string") {
     throw new Error(
@@ -192,6 +255,12 @@ async function main() {
   console.info(
     `[smoke:cross-repo-http] command submit\n${summarize(commandRecord)}`,
   )
+
+  if (commandResult?.ok !== true) {
+    throw new Error(
+      `command submit returned a rejected domain proposal batch: ${summarize(commandRecord)}`,
+    )
+  }
 
   const workspaceSync = await requestJson(
     "get stratawiki command status",
@@ -210,6 +279,12 @@ async function main() {
   console.info(
     `[smoke:cross-repo-http] command status\n${summarize(workspaceSync)}`,
   )
+
+  if (statusRecord?.result?.ok === false) {
+    throw new Error(
+      `command status returned a rejected domain proposal batch: ${summarize(workspaceSync)}`,
+    )
+  }
 
   console.info(
     `[smoke:cross-repo-http] ok\n${summarize({

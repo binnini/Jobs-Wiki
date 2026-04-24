@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto"
 import { spawnSync } from "node:child_process"
+import { readFileSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { fileURLToPath } from "node:url"
 import { createStratawikiHttpClient } from "../packages/integrations/stratawiki-http/client.js"
@@ -18,28 +19,87 @@ function loadRootEnv() {
   }
 }
 
-function assertEnv(name) {
+function getEnv(name, fallback = undefined) {
   const value = process.env[name]
 
-  if (!value || !String(value).trim()) {
+  if (typeof value === "string" && value.trim() !== "") {
+    return value.trim()
+  }
+
+  return fallback
+}
+
+function assertEnv(name) {
+  const value = getEnv(name)
+
+  if (!value) {
     throw new Error(`Missing required environment variable: ${name}`)
   }
 
-  return String(value).trim()
+  return value
 }
 
 function summarize(result) {
   return JSON.stringify(result, null, 2)
 }
 
-function loadProposalBatch() {
+function resolveRecruitingPackVersionFromEnv() {
+  const rawMapping = getEnv(
+    "STRATAWIKI_ACTIVE_DOMAIN_PACKS",
+    getEnv("JOBS_WIKI_STRATAWIKI_ACTIVE_DOMAIN_PACKS", ""),
+  )
+
+  if (!rawMapping) {
+    return null
+  }
+
+  for (const entry of rawMapping.split(",")) {
+    const [domain, version] = entry.split("=").map((item) => item?.trim())
+    if (domain === "recruiting" && version) {
+      return version
+    }
+  }
+
+  return null
+}
+
+function resolveRecruitingPackVersionFromPaths(domainPackPaths) {
+  for (const pathname of domainPackPaths ?? []) {
+    if (!pathname) continue
+
+    try {
+      const payload = JSON.parse(readFileSync(pathname, "utf8"))
+      const version = payload?.manifest?.packVersion
+      if (typeof version === "string" && version.trim() !== "") {
+        return version.trim()
+      }
+    } catch {}
+
+    const datedMatch = pathname.match(/(\d{4}-\d{2}-\d{2})/)
+    if (datedMatch?.[1]) {
+      return datedMatch[1]
+    }
+  }
+
+  return null
+}
+
+function resolveRecruitingPackVersion(domainPackPaths) {
+  return (
+    resolveRecruitingPackVersionFromEnv() ??
+    resolveRecruitingPackVersionFromPaths(domainPackPaths) ??
+    "2026-04-18"
+  )
+}
+
+function loadProposalBatch(packVersion) {
   const batchId = `jobs-wiki-http-smoke-${randomUUID().slice(0, 8)}`
 
   return {
     batch_id: batchId,
     domain: "recruiting",
     producer: "jobs-wiki-http-smoke",
-    pack_version: "2026-04-22",
+    pack_version: packVersion,
     facts: [],
     relations: [],
   }
@@ -202,7 +262,8 @@ async function main() {
     const ready = await client.readyz()
     console.info(`[smoke:http] readyz\n${summarize(ready.result)}`)
 
-    const batch = loadProposalBatch()
+    const recruitingPackVersion = resolveRecruitingPackVersion(ready?.result?.checks?.domain_pack_paths)
+    const batch = loadProposalBatch(recruitingPackVersion)
     const validate = await client.validateDomainProposalBatch({
       batch,
       requestId: "jobs-wiki-http-validate",
@@ -210,12 +271,20 @@ async function main() {
     })
     console.info(`[smoke:http] validate\n${summarize(validate)}`)
 
+    if (validate?.ok !== true) {
+      throw new Error(`[smoke:http] validate rejected proposal batch: ${summarize(validate)}`)
+    }
+
     const ingest = await client.ingestDomainProposalBatch({
       batch,
       requestId: "jobs-wiki-http-ingest",
       idempotencyKey: `jobs-wiki-http-ingest:${batch.batch_id}`,
     })
     console.info(`[smoke:http] ingest\n${summarize(ingest)}`)
+
+    if (ingest?.ok !== true) {
+      throw new Error(`[smoke:http] ingest rejected proposal batch: ${summarize(ingest)}`)
+    }
 
     const snapshot = await client.getSnapshotStatus({
       domain: "recruiting",
